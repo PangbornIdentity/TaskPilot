@@ -7,6 +7,22 @@
 
 ---
 
+## 2026-03-26 — Phase 5: Polish + README + Git Init
+
+### Docs | Created README.md
+- Setup instructions, quick start, API reference, project structure, tech stack table, iteration 2 roadmap, security notes
+- **Files:** `README.md`
+
+### Config | Created .gitignore
+- Covers .NET build artifacts, SQLite DB files, VS/Rider IDE files, Playwright output, Serilog log files
+- **Files:** `.gitignore`
+
+### Config | Initialized git repository
+- `git init` + initial commit with all project files
+- Commit: `b59b9c7 Initial commit — TaskPilot v1 (Iteration 1)`
+
+---
+
 ## 2026-03-26 — Phase 4: Testing & Security Validation
 
 ### Test | Wrote all unit tests (36 tests, all passing)
