@@ -1,0 +1,49 @@
+@namespace TaskPilot.Client.Components.Common
+
+@if (Type == SkeletonViewType.Cards)
+{
+    <MudGrid Spacing="3">
+        @for (int i = 0; i < 5; i++)
+        {
+            <MudItem xs="12" sm="6" md="4" lg="2">
+                <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                    <MudSkeleton Width="60%" Height="14px" Class="mb-2" />
+                    <MudSkeleton Width="40%" Height="36px" />
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+}
+else if (Type == SkeletonViewType.Table)
+{
+    <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+        @for (int i = 0; i < 8; i++)
+        {
+            <MudStack Row="true" Spacing="3" Class="mb-3">
+                <MudSkeleton Width="30%" Height="20px" />
+                <MudSkeleton Width="10%" Height="20px" />
+                <MudSkeleton Width="10%" Height="20px" />
+                <MudSkeleton Width="10%" Height="20px" />
+                <MudSkeleton Width="15%" Height="20px" />
+            </MudStack>
+        }
+    </MudPaper>
+}
+else if (Type == SkeletonViewType.Charts)
+{
+    <MudGrid Spacing="3">
+        @for (int i = 0; i < 4; i++)
+        {
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                    <MudSkeleton Width="40%" Height="18px" Class="mb-4" />
+                    <MudSkeleton Width="100%" Height="200px" />
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public SkeletonViewType Type { get; set; } = SkeletonViewType.Table;
+}

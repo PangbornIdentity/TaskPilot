@@ -1,0 +1,171 @@
+@page "/tasks/{Id:guid}"
+@inject TaskHttpService TaskService
+@inject ToastService Toast
+@inject NavigationManager NavigationManager
+
+<PageTitle>Task Detail — TaskPilot</PageTitle>
+
+@if (_loading)
+{
+    <SkeletonLoader Type="SkeletonViewType.Table" />
+}
+else if (_task is null)
+{
+    <EmptyState Title="Task not found" Subtitle="The task you're looking for doesn't exist."
+                Icon="@Icons.Material.Filled.SearchOff"
+                ActionLabel="Back to Tasks" OnAction="@(() => NavigationManager.NavigateTo("/tasks"))" />
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                           OnClick="@(() => NavigationManager.NavigateTo("/tasks"))" />
+            <MudText Typo="Typo.h5" Style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;">@_task.Title</MudText>
+        </MudStack>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Edit"
+                   OnClick="OpenEdit">Edit</MudButton>
+    </MudStack>
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" md="8">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg mb-4">
+                <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight: 600;">Description</MudText>
+                @if (!string.IsNullOrEmpty(_task.Description))
+                {
+                    <MudText>@_task.Description</MudText>
+                }
+                else
+                {
+                    <MudText Color="Color.Secondary">No description</MudText>
+                }
+            </MudPaper>
+
+            @if (_task.Status == AppTaskStatus.Completed)
+            {
+                <MudPaper Elevation="2" Class="pa-4 rounded-lg mb-4" Style="border-left: 4px solid var(--mud-palette-success);">
+                    <MudText Typo="Typo.subtitle1" Class="mb-2" Style="font-weight: 600;">Result Analysis</MudText>
+                    @if (!string.IsNullOrEmpty(_task.ResultAnalysis))
+                    {
+                        <MudText>@_task.ResultAnalysis</MudText>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info">
+                            This task is complete. Add a result analysis to document what was accomplished.
+                        </MudAlert>
+                        <MudButton Class="mt-2" Variant="Variant.Outlined" OnClick="OpenEdit">Add Analysis</MudButton>
+                    }
+                </MudPaper>
+            }
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">Details</MudText>
+                <MudSimpleTable Dense="true">
+                    <tbody>
+                        <tr><td><MudText Typo="Typo.body2" Color="Color.Secondary">Type</MudText></td><td><MudText Typo="Typo.body2">@_task.Type</MudText></td></tr>
+                        <tr><td><MudText Typo="Typo.body2" Color="Color.Secondary">Priority</MudText></td>
+                            <td><MudChip T="string" Size="Size.Small" Color="@GetPriorityColor(_task.Priority)">@_task.Priority</MudChip></td></tr>
+                        <tr><td><MudText Typo="Typo.body2" Color="Color.Secondary">Status</MudText></td>
+                            <td><MudChip T="string" Size="Size.Small" Color="@GetStatusColor(_task.Status)">@_task.Status</MudChip></td></tr>
+                        <tr><td><MudText Typo="Typo.body2" Color="Color.Secondary">Target</MudText></td>
+                            <td><MudText Typo="Typo.body2">@(_task.TargetDate?.ToString("MMM d, yyyy") ?? _task.TargetDateType.ToString())</MudText></td></tr>
+                        @if (_task.IsRecurring)
+                        {
+                            <tr><td><MudText Typo="Typo.body2" Color="Color.Secondary">Recurs</MudText></td>
+                                <td><MudText Typo="Typo.body2">@_task.RecurrencePattern</MudText></td></tr>
+                        }
+                        @if (_task.CompletedDate.HasValue)
+                        {
+                            <tr><td><MudText Typo="Typo.body2" Color="Color.Secondary">Completed</MudText></td>
+                                <td><MudText Typo="Typo.body2">@_task.CompletedDate.Value.ToString("MMM d, yyyy")</MudText></td></tr>
+                        }
+                        <tr><td><MudText Typo="Typo.body2" Color="Color.Secondary">Created</MudText></td>
+                            <td><MudText Typo="Typo.body2">@_task.CreatedDate.ToString("MMM d, yyyy")</MudText></td></tr>
+                        <tr><td><MudText Typo="Typo.body2" Color="Color.Secondary">Modified</MudText></td>
+                            <td><MudText Typo="Typo.body2">@_task.LastModifiedDate.ToString("MMM d, yyyy")</MudText></td></tr>
+                    </tbody>
+                </MudSimpleTable>
+
+                @if (_task.Tags.Count > 0)
+                {
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">Tags</MudText>
+                    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+                        @foreach (var tag in _task.Tags)
+                        {
+                            <MudChip T="string" Size="Size.Small" Style="@($"background-color:{tag.Color};color:white;")">@tag.Name</MudChip>
+                        }
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@if (_slideOverOpen)
+{
+    <TaskSlideOver TaskId="Id" OnSaved="OnTaskSaved" OnClosed="@(() => _slideOverOpen = false)" />
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private TaskResponse? _task;
+    private bool _slideOverOpen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTaskAsync();
+    }
+
+    private async Task LoadTaskAsync()
+    {
+        _loading = true;
+        try
+        {
+            _task = await TaskService.GetTaskByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            Toast.ShowError($"Failed to load task: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenEdit()
+    {
+        _slideOverOpen = true;
+    }
+
+    private async Task OnTaskSaved()
+    {
+        _slideOverOpen = false;
+        await LoadTaskAsync();
+    }
+
+    private static Color GetPriorityColor(TaskPriority priority) => priority switch
+    {
+        TaskPriority.Critical => Color.Error,
+        TaskPriority.High => Color.Warning,
+        TaskPriority.Medium => Color.Info,
+        _ => Color.Default
+    };
+
+    private static Color GetStatusColor(AppTaskStatus status) => status switch
+    {
+        AppTaskStatus.NotStarted => Color.Default,
+        AppTaskStatus.InProgress => Color.Info,
+        AppTaskStatus.Blocked => Color.Error,
+        AppTaskStatus.Completed => Color.Success,
+        AppTaskStatus.Cancelled => Color.Dark,
+        _ => Color.Default
+    };
+}

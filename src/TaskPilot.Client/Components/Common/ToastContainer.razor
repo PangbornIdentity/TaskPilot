@@ -1,0 +1,72 @@
+@inject ToastService ToastService
+@implements IDisposable
+
+<div class="toast-container">
+    @foreach (var toast in ToastService.Toasts)
+    {
+        <div class="toast-item toast-@toast.Type.ToString().ToLower() @(_dismissingIds.Contains(toast.Id) ? "toast-dismissing" : "")">
+            <div class="toast-content">
+                <MudIcon Icon="@GetIcon(toast.Type)" Size="Size.Small" Class="mr-2" />
+                <span>@toast.Message</span>
+            </div>
+            <div class="toast-actions">
+                @if (toast.UndoAction is not null)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Style="color: inherit; font-weight: 700;"
+                               OnClick="@(() => ExecuteUndo(toast))">UNDO</MudButton>
+                }
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                               Style="color: inherit;" OnClick="@(() => Dismiss(toast.Id))" />
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private HashSet<Guid> _dismissingIds = new();
+
+    protected override void OnInitialized()
+    {
+        ToastService.ToastsChanged += OnToastsChanged;
+    }
+
+    private void OnToastsChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ExecuteUndo(ToastItem toast)
+    {
+        Dismiss(toast.Id);
+        if (toast.UndoAction is not null)
+        {
+            await toast.UndoAction();
+        }
+    }
+
+    private void Dismiss(Guid id)
+    {
+        _dismissingIds.Add(id);
+        StateHasChanged();
+        _ = Task.Delay(300).ContinueWith(_ =>
+        {
+            ToastService.Dismiss(id);
+            _dismissingIds.Remove(id);
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private static string GetIcon(ToastType type) => type switch
+    {
+        ToastType.Success => Icons.Material.Filled.CheckCircle,
+        ToastType.Error => Icons.Material.Filled.Error,
+        ToastType.Info => Icons.Material.Filled.Info,
+        ToastType.Undo => Icons.Material.Filled.Undo,
+        _ => Icons.Material.Filled.Info
+    };
+
+    public void Dispose()
+    {
+        ToastService.ToastsChanged -= OnToastsChanged;
+    }
+}

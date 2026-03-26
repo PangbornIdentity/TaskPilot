@@ -1,0 +1,232 @@
+@page "/"
+@inject TaskHttpService TaskService
+@inject ToastService Toast
+
+<PageTitle>Dashboard — TaskPilot</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-6" Style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700;">Dashboard</MudText>
+
+@if (_loading)
+{
+    <SkeletonLoader Type="SkeletonViewType.Cards" />
+    <div class="mt-6">
+        <SkeletonLoader Type="SkeletonViewType.Charts" />
+    </div>
+}
+else if (_stats is null)
+{
+    <EmptyState Title="No data yet" Subtitle="Create your first task to see stats here."
+                Icon="@Icons.Material.Filled.Dashboard" ActionLabel="Create Task" OnAction="GoToTasks" />
+}
+else
+{
+    <!-- Summary Cards -->
+    <MudGrid Spacing="3" Class="mb-6">
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Total Active</MudText>
+                <MudText Typo="Typo.h3" Style="font-weight: 700; color: var(--mud-palette-primary);">@_stats.TotalActive</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Completed Today</MudText>
+                <MudText Typo="Typo.h3" Style="font-weight: 700; color: var(--mud-palette-success);">@_stats.CompletedToday</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Overdue</MudText>
+                <MudText Typo="Typo.h3" Style="font-weight: 700; color: var(--mud-palette-error);">@_stats.Overdue</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">In Progress</MudText>
+                <MudText Typo="Typo.h3" Style="font-weight: 700; color: var(--mud-palette-warning);">@_stats.InProgress</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Blocked</MudText>
+                <MudText Typo="Typo.h3" Style="font-weight: 700; color: var(--mud-palette-error);">@_stats.Blocked</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Charts Row 1 -->
+    <MudGrid Spacing="3" Class="mb-6">
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">Completed / Week (last 12 weeks)</MudText>
+                <ApexChart TItem="WeeklyCompletionData"
+                           Options="_weeklyBarOptions"
+                           Height="200">
+                    <ApexPointSeries TItem="WeeklyCompletionData"
+                                     Items="_stats.CompletedPerWeek"
+                                     SeriesType="SeriesType.Bar"
+                                     Name="Completed"
+                                     XValue="@(e => e.WeekLabel)"
+                                     YValue="@(e => (decimal)e.Count)" />
+                </ApexChart>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">Completed / Month (last 12 months)</MudText>
+                <ApexChart TItem="MonthlyCompletionData"
+                           Options="_monthlyBarOptions"
+                           Height="200">
+                    <ApexPointSeries TItem="MonthlyCompletionData"
+                                     Items="_stats.CompletedPerMonth"
+                                     SeriesType="SeriesType.Bar"
+                                     Name="Completed"
+                                     XValue="@(e => e.MonthLabel)"
+                                     YValue="@(e => (decimal)e.Count)" />
+                </ApexChart>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Charts Row 2 -->
+    <MudGrid Spacing="3" Class="mb-6">
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">Completed / Year</MudText>
+                <ApexChart TItem="YearlyCompletionData"
+                           Options="_yearlyBarOptions"
+                           Height="200">
+                    <ApexPointSeries TItem="YearlyCompletionData"
+                                     Items="_stats.CompletedPerYear"
+                                     SeriesType="SeriesType.Bar"
+                                     Name="Completed"
+                                     XValue="@(e => e.Year.ToString())"
+                                     YValue="@(e => (decimal)e.Count)" />
+                </ApexChart>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">Completion Rate / Week</MudText>
+                <ApexChart TItem="CompletionRateData"
+                           Options="_completionRateOptions"
+                           Height="200">
+                    <ApexPointSeries TItem="CompletionRateData"
+                                     Items="_stats.CompletionRateByWeek"
+                                     SeriesType="SeriesType.Line"
+                                     Name="Completed"
+                                     XValue="@(e => e.WeekLabel)"
+                                     YValue="@(e => (decimal)e.Completed)" />
+                    <ApexPointSeries TItem="CompletionRateData"
+                                     Items="_stats.CompletionRateByWeek"
+                                     SeriesType="SeriesType.Line"
+                                     Name="Created"
+                                     XValue="@(e => e.WeekLabel)"
+                                     YValue="@(e => (decimal)e.Created)" />
+                </ApexChart>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">By Type</MudText>
+                <ApexChart TItem="TypeBreakdownData"
+                           Options="_donutOptions"
+                           Height="200">
+                    <ApexPointSeries TItem="TypeBreakdownData"
+                                     Items="_stats.ByType"
+                                     SeriesType="SeriesType.Donut"
+                                     Name="Tasks"
+                                     XValue="@(e => e.Type)"
+                                     YValue="@(e => (decimal)e.Count)" />
+                </ApexChart>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Charts Row 3 -->
+    <MudGrid Spacing="3" Class="mb-6">
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">By Priority</MudText>
+                <ApexChart TItem="PriorityBreakdownData"
+                           Options="_priorityStackedOptions"
+                           Height="200">
+                    <ApexPointSeries TItem="PriorityBreakdownData"
+                                     Items="_stats.ByPriority"
+                                     SeriesType="SeriesType.Bar"
+                                     Name="Not Started"
+                                     XValue="@(e => e.Priority)"
+                                     YValue="@(e => (decimal)e.NotStarted)" />
+                    <ApexPointSeries TItem="PriorityBreakdownData"
+                                     Items="_stats.ByPriority"
+                                     SeriesType="SeriesType.Bar"
+                                     Name="In Progress"
+                                     XValue="@(e => e.Priority)"
+                                     YValue="@(e => (decimal)e.InProgress)" />
+                    <ApexPointSeries TItem="PriorityBreakdownData"
+                                     Items="_stats.ByPriority"
+                                     SeriesType="SeriesType.Bar"
+                                     Name="Blocked"
+                                     XValue="@(e => e.Priority)"
+                                     YValue="@(e => (decimal)e.Blocked)" />
+                </ApexChart>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4 rounded-lg">
+                <MudText Typo="Typo.subtitle1" Class="mb-3" Style="font-weight: 600;">Avg Time to Completion / Week (days)</MudText>
+                <ApexChart TItem="AvgCompletionData"
+                           Options="_avgCompletionOptions"
+                           Height="200">
+                    <ApexPointSeries TItem="AvgCompletionData"
+                                     Items="_stats.AvgTimeToCompletionByWeek"
+                                     SeriesType="SeriesType.Line"
+                                     Name="Avg Days"
+                                     XValue="@(e => e.WeekLabel)"
+                                     YValue="@(e => (decimal)e.AvgDays)" />
+                </ApexChart>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private TaskStatsResponse? _stats;
+
+    private ApexChartOptions<WeeklyCompletionData> _weeklyBarOptions = new() { Chart = new Chart { Toolbar = new Toolbar { Show = false } } };
+    private ApexChartOptions<MonthlyCompletionData> _monthlyBarOptions = new() { Chart = new Chart { Toolbar = new Toolbar { Show = false } } };
+    private ApexChartOptions<YearlyCompletionData> _yearlyBarOptions = new() { Chart = new Chart { Toolbar = new Toolbar { Show = false } } };
+    private ApexChartOptions<CompletionRateData> _completionRateOptions = new() { Chart = new Chart { Toolbar = new Toolbar { Show = false } } };
+    private ApexChartOptions<TypeBreakdownData> _donutOptions = new() { Chart = new Chart { Toolbar = new Toolbar { Show = false } } };
+    private ApexChartOptions<PriorityBreakdownData> _priorityStackedOptions = new() { Chart = new Chart { Stacked = true, Toolbar = new Toolbar { Show = false } } };
+    private ApexChartOptions<AvgCompletionData> _avgCompletionOptions = new() { Chart = new Chart { Toolbar = new Toolbar { Show = false } } };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatsAsync();
+    }
+
+    private async Task LoadStatsAsync()
+    {
+        _loading = true;
+        try
+        {
+            _stats = await TaskService.GetStatsAsync();
+        }
+        catch (Exception ex)
+        {
+            Toast.ShowError($"Failed to load stats: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToTasks()
+    {
+        // Navigation handled by component
+    }
+}

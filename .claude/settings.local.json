@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet ef:*)",
+      "Bash(dotnet new:*)",
+      "Bash(cd:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet add:*)",
+      "Bash(ls C:/projects/TaskPilot/src/TaskPilot.Server/*.cs)",
+      "Bash(ls C:/projects/TaskPilot/src/TaskPilot.Server/*.json)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet user-secrets:*)"
+    ]
+  }
+}

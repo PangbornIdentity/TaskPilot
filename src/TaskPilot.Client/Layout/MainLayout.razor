@@ -1,0 +1,112 @@
+@inherits LayoutComponentBase
+@inject AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject ThemeService ThemeService
+
+@if (!AuthService.IsAuthenticated && !_isLoginOrRegisterPage)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="height:100vh">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    </MudContainer>
+}
+else if (!AuthService.IsAuthenticated)
+{
+    @Body
+}
+else
+{
+    <MudLayout>
+        <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="DrawerVariant.Responsive" ClipMode="DrawerClipMode.Never">
+            <MudDrawerHeader>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.RocketLaunch" Color="Color.Primary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6" Style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; color: var(--mud-palette-primary);">TaskPilot</MudText>
+                </MudStack>
+            </MudDrawerHeader>
+            <MudNavMenu Color="Color.Primary">
+                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+                <MudNavLink Href="/tasks" Icon="@Icons.Material.Filled.CheckCircle">Tasks</MudNavLink>
+                <MudNavLink Href="/audit" Icon="@Icons.Material.Filled.BarChart">Audit</MudNavLink>
+                <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
+            </MudNavMenu>
+            <MudSpacer />
+            <MudStack Class="px-3 pb-3" Spacing="1">
+                <MudDivider />
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pt-2">
+                    <MudIconButton Icon="@(ThemeService.IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                                   OnClick="ToggleTheme" Title="Toggle theme" />
+                    <MudTooltip Text="@(AuthService.CurrentUser?.Email ?? "")">
+                        <MudIconButton Icon="@Icons.Material.Filled.Logout" OnClick="LogoutAsync" Title="Logout" />
+                    </MudTooltip>
+                </MudStack>
+            </MudStack>
+        </MudDrawer>
+
+        <MudMainContent>
+            <MudAppBar Elevation="0" Dense="true">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                               OnClick="@(() => _drawerOpen = !_drawerOpen)" />
+                <QuickAddBar />
+                <MudSpacer />
+            </MudAppBar>
+            <MudContainer MaxWidth="MaxWidth.False" Class="pt-4 px-4">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+    <ToastContainer />
+}
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isLoginOrRegisterPage;
+
+    protected override void OnInitialized()
+    {
+        AuthService.AuthStateChanged += OnAuthStateChanged;
+        NavigationManager.LocationChanged += OnLocationChanged;
+        CheckLoginPage(NavigationManager.Uri);
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        CheckLoginPage(e.Location);
+        StateHasChanged();
+    }
+
+    private void CheckLoginPage(string url)
+    {
+        _isLoginOrRegisterPage = url.Contains("/login") || url.Contains("/register");
+    }
+
+    private void OnAuthStateChanged()
+    {
+        InvokeAsync(() =>
+        {
+            if (!AuthService.IsAuthenticated && !_isLoginOrRegisterPage)
+            {
+                NavigationManager.NavigateTo("/login");
+            }
+            StateHasChanged();
+        });
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+        NavigationManager.NavigateTo("/login");
+    }
+
+    private async Task ToggleTheme()
+    {
+        var newMode = ThemeService.IsDarkMode ? ThemeMode.Light : ThemeMode.Dark;
+        await ThemeService.SetModeAsync(newMode);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        AuthService.AuthStateChanged -= OnAuthStateChanged;
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}

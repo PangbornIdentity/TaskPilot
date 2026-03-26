@@ -1,0 +1,67 @@
+## .NET
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.db
+*.db-shm
+*.db-wal
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uild/
+[Pp]ublish/
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/packages/
+packages/
+!**/packages/repositories.config
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## User-specific files (Visual Studio / Rider)
+*.rsuser
+.vs/
+.idea/
+*.pidb
+*.svclog
+*.scc
+
+## Blazor WASM
+wwwroot/appsettings*.json
+
+## Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+TestResult.xml
+*.trx
+
+## Playwright
+/playwright-report/
+/test-results/
+playwright/.cache/
+
+## Misc
+*.cache
+.DS_Store
+Thumbs.db
+*.orig
+
+## Serilog log files
+logs/

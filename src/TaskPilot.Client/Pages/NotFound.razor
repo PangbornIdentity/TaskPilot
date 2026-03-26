@@ -1,0 +1,13 @@
+@layout MainLayout
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-8">
+    <EmptyState Title="Page Not Found"
+                Subtitle="The page you requested could not be found."
+                Icon="@Icons.Material.Filled.SearchOff"
+                ActionLabel="Go Home"
+                OnAction="@(() => NavigationManager.NavigateTo("/"))" />
+</MudContainer>
+
+@code {
+    [Inject] NavigationManager NavigationManager { get; set; } = null!;
+}
