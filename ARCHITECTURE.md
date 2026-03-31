@@ -23,202 +23,158 @@
 
 ```
 c:\projects\TaskPilot\
-├── TaskPilot.sln
+├── TaskPilot.slnx
 ├── ARCHITECTURE.md             ← This file
 ├── CLAUDE.md                   ← Agent coding conventions
 ├── DESIGN-SYSTEM.md            ← UX visual spec
 ├── WIREFRAMES.md               ← Page layout specs
 ├── USER-FLOWS.md               ← Interaction flows
-├── README.md                   ← (produced in Phase 6)
+├── README.md
 ├── .gitignore
-├── Dockerfile                  ← For Azure Container Apps (iteration 2)
 │
-├── src/
-│   ├── TaskPilot.Server/                     ← ASP.NET Core 10 Web API host
-│   │   ├── TaskPilot.Server.csproj
-│   │   ├── Program.cs                        ← App entry point, middleware pipeline
-│   │   ├── appsettings.json
-│   │   ├── appsettings.Development.json
-│   │   ├── appsettings.Production.json
-│   │   │
-│   │   ├── Controllers/
-│   │   │   ├── TasksController.cs
-│   │   │   ├── TagsController.cs
-│   │   │   ├── ApiKeysController.cs
-│   │   │   ├── AuditController.cs
-│   │   │   └── StatsController.cs
-│   │   │
-│   │   ├── Services/
-│   │   │   ├── Interfaces/
-│   │   │   │   ├── ITaskService.cs
-│   │   │   │   ├── ITagService.cs
-│   │   │   │   ├── IApiKeyService.cs
-│   │   │   │   ├── IAuditService.cs
-│   │   │   │   └── IStatsService.cs
-│   │   │   ├── TaskService.cs
-│   │   │   ├── TagService.cs
-│   │   │   ├── ApiKeyService.cs
-│   │   │   ├── AuditService.cs
-│   │   │   └── StatsService.cs
-│   │   │
-│   │   ├── Repositories/
-│   │   │   ├── Interfaces/
-│   │   │   │   ├── IRepository.cs            ← Generic CRUD interface
-│   │   │   │   ├── ITaskRepository.cs        ← Specialized queries
-│   │   │   │   ├── ITagRepository.cs
-│   │   │   │   ├── IApiKeyRepository.cs
-│   │   │   │   ├── IAuditRepository.cs
-│   │   │   │   └── IStatsRepository.cs
-│   │   │   ├── Repository.cs                 ← Generic implementation
-│   │   │   ├── TaskRepository.cs
-│   │   │   ├── TagRepository.cs
-│   │   │   ├── ApiKeyRepository.cs
-│   │   │   ├── AuditRepository.cs
-│   │   │   └── StatsRepository.cs
-│   │   │
-│   │   ├── Data/
-│   │   │   ├── ApplicationDbContext.cs
-│   │   │   ├── DesignTimeDbContextFactory.cs ← IDesignTimeDbContextFactory
-│   │   │   ├── Configurations/
-│   │   │   │   ├── TaskItemConfiguration.cs
-│   │   │   │   ├── TagConfiguration.cs
-│   │   │   │   ├── TaskTagConfiguration.cs
-│   │   │   │   ├── ApiKeyConfiguration.cs
-│   │   │   │   ├── ApiAuditLogConfiguration.cs
-│   │   │   │   └── TaskActivityLogConfiguration.cs
-│   │   │   └── Migrations/
-│   │   │       └── (auto-generated EF migrations)
-│   │   │
-│   │   ├── Entities/
-│   │   │   ├── BaseEntity.cs
-│   │   │   ├── TaskItem.cs
-│   │   │   ├── Tag.cs
-│   │   │   ├── TaskTag.cs
-│   │   │   ├── ApiKey.cs
-│   │   │   ├── ApiAuditLog.cs
-│   │   │   └── TaskActivityLog.cs
-│   │   │
-│   │   ├── Middleware/
-│   │   │   ├── ApiKeyAuditMiddleware.cs      ← Logs all API-key-authenticated requests
-│   │   │   ├── GlobalExceptionMiddleware.cs  ← Catches unhandled exceptions
-│   │   │   └── SecurityHeadersMiddleware.cs  ← Sets X-Content-Type-Options etc.
-│   │   │
+├── src/                        ← Single application project (TaskPilot)
+│   ├── TaskPilot.csproj        ← ASP.NET Core 10 Web + Razor Pages
+│   ├── Program.cs              ← App entry point, middleware pipeline
+│   ├── appsettings.json
+│   ├── appsettings.Development.json
+│   │
+│   ├── Controllers/            ← REST API (namespace: TaskPilot.Controllers)
+│   │   ├── BaseApiController.cs
+│   │   ├── TasksController.cs
+│   │   ├── TagsController.cs
+│   │   ├── ApiKeysController.cs
+│   │   ├── AuditController.cs
+│   │   ├── ActivityLogController.cs
+│   │   └── AccountController.cs
+│   │
+│   ├── Pages/                  ← Razor Pages web UI (namespace: TaskPilot.Pages)
+│   │   ├── _ViewImports.cshtml
+│   │   ├── _ViewStart.cshtml
+│   │   ├── Index.cshtml(.cs)   ← Dashboard
+│   │   ├── Error.cshtml(.cs)
 │   │   ├── Auth/
-│   │   │   ├── ApiKeyAuthenticationHandler.cs ← Custom auth handler
-│   │   │   └── ApiKeyAuthenticationScheme.cs
-│   │   │
-│   │   ├── Extensions/
-│   │   │   └── ServiceCollectionExtensions.cs ← DI registrations
-│   │   │
-│   │   └── Constants/
-│   │       ├── ErrorCodes.cs
-│   │       ├── PolicyNames.cs
-│   │       ├── RoleNames.cs
-│   │       └── ConfigKeys.cs
+│   │   │   ├── Login.cshtml(.cs)
+│   │   │   ├── Register.cshtml(.cs)
+│   │   │   └── Logout.cshtml(.cs)
+│   │   ├── Tasks/
+│   │   │   ├── Index.cshtml(.cs)   ← List + Board view
+│   │   │   └── Detail.cshtml(.cs)  ← Edit / Complete / Delete
+│   │   ├── Settings/
+│   │   │   └── Index.cshtml(.cs)
+│   │   ├── Audit/
+│   │   │   └── Index.cshtml(.cs)
+│   │   ├── Changelog/
+│   │   │   └── Index.cshtml(.cs)   ← Read-only version history from app-changelog.json
+│   │   └── Shared/
+│   │       ├── _Layout.cshtml       ← Sidebar nav, Bootstrap 5 + HTMX + ApexCharts CDN
+│   │       └── _LoginLayout.cshtml  ← Centered auth card layout
 │   │
-│   ├── TaskPilot.Client/                     ← Blazor WebAssembly
-│   │   ├── TaskPilot.Client.csproj
-│   │   ├── Program.cs                        ← WASM entry point
-│   │   ├── App.razor
-│   │   ├── Routes.razor
-│   │   │
-│   │   ├── Pages/
-│   │   │   ├── Dashboard.razor
-│   │   │   ├── TaskList.razor
-│   │   │   ├── TaskDetail.razor
-│   │   │   ├── AuditDashboard.razor
-│   │   │   ├── Settings.razor
-│   │   │   ├── Login.razor
-│   │   │   ├── Register.razor
-│   │   │   └── NotFound.razor
-│   │   │
-│   │   ├── Components/
-│   │   │   ├── Layout/
-│   │   │   │   ├── MainLayout.razor
-│   │   │   │   ├── AppSidebar.razor
-│   │   │   │   ├── BottomNavBar.razor        ← Mobile
-│   │   │   │   └── QuickAddBar.razor         ← Persistent across all pages
-│   │   │   ├── Tasks/
-│   │   │   │   ├── TaskCard.razor
-│   │   │   │   ├── TaskRow.razor
-│   │   │   │   ├── TaskCreateEditPanel.razor ← Slide-over
-│   │   │   │   ├── TaskFilters.razor
-│   │   │   │   ├── BulkActionsToolbar.razor
-│   │   │   │   └── KanbanBoard.razor
-│   │   │   ├── Shared/
-│   │   │   │   ├── ToastContainer.razor
-│   │   │   │   ├── SkeletonLoader.razor
-│   │   │   │   ├── EmptyState.razor
-│   │   │   │   ├── ConfirmDialog.razor
-│   │   │   │   ├── PriorityBadge.razor
-│   │   │   │   ├── StatusBadge.razor
-│   │   │   │   └── KeyboardShortcutsOverlay.razor
-│   │   │   └── Charts/
-│   │   │       ├── WeeklyCompletionChart.razor
-│   │   │       ├── MonthlyCompletionChart.razor
-│   │   │       ├── CompletionRateChart.razor
-│   │   │       ├── TasksByTypeChart.razor
-│   │   │       ├── TasksByPriorityChart.razor
-│   │   │       └── TimeToCompletionChart.razor
-│   │   │
-│   │   ├── Services/
-│   │   │   ├── TaskApiService.cs             ← HttpClient wrapper for /api/v1/tasks
-│   │   │   ├── TagApiService.cs
-│   │   │   ├── ApiKeyApiService.cs
-│   │   │   ├── AuditApiService.cs
-│   │   │   ├── StatsApiService.cs
-│   │   │   ├── ThemeService.cs               ← Light/dark + localStorage
-│   │   │   ├── ToastService.cs               ← Toast state management
-│   │   │   └── AuthStateService.cs           ← Client-side auth state
-│   │   │
-│   │   └── wwwroot/
-│   │       ├── index.html
-│   │       ├── css/
-│   │       │   ├── design-tokens.css         ← CSS custom properties from DESIGN-SYSTEM.md
-│   │       │   └── app.css                   ← Global styles
-│   │       └── js/
-│   │           └── interop.js                ← Blazor JS interop (drag-drop, localStorage)
+│   ├── app-changelog.json      ← Version history (no DB; read once at startup by ChangelogService)
 │   │
-│   └── TaskPilot.Shared/                     ← Shared between Server and Client
-│       ├── TaskPilot.Shared.csproj
-│       ├── DTOs/
-│       │   ├── Tasks/
-│       │   │   ├── TaskResponse.cs
-│       │   │   ├── CreateTaskRequest.cs
-│       │   │   ├── UpdateTaskRequest.cs
-│       │   │   ├── PatchTaskRequest.cs
-│       │   │   ├── CompleteTaskRequest.cs
-│       │   │   └── TaskFilterParams.cs
-│       │   ├── Tags/
-│       │   │   ├── TagResponse.cs
-│       │   │   ├── CreateTagRequest.cs
-│       │   │   └── UpdateTagRequest.cs
-│       │   ├── ApiKeys/
-│       │   │   ├── ApiKeyResponse.cs
-│       │   │   ├── GenerateApiKeyRequest.cs
-│       │   │   └── GeneratedApiKeyResponse.cs ← Contains the plaintext key (one-time)
-│       │   ├── Audit/
-│       │   │   ├── AuditLogResponse.cs
-│       │   │   └── AuditFilterParams.cs
-│       │   ├── Stats/
-│       │   │   └── StatsResponse.cs
-│       │   └── Common/
-│       │       ├── ApiResponse.cs            ← Response envelope types
-│       │       ├── ApiListResponse.cs
-│       │       ├── ApiErrorResponse.cs
-│       │       └── PagedResult.cs
-│       ├── Enums/
-│       │   ├── Priority.cs
-│       │   ├── TaskStatus.cs
-│       │   ├── TargetDateType.cs
-│       │   └── RecurrencePattern.cs
-│       ├── Validators/
-│       │   ├── CreateTaskRequestValidator.cs
-│       │   ├── UpdateTaskRequestValidator.cs
-│       │   ├── CreateTagRequestValidator.cs
-│       │   └── GenerateApiKeyRequestValidator.cs
-│       └── Constants/
-│           └── SharedConstants.cs
+│   ├── Models/                 ← DTOs, enums, validators (namespace: TaskPilot.Models)
+│   │   ├── Tasks/
+│   │   │   ├── TaskResponse.cs
+│   │   │   ├── CreateTaskRequest.cs
+│   │   │   ├── UpdateTaskRequest.cs
+│   │   │   ├── PatchTaskRequest.cs
+│   │   │   ├── CompleteTaskRequest.cs
+│   │   │   └── TaskQueryParams.cs
+│   │   ├── Tags/
+│   │   │   ├── TagResponse.cs
+│   │   │   └── CreateTagRequest.cs
+│   │   ├── ApiKeys/
+│   │   │   ├── ApiKeyResponse.cs
+│   │   │   ├── CreateApiKeyRequest.cs
+│   │   │   └── RenameApiKeyRequest.cs
+│   │   ├── Audit/
+│   │   │   └── AuditLogResponse.cs
+│   │   ├── Changelog/
+│   │   │   └── ChangelogModels.cs  ← ChangelogVersion, ChangelogEntry records
+│   │   ├── Stats/
+│   │   │   └── StatsResponse.cs
+│   │   ├── Common/
+│   │   │   └── ApiResponse.cs      ← Response envelope types
+│   │   ├── Enums/
+│   │   │   ├── TaskStatus.cs
+│   │   │   ├── TaskPriority.cs
+│   │   │   ├── TargetDateType.cs
+│   │   │   └── RecurrencePattern.cs
+│   │   └── Validators/
+│   │       ├── CreateTaskRequestValidator.cs
+│   │       ├── UpdateTaskRequestValidator.cs
+│   │       ├── CreateTagRequestValidator.cs
+│   │       └── CreateApiKeyRequestValidator.cs
+│   │
+│   ├── Services/               ← Business logic (namespace: TaskPilot.Services)
+│   │   ├── Interfaces/
+│   │   │   ├── ITaskService.cs
+│   │   │   ├── ITagService.cs
+│   │   │   ├── IApiKeyService.cs
+│   │   │   ├── IAuditService.cs
+│   │   │   ├── IActivityLogService.cs
+│   │   │   ├── IChangelogService.cs
+│   │   │   └── IStatsService.cs
+│   │   ├── TaskService.cs
+│   │   ├── TagService.cs
+│   │   ├── ApiKeyService.cs
+│   │   ├── AuditService.cs
+│   │   ├── ActivityLogService.cs
+│   │   ├── ChangelogService.cs     ← Singleton; reads app-changelog.json once at startup
+│   │   └── StatsService.cs
+│   │
+│   ├── Repositories/           ← Data access (namespace: TaskPilot.Repositories)
+│   │   ├── Interfaces/
+│   │   │   ├── IRepository.cs       ← Generic CRUD interface
+│   │   │   ├── ITaskRepository.cs
+│   │   │   ├── ITagRepository.cs
+│   │   │   ├── IApiKeyRepository.cs
+│   │   │   └── IAuditLogRepository.cs
+│   │   ├── GenericRepository.cs
+│   │   ├── TaskRepository.cs
+│   │   ├── TagRepository.cs
+│   │   ├── ApiKeyRepository.cs
+│   │   └── AuditLogRepository.cs
+│   │
+│   ├── Data/                   ← EF Core (namespace: TaskPilot.Data)
+│   │   ├── ApplicationDbContext.cs
+│   │   ├── DesignTimeDbContextFactory.cs  ← SQL Server factory for `dotnet ef migrations add`
+│   │   ├── Configurations/
+│   │   │   ├── TaskItemConfiguration.cs
+│   │   │   ├── TagConfiguration.cs
+│   │   │   ├── TaskTagConfiguration.cs
+│   │   │   ├── ApiKeyConfiguration.cs
+│   │   │   ├── ApiAuditLogConfiguration.cs
+│   │   │   └── TaskActivityLogConfiguration.cs
+│   │   └── Migrations/
+│   │       └── (SQL Server migrations — applied by MigrateAsync on Azure, EnsureCreatedAsync on SQLite dev)
+│   │
+│   ├── Entities/               ← Domain entities (namespace: TaskPilot.Entities)
+│   │   ├── BaseEntity.cs
+│   │   ├── TaskItem.cs
+│   │   ├── Tag.cs
+│   │   ├── TaskTag.cs
+│   │   ├── ApiKey.cs
+│   │   ├── ApiAuditLog.cs
+│   │   └── TaskActivityLog.cs
+│   │
+│   ├── Middleware/             ← Custom middleware (namespace: TaskPilot.Middleware)
+│   │   ├── ApiAuditMiddleware.cs       ← Logs all API-key-authenticated requests
+│   │   └── GlobalExceptionMiddleware.cs
+│   │
+│   ├── Extensions/             ← DI + pipeline + auth handler (namespace: TaskPilot.Extensions)
+│   │   ├── ServiceCollectionExtensions.cs  ← All DI registrations
+│   │   ├── ApplicationBuilderExtensions.cs ← Middleware pipeline helpers
+│   │   └── ApiKeyAuthenticationHandler.cs  ← Custom X-Api-Key auth handler
+│   │
+│   ├── Constants/              ← App-wide constants (namespace: TaskPilot.Constants)
+│   │   ├── ApiRoutes.cs
+│   │   ├── AuthConstants.cs
+│   │   ├── ErrorCodes.cs
+│   │   └── TaskTypes.cs
+│   │
+│   └── wwwroot/
+│       └── css/
+│           └── app.css         ← Design system tokens + component styles
 │
 └── tests/
     ├── TaskPilot.Tests.Unit/
@@ -226,52 +182,39 @@ c:\projects\TaskPilot\
     │   ├── Services/
     │   │   ├── TaskServiceTests.cs
     │   │   ├── TagServiceTests.cs
-    │   │   ├── ApiKeyServiceTests.cs
-    │   │   └── StatsServiceTests.cs
+    │   │   └── ApiKeyServiceTests.cs
     │   ├── Validators/
     │   │   ├── CreateTaskRequestValidatorTests.cs
-    │   │   └── UpdateTaskRequestValidatorTests.cs
+    │   │   └── CreateTagRequestValidatorTests.cs
     │   ├── Repositories/
     │   │   └── TaskRepositoryTests.cs
-    │   ├── Components/                        ← bUnit tests
-    │   │   ├── TaskCardTests.cs
-    │   │   └── PriorityBadgeTests.cs
     │   └── Helpers/
-    │       ├── TestDbContextFactory.cs
     │       └── TestDataBuilder.cs
     │
     ├── TaskPilot.Tests.Integration/
     │   ├── TaskPilot.Tests.Integration.csproj
-    │   ├── Infrastructure/
-    │   │   ├── TaskPilotWebApplicationFactory.cs
-    │   │   ├── IntegrationTestBase.cs
-    │   │   └── TestAuthHelper.cs
-    │   ├── Api/
-    │   │   ├── TasksEndpointTests.cs
-    │   │   ├── TagsEndpointTests.cs
-    │   │   ├── ApiKeysEndpointTests.cs
-    │   │   ├── AuditEndpointTests.cs
-    │   │   └── StatsEndpointTests.cs
-    │   └── Auth/
-    │       ├── CookieAuthTests.cs
-    │       └── ApiKeyAuthTests.cs
+    │   ├── WebAppFactory.cs
+    │   ├── Helpers/
+    │   │   └── AuthHelper.cs
+    │   └── Api/
+    │       ├── TasksApiTests.cs
+    │       ├── TagsApiTests.cs
+    │       ├── ApiKeysApiTests.cs
+    │       └── AuthApiTests.cs
     │
     └── TaskPilot.Tests.E2E/
         ├── TaskPilot.Tests.E2E.csproj
-        ├── PageObjects/
-        │   ├── DashboardPage.cs
-        │   ├── TaskListPage.cs
-        │   ├── TaskDetailPage.cs
-        │   ├── SettingsPage.cs
-        │   └── LoginPage.cs
-        ├── Tests/
-        │   ├── AuthTests.cs
-        │   ├── TaskLifecycleTests.cs
-        │   ├── DashboardTests.cs
-        │   ├── SettingsTests.cs
-        │   └── ResponsiveTests.cs
-        └── Infrastructure/
-            └── PlaywrightTestBase.cs
+        ├── PlaywrightFixture.cs
+        ├── Auth/
+        │   └── AuthTests.cs
+        ├── Dashboard/
+        │   └── DashboardTests.cs
+        ├── Tasks/
+        │   └── TaskLifecycleTests.cs
+        ├── Settings/
+        │   └── SettingsTests.cs
+        └── Audit/
+            └── AuditTests.cs
 ```
 
 ---
@@ -476,14 +419,30 @@ public record TaskResponse
 
 | Method | Endpoint | Auth | Request | Success Response | Error Codes |
 |--------|----------|------|---------|-----------------|-------------|
-| GET | /api/v1/audit | Cookie | Query: `AuditFilterParams` | 200 `ApiListResponse<AuditLogResponse>` | 401 |
+| GET | /api/v1/audit | Cookie/ApiKey | Query: `AuditQueryParams` | 200 `PagedApiResponse<AuditLogResponse>` | 401 |
+| GET | /api/v1/audit/summary | Cookie/ApiKey | — | 200 `ApiResponse<AuditSummaryResponse>` | 401 |
 
-> There are NO write endpoints for audit logs. Audit logs are immutable.
+> There are NO write endpoints for API audit logs. Audit logs are immutable.
+
+### 3.5 Activity Log Endpoints
+
+| Method | Endpoint | Auth | Request | Success Response | Error Codes |
+|--------|----------|------|---------|-----------------|-------------|
+| GET | /api/v1/activity-logs | Cookie/ApiKey | Query: `ActivityLogQueryParams` | 200 `PagedApiResponse<ActivityLogResponse>` | 401 |
+
+**Query parameters for `ActivityLogQueryParams`:**
+- `taskId` (Guid?) — filter to a specific task
+- `from` / `to` (DateTime?) — date range filter
+- `fieldChanged` (string?) — exact field name filter (e.g. `Status`, `Title`)
+- `changedBy` (string?) — partial match on modifier (e.g. `user:` or `api:`)
+- `page` / `pageSize` (int, defaults: 1/50)
+
+> Activity logs are read-only. They are written automatically whenever a task field is mutated.
 
 ### 3.5 Response Envelope Types
 
 ```csharp
-// TaskPilot.Shared/DTOs/Common/ApiResponse.cs
+// src/Models/Common/ApiResponse.cs
 public record ApiResponse<T>
 {
     public required T Data { get; init; }
@@ -535,7 +494,7 @@ public record FieldError
 
 ### 4.1 Cookie Authentication (Web UI)
 
-ASP.NET Core Identity with cookie authentication for the Blazor UI.
+ASP.NET Core Identity with cookie authentication for the Razor Pages web UI.
 
 **Password policy:**
 - MinimumLength: 10
@@ -631,7 +590,7 @@ Referrer-Policy: strict-origin-when-cross-origin
 
 Iteration 2 additions (document only, not implemented in v1):
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-- `Content-Security-Policy: default-src 'self'; ...` (needs careful Blazor WASM configuration)
+- `Content-Security-Policy: default-src 'self'; ...` (needs allowlisting for CDN domains in iteration 2)
 
 ### 4.6 Global Exception Handler Middleware
 
@@ -646,7 +605,7 @@ Always returns `application/json` `Content-Type`.
 
 **Iteration 1 (localhost):**
 ```csharp
-policy.WithOrigins("https://localhost:7001")  // Blazor WASM dev server port
+policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")  // localhost dev
       .AllowAnyMethod()
       .AllowAnyHeader()
       .AllowCredentials();
@@ -673,7 +632,7 @@ app.MapControllers();
 ### 5.1 BaseEntity
 
 ```csharp
-// TaskPilot.Server/Entities/BaseEntity.cs
+// src/Entities/BaseEntity.cs
 public abstract class BaseEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -703,7 +662,7 @@ public override async Task<int> SaveChangesAsync(CancellationToken cancellationT
 ### 5.3 Generic Repository Interface
 
 ```csharp
-// TaskPilot.Server/Repositories/Interfaces/IRepository.cs
+// src/Repositories/Interfaces/IRepository.cs
 public interface IRepository<T> where T : BaseEntity
 {
     Task<T?> GetByIdAsync(Guid id, CancellationToken ct = default);
@@ -730,7 +689,7 @@ public interface ITaskRepository : IRepository<TaskItem>
 ### 5.5 ServiceCollectionExtensions
 
 ```csharp
-// TaskPilot.Server/Extensions/ServiceCollectionExtensions.cs
+// src/Extensions/ServiceCollectionExtensions.cs
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddTaskPilotServices(this IServiceCollection services, IConfiguration configuration)
@@ -827,12 +786,12 @@ All indexes defined in `IEntityTypeConfiguration<T>` classes.
 
 | Concern | Iteration 1 (Local) | Iteration 2 (Azure) | Migration Steps |
 |---------|---------------------|---------------------|-----------------|
-| **Database** | SQLite, file-based | Azure SQL Database or PostgreSQL Flexible Server | 1. Add `Microsoft.EntityFrameworkCore.SqlServer` or `Npgsql.EntityFrameworkCore.PostgreSQL` 2. Change connection string in App Configuration 3. Run `dotnet ef migrations add` for any SQL-dialect differences 4. Remove SQLite package |
+| **Database** | SQLite, file-based | Azure SQL Database or PostgreSQL Flexible Server | ✅ **Implemented (iter 1):** `Microsoft.EntityFrameworkCore.SqlServer` added; `DesignTimeDbContextFactory` generates SQL Server-typed migrations; `Program.cs` runs `EnsureCreatedAsync` (dev) vs `MigrateAsync` (prod); `appsettings.Production.json` has placeholder connection string |
 | **Secrets** | `dotnet user-secrets` | Azure Key Vault | 1. Add `Azure.Extensions.AspNetCore.Configuration.Secrets` 2. Add `Azure.Identity` 3. In `Program.cs`: `builder.Configuration.AddAzureKeyVault(...)` 4. Replace `user-secrets` key names with Key Vault secret names |
-| **Logging** | Console + File (Serilog) | Application Insights | 1. Add `Microsoft.ApplicationInsights.AspNetCore` 2. Add `Serilog.Sinks.ApplicationInsights` 3. Set `APPLICATIONINSIGHTS_CONNECTION_STRING` in App Configuration 4. Structured log properties flow automatically |
+| **Logging** | Console + File (Serilog) | Application Insights | ✅ **Partially implemented (iter 1):** `appsettings.Production.json` configures Console-only Serilog (no file sink — App Service filesystem is ephemeral). Full App Insights integration deferred to iter 2. |
 | **Hosting** | `dotnet run` | Azure App Service (Linux) | 1. Configure App Service: WebSockets ON, Session Affinity ON 2. Set `ASPNETCORE_ENVIRONMENT=Production` in App Settings 3. Deploy via GitHub Actions (see iteration 2 backlog) |
-| **Static Files (WASM)** | Server hosts Client | Azure Static Web Apps or App Service | Option A: Keep hosted Blazor WASM (Client served by Server) on App Service. Option B: Separate Client to Azure Static Web Apps + Server to App Service |
-| **CORS** | `https://localhost:7001` | Azure app URL | Change `WithOrigins(...)` to production URL in `appsettings.Production.json` |
+| **Static Files** | `wwwroot/` served by Kestrel | Azure App Service static file serving | No change needed — App Service serves `wwwroot/` automatically |
+| **CORS** | `SetIsOriginAllowed(localhost)` | Azure app URL | Change to `WithOrigins("https://yourdomain.azurewebsites.net")` in `appsettings.Production.json` |
 | **Cookie Security** | `SameAsRequest` (allows HTTP locally) | `CookieSecurePolicy.Always` | Change in `appsettings.Production.json` or env var override |
 | **Rate Limiting** | Not implemented | `Microsoft.AspNetCore.RateLimiting` | See iteration 2 backlog. Insertion point documented in section 4.8. |
 | **Background Jobs** | In-process (soft-delete cleanup) | Azure Functions or hosted services | Evaluate Azure Functions for scheduled cleanup if App Service scaling is needed |
@@ -871,7 +830,7 @@ if (builder.Environment.IsProduction())
 - Separate staging slot for preview deployments
 
 ### Azure App Service Configuration
-- Enable WebSockets (required for Blazor Server circuit if ever migrated)
+- Enable WebSockets (not required for Razor Pages, but harmless and useful for future SignalR)
 - Session Affinity: ON (for cookie auth consistency)
 - Always On: ON (prevent cold starts)
 - Health check endpoint: `GET /health` returning 200
@@ -885,63 +844,49 @@ if (builder.Environment.IsProduction())
 
 ## 9. Package Decisions
 
-### Charting Library: ApexCharts.Blazor
+### Charting Library: ApexCharts (CDN)
 
-**Decision: ApexCharts.Blazor** (NuGet: `Blazor-ApexCharts`)
+**Decision: ApexCharts via CDN** — no NuGet package required
 
 **Rationale:**
-- Supports all 6 required chart types: bar, stacked bar, line, donut — with first-class support
-- Active maintenance (regularly updated) and large community
-- Relatively small WASM footprint via lazy loading of chart scripts
-- Clean C# API with strong typing for chart configuration
-- Better documentation than BlazorChartjs for our specific chart types
-- Radzen.Blazor Charts considered but Radzen's component library itself was not chosen (see below), and mixing libraries adds complexity
+- Supports all required chart types: bar (weekly completions), donut (by priority) — with first-class support
+- CDN delivery via `<script src="https://cdn.jsdelivr.net/npm/apexcharts">` — zero NuGet dependencies
+- Charts initialised with inline `<script>` blocks in Razor views using JSON config
+- Active maintenance, large community, excellent documentation
 
 **Rejected alternatives:**
-- `Radzen.Blazor`: Charts are tied to the full Radzen component library; unnecessary bundle weight if not using Radzen components
-- `BlazorChartjs`: Less C#-idiomatic, requires more JS interop configuration
+- `Blazor-ApexCharts` (NuGet): Requires Blazor WASM; not applicable to Razor Pages
+- `Chart.js`: Comparable but ApexCharts has better donut/bar defaults for dashboards
 
-### UI Component Library: MudBlazor
+### UI Stack: Bootstrap 5 + HTMX (CDN)
 
-**Decision: MudBlazor** (NuGet: `MudBlazor`)
+**Decision: Bootstrap 5 + HTMX + custom CSS** — no NuGet package required
 
 **Rationale:**
-- Most feature-complete Blazor component library: data tables with sorting/filtering/pagination, date pickers, dialogs, drawers (slide-overs), chips, badges, and more — all needed for TaskPilot
-- Strong accessibility support out of the box (ARIA attributes, keyboard nav)
-- CSS variable system enables deep theming to match DESIGN-SYSTEM.md palette
-- Large, active community; excellent documentation
-- MudThemeProvider + MudTheme allow full palette customization without fighting defaults
-
-**Note to UX Designer**: The MudBlazor theming system uses `MudTheme` CSS variables. The design system colors must be mapped to MudBlazor's palette properties (`Primary`, `Secondary`, `Background`, `Surface`, etc.).
+- Bootstrap 5 provides modals, tables, forms, badges, buttons — all needed components
+- HTMX enables live search (`hx-get`/`hx-trigger`) without JavaScript boilerplate
+- Custom CSS in `wwwroot/css/app.css` implements design system tokens (see DESIGN-SYSTEM.md §1)
+- All via CDN in `_Layout.cshtml` — zero build tooling
 
 ### Complete NuGet Package List
 
-#### TaskPilot.Server
+#### TaskPilot (src/TaskPilot.csproj)
 ```xml
 <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.*" />
 <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.*" />
+<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.*" />  <!-- Added iter 1: Azure SQL provider for migrations + production -->
 <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.*" />
 <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.*" />
 <PackageReference Include="FluentValidation.AspNetCore" Version="11.*" />
-<PackageReference Include="Serilog.AspNetCore" Version="8.*" />
+<PackageReference Include="Serilog.AspNetCore" Version="10.*" />
 <PackageReference Include="Serilog.Sinks.Console" Version="6.*" />
-<PackageReference Include="Serilog.Sinks.File" Version="5.*" />
-<PackageReference Include="Swashbuckle.AspNetCore" Version="7.*" />
-<!-- Iteration 2 (include now for forward-compat documentation):
+<PackageReference Include="Serilog.Sinks.File" Version="7.*" />
+<PackageReference Include="Swashbuckle.AspNetCore" Version="10.*" />
+<!-- Iteration 2:
 <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" />
 <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" />
+<PackageReference Include="Serilog.Sinks.ApplicationInsights" />
 -->
-```
-
-#### TaskPilot.Client
-```xml
-<PackageReference Include="MudBlazor" Version="7.*" />
-<PackageReference Include="Blazor-ApexCharts" Version="3.*" />
-```
-
-#### TaskPilot.Shared
-```xml
-<PackageReference Include="FluentValidation" Version="11.*" />
 ```
 
 #### TaskPilot.Tests.Unit
@@ -950,9 +895,7 @@ if (builder.Environment.IsProduction())
 <PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
 <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
 <PackageReference Include="Moq" Version="4.*" />
-<PackageReference Include="bunit" Version="1.*" />
 <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.*" />
-<PackageReference Include="MudBlazor" Version="7.*" />
 ```
 
 #### TaskPilot.Tests.Integration
@@ -1043,9 +986,9 @@ if (builder.Environment.IsProduction())
 
 ### dotnet user-secrets (iteration 1 local development)
 ```bash
-dotnet user-secrets init --project src/TaskPilot.Server
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Data Source=C:/projects/TaskPilot/taskpilot-dev.db" --project src/TaskPilot.Server
-dotnet user-secrets set "ApiKey:HmacSigningKey" "<random-256-bit-key>" --project src/TaskPilot.Server
+dotnet user-secrets init --project src
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Data Source=C:/projects/TaskPilot/taskpilot-dev.db" --project src
+dotnet user-secrets set "ApiKey:HmacSigningKey" "<random-256-bit-key>" --project src
 ```
 
 ### Environment Variables (override any appsettings key)
@@ -1074,7 +1017,7 @@ ApiKey--HmacSigningKey
 
 ### Configuration Keys (constants)
 ```csharp
-// TaskPilot.Server/Constants/ConfigKeys.cs
+// src/Constants/ConfigKeys.cs
 public static class ConfigKeys
 {
     public const string DefaultConnection = "ConnectionStrings:DefaultConnection";
@@ -1095,15 +1038,13 @@ EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ["src/TaskPilot.Server/TaskPilot.Server.csproj", "src/TaskPilot.Server/"]
-COPY ["src/TaskPilot.Client/TaskPilot.Client.csproj", "src/TaskPilot.Client/"]
-COPY ["src/TaskPilot.Shared/TaskPilot.Shared.csproj", "src/TaskPilot.Shared/"]
-RUN dotnet restore "src/TaskPilot.Server/TaskPilot.Server.csproj"
+COPY ["src/TaskPilot.csproj", "src/"]
+RUN dotnet restore "src/TaskPilot.csproj"
 COPY . .
-RUN dotnet publish "src/TaskPilot.Server/TaskPilot.Server.csproj" -c Release -o /app/publish
+RUN dotnet publish "src/TaskPilot.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-ENTRYPOINT ["dotnet", "TaskPilot.Server.dll"]
+ENTRYPOINT ["dotnet", "TaskPilot.dll"]
 ```

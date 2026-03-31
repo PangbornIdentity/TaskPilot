@@ -1,0 +1,31 @@
+﻿@page "/auth/login"
+@model TaskPilot.Pages.Auth.LoginModel
+@{
+    Layout = "_LoginLayout";
+    ViewData["Title"] = "Sign In";
+}
+
+<h5 class="fw-bold mb-4 text-center">Welcome back</h5>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger alert-sm py-2">@Model.ErrorMessage</div>
+}
+
+<form method="post">
+    <div class="mb-3">
+        <label class="form-label" for="email">Email</label>
+        <input type="email" class="form-control" id="email" name="Email"
+               value="@Model.Email" placeholder="you@example.com" required autofocus />
+    </div>
+    <div class="mb-4">
+        <label class="form-label" for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="Password"
+               placeholder="••••••••" required />
+    </div>
+    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Sign in</button>
+</form>
+
+<div class="tp-auth-footer mt-3">
+    Don't have an account? <a href="/auth/register">Create one</a>
+</div>

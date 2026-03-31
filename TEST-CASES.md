@@ -11,7 +11,7 @@
 1. [Unit Tests — Services](#1-unit-tests--services)
 2. [Unit Tests — Validators](#2-unit-tests--validators)
 3. [Unit Tests — Repositories](#3-unit-tests--repositories)
-4. [Unit Tests — bUnit Component Tests](#4-unit-tests--bunit-component-tests)
+4. [Unit Tests — Page Model Tests](#4-unit-tests--page-model-tests)
 5. [Integration Tests — Authentication](#5-integration-tests--authentication)
 6. [Integration Tests — Task Endpoints](#6-integration-tests--task-endpoints)
 7. [Integration Tests — Tag Endpoints](#7-integration-tests--tag-endpoints)
@@ -53,6 +53,11 @@
 | U-T-016 | `GetTaskByIdAsync_WrongUser_ThrowsNotFoundException` | Task exists for user A | Call with user B's ID | Throws `NotFoundException` (no cross-user leakage) |
 | U-T-017 | `CreateTaskAsync_SetsCreatedDateToUtcNow` | Valid request | `CreateTaskAsync` | `CreatedDate` within 1 second of `DateTime.UtcNow` |
 | U-T-018 | `UpdateTaskAsync_ApiCaller_SetsLastModifiedByToApiKey` | Valid request, caller is API key "Claude-Work" | `UpdateTaskAsync` | `LastModifiedBy = "api:Claude-Work"` |
+| U-T-019 | `CreateTaskAsync_WritesCreatedActivityLog` | Valid request | `CreateTaskAsync` | `ActivityLogs` contains single entry: `FieldChanged="Created"`, `NewValue=title`, `ChangedBy=modifiedBy` |
+| U-T-020 | `DeleteTaskAsync_WritesDeletedActivityLog` | Task exists | `DeleteTaskAsync` | `ActivityLogs` contains single entry: `FieldChanged="Deleted"`, `OldValue=title`, `ChangedBy=modifiedBy` |
+| U-T-021 | `CompleteTaskAsync_LogsCorrectOldStatus` | Task with `Status=InProgress` | `CompleteTaskAsync` | Log entry: `OldValue="InProgress"`, `NewValue="Completed"` (not `Completed → Completed`) |
+| U-T-022 | `PatchTaskAsync_WritesPerFieldActivityLogs` | Task with Title="Original", Priority=Low; patch Title+Priority | `PatchTaskAsync` | Two log entries: one for Title, one for Priority |
+| U-T-023 | `PatchTaskAsync_UnchangedFields_DoNotProduceActivityLogs` | Task with Priority=High; patch with same Priority=High | `PatchTaskAsync` | `ActivityLogs` empty (no change = no log) |
 
 ### 1.2 TagService
 
@@ -76,7 +81,18 @@
 | U-AK-007 | `DeactivateApiKeyAsync_SetsIsActiveFalse` | Active key | `IsActive = false` |
 | U-AK-008 | `RevokeApiKeyAsync_DeletesKey` | Active key | Key no longer in repository |
 
-### 1.4 StatsService
+### 1.4 ActivityLogService
+
+| # | Test Name | Scenario | Expected |
+|---|-----------|----------|----------|
+| U-AL-001 | `GetPagedAsync_ReturnsMappedResponse` | Repo returns 1 log | `result.Data` has 1 entry with correct fields |
+| U-AL-002 | `GetPagedAsync_CalculatesPageCount` | 3 total items, pageSize=2 | `TotalPages = 2` |
+| U-AL-003 | `GetPagedAsync_EmptyResult_ReturnsEmptyData` | No logs | `result.Data` empty, `TotalCount = 0` |
+| U-AL-004 | `GetForTaskAsync_DelegatesToRepository` | 2 logs for task | Returns 2 entries, repo called once |
+| U-AL-005 | `GetForTaskAsync_EmptyForTaskWithNoHistory` | No history | Returns empty list |
+| U-AL-006 | `GetPagedAsync_PassesQueryParamsToRepository` | Query with taskId + field filter | Repo receives same params |
+
+### 1.5 StatsService
 
 | # | Test Name | Scenario | Expected |
 |---|-----------|----------|----------|
@@ -85,6 +101,21 @@
 | U-ST-003 | `GetCompletionsByWeekAsync_ReturnsLast12Weeks` | Tasks completed over 14 weeks | Returns array of 12 entries |
 | U-ST-004 | `GetStatsAsync_CompletedTodayReflectsToday` | Task completed 3 hours ago, another completed yesterday | `CompletedToday = 1` |
 | U-ST-005 | `GetStatsAsync_OverdueIsCorrectlyCalculated` | Task with `TargetDate = yesterday`, `Status = InProgress` | Counted as overdue |
+
+### 1.6 ChangelogService
+
+| # | Test Name | Scenario | Expected |
+|---|-----------|----------|----------|
+| U-CL-001 | `GetAll_ValidJson_ReturnsVersions` | Single version JSON | Returns 1 version |
+| U-CL-002 | `GetLatest_ValidJson_ReturnsFirstEntry` | Single version `2.0` | Returns `2.0` |
+| U-CL-003 | `GetAll_MultipleVersions_SortedDescending` | Versions 1.0, 1.2, 1.1 | Ordered 1.2 → 1.1 → 1.0 |
+| U-CL-004 | `GetLatest_MultipleVersions_ReturnsHighestVersion` | Versions 1.0, 1.3, 1.1 | Latest = `1.3` |
+| U-CL-005 | `GetAll_EmptyJson_ReturnsEmptyList` | `{}` | Empty list |
+| U-CL-006 | `GetLatest_EmptyJson_ReturnsNull` | `{}` | `null` |
+| U-CL-007 | `IsMajor_MajorVersionType_ReturnsTrue` | `versionType = "major"` | `IsMajor = true` |
+| U-CL-008 | `IsMajor_MinorVersionType_ReturnsFalse` | `versionType = "minor"` | `IsMajor = false` |
+| U-CL-009 | `GetAll_ParsesChanges_TypeAndDescription` | 2 changes in JSON | Both parsed with correct type/description |
+| U-CL-010 | `GetAll_MalformedJson_ReturnsEmptyList` | Non-JSON string | Empty list (no exception) |
 
 ---
 
@@ -137,24 +168,12 @@
 
 ---
 
-## 4. Unit Tests — bUnit Component Tests
+## 4. Unit Tests — Page Model Tests
 
-**Project:** `TaskPilot.Tests.Unit/Components/`
+**Project:** `TaskPilot.Tests.Unit/`
+**Note:** Blazor WASM was replaced by Razor Pages in the MVC pivot. bUnit component tests are no longer applicable. Page model logic is covered by integration tests (Section 5–11) and E2E tests (Section 12). Unit tests focus on the service and repository layers where business logic lives.
 
-| # | Test Name | Component | Scenario | Expected |
-|---|-----------|-----------|----------|----------|
-| U-C-001 | `TaskCard_CriticalPriority_ShowsRedBadge` | `TaskCard` | Priority=Critical | Priority badge has CSS class for red/error color |
-| U-C-002 | `TaskCard_CompletedStatus_ShowsGreenBadge` | `TaskCard` | Status=Completed | Status badge has CSS class for green/success |
-| U-C-003 | `TaskCard_NullTargetDate_DoesNotThrow` | `TaskCard` | `TargetDate=null` | Renders without exception, no date shown |
-| U-C-004 | `TaskCard_OverdueDate_ShowsRedDate` | `TaskCard` | `TargetDate=yesterday`, `Status=InProgress` | Date text has error color class |
-| U-C-005 | `PriorityBadge_AllPriorities_RenderCorrectly` | `PriorityBadge` | Render for each of 4 priorities | Each renders without exception, correct label text |
-| U-C-006 | `StatusBadge_AllStatuses_RenderCorrectly` | `StatusBadge` | Render for each of 5 statuses | Each renders without exception, correct label text |
-| U-C-007 | `EmptyState_RendersHeadingAndCta` | `EmptyState` | Pass heading + CTA text as params | Heading and CTA button visible in render |
-| U-C-008 | `SkeletonLoader_RendersWithoutData` | `SkeletonLoader` | Render with no data | Skeleton elements present in output |
-| U-C-009 | `ToastContainer_Success_ShowsGreenToast` | `ToastContainer` | Service fires success toast | Toast element has success color class, correct message |
-| U-C-010 | `ToastContainer_UndoToast_ShowsUndoButton` | `ToastContainer` | Undo toast triggered | Undo button present in toast |
-| U-C-011 | `AppSidebar_AuthenticatedUser_ShowsNavLinks` | `AppSidebar` | Auth state = logged in | Dashboard, Tasks, Audit, Settings links rendered |
-| U-C-012 | `AppSidebar_UnauthenticatedUser_DoesNotShowNavLinks` | `AppSidebar` | Auth state = logged out | Nav links not rendered |
+_No dedicated page model unit tests are required — PageModel handlers are thin (validate → call service → set ViewData → return Page()/Redirect()); integration tests cover them end-to-end._
 
 ---
 
@@ -298,18 +317,45 @@
 
 ## 9. Integration Tests — Audit Endpoints
 
-**Project:** `TaskPilot.Tests.Integration/Api/AuditEndpointTests.cs`
+**Project:** `TaskPilot.Tests.Integration/Audit/AuditApiTests.cs`
 
 | # | Test Name | Expected |
 |---|-----------|----------|
-| I-AU-001 | `GetAuditLogs_Returns200WithPaginatedList` | 200, `data` array with `meta.totalCount` |
-| I-AU-002 | `GetAuditLogs_After5ApiKeyRequests_Has5Entries` | Make 5 API-key requests → GET audit → `totalCount=5` |
-| I-AU-003 | `GetAuditLogs_FilterByApiKey_ReturnsOnlyThatKey` | 2 API keys, 3 requests each → filter by key A → `totalCount=3` |
-| I-AU-004 | `GetAuditLogs_FilterByDateRange_ReturnsCorrectRange` | Requests from today and yesterday → filter today only → correct count |
-| I-AU-005 | `GetAuditLogs_EntriesHaveCorrectFields` | Make a POST request → check audit entry has `httpMethod=POST`, `endpoint`, `responseStatusCode`, `durationMs>0` |
-| I-AU-006 | `AuditLogs_AreImmutable_NoWriteEndpointExists` | Attempt POST/PUT/DELETE `/api/v1/audit/{id}` → 404 or 405 |
-| I-AU-007 | `AuditLogs_RequireCookieAuth` | GET `/api/v1/audit` with API key (not cookie) → 401 |
-| I-AU-008 | `GetAuditLogs_Pagination_WorksCorrectly` | 25 audit entries → GET page 1 size 10 → 10 entries, correct meta |
+| I-AU-001 | `GetAuditLogs_AuthenticatedUser_Returns200WithPagedResponse` | 200, `data` array + `meta` present |
+| I-AU-002 | `GetAuditLogs_UnauthenticatedUser_Returns401` | 401 |
+| I-AU-003 | `GetAuditLogs_ReturnsEmptyDataForNewUser` | 200, `data` length = 0 |
+| I-AU-004 | `GetAuditLogs_WithPaginationParams_Returns200` | 200, `meta.page=1`, `meta.pageSize=5` |
+| I-AU-005 | `GetAuditSummary_AuthenticatedUser_Returns200WithSummary` | 200, `data` has `totalRequests`, `getsToday`, `writesToday`, `activeApiKeys` |
+| I-AU-006 | `GetAuditSummary_UnauthenticatedUser_Returns401` | 401 |
+| I-AU-007 | `GetAuditSummary_NewUser_ReturnsZeroCounts` | `totalRequests=0`, `activeApiKeys=0` |
+
+## 9b. Integration Tests — Activity Log Endpoints
+
+**Project:** `TaskPilot.Tests.Integration/ActivityLogs/ActivityLogApiTests.cs`
+
+| # | Test Name | Expected |
+|---|-----------|----------|
+| I-AL-001 | `GetActivityLogs_UnauthenticatedUser_Returns401` | 401 |
+| I-AL-002 | `GetActivityLogs_NewUser_ReturnsEmptyList` | 200, `data` length = 0, `totalCount = 0` |
+| I-AL-003 | `GetActivityLogs_AfterTaskUpdate_ContainsLog` | Create + update task → GET logs → at least 1 entry |
+| I-AL-004 | `GetActivityLogs_FilterByTaskId_ReturnsOnlyThatTasksLogs` | 2 tasks updated → filter by taskId1 → all entries have `taskId = taskId1` |
+| I-AL-005 | `GetActivityLogs_ReturnsPagedMetadata` | `meta.page=1`, `meta.pageSize=10` present |
+| I-AL-006 | `GetActivityLogs_LogContainsExpectedFields` | Entry has `id`, `taskId`, `taskTitle`, `timestamp`, `fieldChanged`, `changedBy` |
+| I-AL-007 | `GetActivityLogs_AfterTaskCreate_ContainsCreatedLog` | Create task → GET logs filtered by taskId → entry with `fieldChanged="Created"` present |
+| I-AL-008 | `GetActivityLogs_AfterTaskDelete_DeletedLogStillVisible` | Create + delete task → GET logs filtered by taskId → `fieldChanged="Deleted"` entry visible despite soft-delete |
+
+---
+
+## 9c. Integration Tests — Changelog Page
+
+**Project:** `TaskPilot.Tests.Integration/Changelog/ChangelogPageTests.cs`
+
+| # | Test Name | Expected |
+|---|-----------|----------|
+| I-CL-001 | `ChangelogPage_UnauthenticatedUser_RedirectsToLogin` | 302 redirect to `/auth/login` |
+| I-CL-002 | `ChangelogPage_AuthenticatedUser_Returns200` | 200 |
+| I-CL-003 | `ChangelogPage_AuthenticatedUser_ShowsVersionEntries` | Content contains `v1.` and "What's new" |
+| I-CL-004 | `ChangelogPage_AuthenticatedUser_ShowsChangeTypes` | Content contains "Feature", "Fix", or "Improvement" badge |
 
 ---
 
@@ -346,87 +392,81 @@
 ## 12. Playwright E2E Tests
 
 **Project:** `TaskPilot.Tests.E2E/`
-**Pattern:** Page Object Model. One class per page.
-**Tag:** All tests `[Trait("Category", "E2E")]`
-**Run command:** `dotnet test --filter Category=E2E`
+**Pattern:** xUnit test classes with shared `PlaywrightFixture` (ICollectionFixture).
+**Collection:** `[Collection("Playwright")]` — tests share one browser instance and test server.
+**Run command:** `dotnet test tests/TaskPilot.Tests.E2E/`
+**Total:** 23 tests, all passing in ~28 seconds.
 
 ### Setup
 ```bash
-# After building E2E project, install Playwright browsers (run once):
-pwsh bin/Debug/net10.0/playwright.ps1 install
+# Install Playwright browsers (run once after build):
+pwsh tests/TaskPilot.Tests.E2E/bin/Debug/net10.0/playwright.ps1 install
 ```
 
-### 12.1 Auth Tests (`AuthTests.cs`)
+### 12.1 Auth Tests (`Auth/AuthTests.cs`) — 5 tests
 
 | # | Test Name | Steps | Expected |
 |---|-----------|-------|----------|
-| E-A-001 | `Register_ValidCredentials_LogsInAndShowsDashboard` | Navigate to `/` → auto-redirect to `/login` → click Register tab → fill form → submit | Dashboard loads, welcome banner visible |
-| E-A-002 | `Register_DuplicateEmail_ShowsError` | Register twice with same email | Error message visible on form |
-| E-A-003 | `Login_ValidCredentials_NavigatesToDashboard` | `/login` → fill form → submit | Dashboard URL, user nav visible |
-| E-A-004 | `Login_WrongPassword_ShowsError` | Wrong password | Error message on form |
-| E-A-005 | `ProtectedRoute_RedirectsToLogin` | Navigate to `/tasks` without auth | Redirected to `/login` |
+| E-A-001 | `Register_NewUser_RedirectsToDashboard` | Navigate to `/auth/register` → fill email + password → submit | Redirects to `/`, dashboard loads |
+| E-A-002 | `Login_ValidCredentials_RedirectsToDashboard` | Register → fresh login at `/auth/login` → submit | URL does not contain `/auth/login` |
+| E-A-003 | `Login_WrongPassword_ShowsError` | `/auth/login` → wrong password → submit | Stays on `/auth/login`, error text visible |
+| E-A-004 | `UnauthenticatedUser_RedirectedToLogin` | Navigate to `/` without auth | Redirected to URL containing `auth/login` |
+| E-A-005 | `Logout_ClearsSession_RedirectsToLogin` | Authenticated page → click Logout button | Redirected to `/auth/login` |
 
-### 12.2 Task Lifecycle Tests (`TaskLifecycleTests.cs`)
-
-| # | Test Name | Steps | Expected |
-|---|-----------|-------|----------|
-| E-T-001 | `CreateTask_ViaQuickAdd_AppearsInList` | Login → type in quick-add bar → press Enter | Success toast, task appears in Not Started group |
-| E-T-002 | `CreateTask_ViaSlideOver_AllFieldsSaved` | Press N → fill all fields → Save | Task appears in list with all specified fields |
-| E-T-003 | `EditTask_ChangesTitle_UpdatesInList` | Open task → click Edit → change title → Save | New title shown in task list |
-| E-T-004 | `EditTask_ChangesStatus_MovesToCorrectGroup` | Edit task → change Status to InProgress → Save | Task moves to In Progress group |
-| E-T-005 | `CompleteTask_ViaCheckbox_MovesToCompleted` | Click checkbox on task row | Task moves to Completed group, success toast |
-| E-T-006 | `CompleteTask_ViaDetail_ShowsResultAnalysisPrompt` | Open task detail → Mark Complete | Result Analysis section becomes prominent with prompt |
-| E-T-007 | `DeleteTask_ShowsUndoToast` | Delete a task | Task disappears, undo toast appears with countdown |
-| E-T-008 | `UndoDelete_RestoresTask` | Delete → immediately click Undo in toast | Task reappears in list |
-| E-T-009 | `SearchTask_FiltersByTitle` | Type in search box → debounce → results update | Only matching tasks shown |
-| E-T-010 | `FilterTask_ByStatus_ShowsFiltered` | Click Filters → select Status: InProgress → apply | Only InProgress tasks shown, filter chip visible |
-| E-T-011 | `ClearFilters_RestoresFullList` | Apply filter → click × on filter chip | All tasks shown again |
-| E-T-012 | `BulkSelect_MarkComplete_UpdatesMultipleTasks` | Check 2 tasks → click Mark Complete in bulk toolbar | Both tasks move to Completed group, success toast |
-| E-T-013 | `TaskDetail_ShowsActivityLog` | Create task → edit status → open detail | Activity log shows status change entry |
-| E-T-014 | `InlineEdit_DoubleClickTitle_SavesOnEnter` | Double-click task title → type new name → Enter | Title updates in place |
-
-### 12.3 Dashboard Tests (`DashboardTests.cs`)
+### 12.2 Dashboard Tests (`Dashboard/DashboardTests.cs`) — 5 tests
 
 | # | Test Name | Expected |
 |---|-----------|----------|
-| E-D-001 | `Dashboard_SummaryCards_ShowCorrectCounts` | Login → seed tasks → verify card counts match |
-| E-D-002 | `Dashboard_OnboardingBanner_Visible_FirstLogin` | First login → welcome banner displayed |
-| E-D-003 | `Dashboard_DismissBanner_Hides_OnReload` | Dismiss banner → reload → banner not shown |
-| E-D-004 | `Dashboard_ChartsRender_NoErrors` | Login → dashboard loads → all 6 chart containers are visible, no error state |
-| E-D-005 | `Dashboard_QuickAddBar_Visible_OnAllPages` | Navigate to Tasks → Audit → Settings → quick-add bar present on all pages |
+| E-D-001 | `Dashboard_Loads_WithoutErrors` | Authenticated → wait for "Dashboard" text → no "An unhandled error" |
+| E-D-002 | `Dashboard_ShowsFiveSummaryCards` | `.tp-stats-grid` loads → contains "Total Active", "Completed Today", "Overdue", "In Progress", "Blocked" |
+| E-D-003 | `Dashboard_ChartsSection_Renders` | `.tp-charts-grid` loads → contains "Completed per Week" or "By Priority" |
+| E-D-004 | `Dashboard_Navigation_TasksLinkWorks` | Click `a[href='/tasks']` → URL contains `/tasks` |
+| E-D-005 | `Dashboard_Navigation_AuditLinkWorks` | Click `a[href='/audit']` → URL contains `/audit` |
 
-### 12.4 Settings Tests (`SettingsTests.cs`)
+### 12.3 Task Lifecycle Tests (`Tasks/TaskLifecycleTests.cs`) — 7 tests
 
 | # | Test Name | Steps | Expected |
 |---|-----------|-------|----------|
-| E-S-001 | `GenerateApiKey_DisplaysKeyOnce` | Settings → API Keys → enter name → Generate | Key displayed in monospace with Copy button |
-| E-S-002 | `GenerateApiKey_AfterNavAway_KeyNotShown` | Generate key → navigate away → return to API Keys | Full key no longer visible, only prefix shown in table |
-| E-S-003 | `CopyApiKey_CopiedToClipboard` | Generate key → click Copy | Button shows "✓ Copied" for ~2s |
-| E-S-004 | `DeactivateApiKey_AppearsInactive` | Deactivate key via Actions menu | Key status shows "Inactive" in table |
-| E-S-005 | `ThemeToggle_Dark_ChangesUI` | Settings → Appearance → click Dark | Background color changes to dark theme |
-| E-S-006 | `ThemeToggle_Dark_PersistsOnReload` | Select Dark → reload page | Dark theme still active after reload |
-| E-S-007 | `ExportCsv_DownloadsFile` | Settings → Export → Export Tasks as CSV | File download triggered |
+| E-T-001 | `Dashboard_AfterLogin_ShowsSummaryCards` | Authenticated → wait for `.tp-stats-grid` | Contains "Total Active" and "Overdue" |
+| E-T-002 | `CreateTask_ViaNewTaskButton_AppearsInList` | `/tasks` → click "New Task" → fill title in modal → submit | Task title appears in page content |
+| E-T-003 | `CreateTask_ViaQuickAdd_CreatesTask` | Dashboard → fill `input[name='title']` → submit → navigate to `/tasks` | Task title appears in task list |
+| E-T-004 | `TaskList_SearchFilter_NarrowsResults` | `/tasks` → fill `#searchInput` with nonexistent text → wait 600ms | Content contains "No tasks" or "0 task" |
+| E-T-005 | `TaskList_ToggleBoardView_ShowsKanbanColumns` | `/tasks` → click board view link → URL becomes `?view=board` | Content contains "Not Started" or "In Progress" |
+| E-T-006 | `TaskDetail_NavigatingToTask_ShowsEditForm` | Create task → click task link → navigate to `/tasks/**` | Content contains "Priority" or "Status"; no unhandled error |
+| E-T-007 | `DeleteTask_RemovesTaskFromList` | Create task → navigate to detail → accept confirm dialog → click Delete | Redirects to `/tasks`; no unhandled error |
+| E-T-008 | `TaskDetail_AfterEdit_ShowsChangeHistory` | Create task → navigate to detail → change title → click "Save Changes" → reload | "Change History" section visible; no unhandled error |
 
-### 12.5 Keyboard Shortcuts Tests
+### 12.4 Settings Tests (`Settings/SettingsTests.cs`) — 4 tests
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| E-S-001 | `Settings_PageLoads_ShowsApiKeySection` | `/settings` → wait for "API Keys" | Content contains "API Key" or "API Keys" |
+| E-S-002 | `Settings_GenerateApiKey_ShowsKeyOnce` | `/settings` → fill `input[name='keyName']` → click "Generate Key" | Content contains "Copy", "created", or "tp_" |
+| E-S-003 | `Settings_AppearanceSection_IsPresent` | `/settings` → wait for "Appearance" | Content contains "Appearance"; no unhandled error |
+| E-S-004 | `Settings_ChangePassword_FormIsPresent` | `/settings` → wait for "Password" | `input[name='currentPassword']` is present |
+
+### 12.5 Audit Tests (`Audit/AuditTests.cs`) — 6 tests
 
 | # | Test Name | Expected |
 |---|-----------|----------|
-| E-K-001 | `Shortcut_N_OpensCreatePanel` | Press N on task list → slide-over opens |
-| E-K-002 | `Shortcut_ForwardSlash_FocusesSearch` | Press / → search input is focused |
-| E-K-003 | `Shortcut_QuestionMark_OpensShortcutOverlay` | Press ? → keyboard shortcuts modal opens |
-| E-K-004 | `Shortcut_Escape_ClosesSlideOver` | Open create panel → press Esc → panel closes |
+| E-AU-001 | `AuditPage_DefaultTab_ShowsTaskHistory` | `/audit` → `.nav-tabs` loads → content contains "Task History" and "API Access"; no error |
+| E-AU-002 | `AuditPage_TaskHistoryTab_EmptyState_ShowsNoHistoryMessage` | `/audit?tab=tasks` → `.tp-card` loads → contains "No task history" or "Changes to tasks" |
+| E-AU-003 | `AuditPage_ApiAccessTab_ShowsSummaryCards` | `/audit?tab=api` → `.tp-stats-grid` loads → contains "Total Requests" and "Active API Keys" |
+| E-AU-004 | `AuditPage_ApiAccessTab_EmptyState_ShowsNoLogsMessage` | `/audit?tab=api` → `.tp-card` loads → contains "No audit" or "API key activity" |
+| E-AU-005 | `AuditPage_TabSwitch_NavigatesToApiTab` | Click "API Access" tab → `.tp-stats-grid` loads → contains "Total Requests" |
+| E-AU-006 | `AuditPage_TaskHistoryTab_AfterTaskEdit_ShowsLog` | Create task → edit title → `/audit?tab=tasks` → `.tp-card` loads | History entries visible; no unhandled error |
 
-### 12.6 Responsive Tests (`ResponsiveTests.cs`)
+### 12.6 Changelog Tests (`Changelog/ChangelogTests.cs`) — 7 tests
 
-Run the full auth + create task + dashboard flow at three viewports:
-
-| # | Test Name | Viewport | Steps | Expected |
-|---|-----------|----------|-------|----------|
-| E-R-001 | `Mobile_FullFlow` | 375×812 | Register → Create task → View dashboard | All pages render, bottom tab bar visible, no overflow |
-| E-R-002 | `Tablet_FullFlow` | 768×1024 | Register → Create task → View dashboard | Collapsible sidebar present, layout correct |
-| E-R-003 | `Desktop_FullFlow` | 1440×900 | Register → Create task → View dashboard | Persistent sidebar, dense layout |
-| E-R-004 | `Mobile_BottomTabBar_Visible` | 375×812 | Any page | Bottom tab bar with 5 tabs visible |
-| E-R-005 | `Desktop_Sidebar_Visible` | 1440×900 | Any page | Left sidebar with nav links visible |
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| E-CL-001 | `ChangelogPage_NavLink_IsVisibleInSidebar` | Authenticated → wait for `.tp-changelog-nav-link` | Contains "What's new"; no unhandled error |
+| E-CL-002 | `ChangelogPage_NavLink_ShowsRenderedVersionNumber` | Wait for `.tp-version-pill` | Pill text matches `v\d+\.\d+` — catches unrendered Razor like `v@...` |
+| E-CL-003 | `ChangelogPage_VersionBadges_ShowRenderedVersionNumbers` | `/changelog` → all `.tp-version-badge` elements | Each badge text matches `v\d+\.\d+` |
+| E-CL-004 | `ChangelogPage_NavigatingToPage_ShowsVersionHistory` | `/changelog` → `.tp-changelog` loads | Matches `v\d+\.\d+`; does not contain `@version`; no unhandled error |
+| E-CL-005 | `ChangelogPage_ShowsMajorVersionBadge` | `/changelog` → `.tp-changelog-version` loads | Contains "Major" badge |
+| E-CL-006 | `ChangelogPage_ShowsChangeTypeBadges` | `/changelog` → `.tp-change-badge` elements present | At least one badge found |
+| E-CL-007 | `ChangelogPage_NavLink_ClickNavigatesToPage` | Click `.tp-changelog-nav-link` → wait for `/changelog` URL | Contains "What's new"; no unhandled error |
 
 ---
 

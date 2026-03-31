@@ -1,0 +1,169 @@
+﻿@page "/tasks/{id:guid}"
+@model TaskPilot.Pages.Tasks.TaskDetailModel
+@{
+    ViewData["Title"] = Model.Task?.Title ?? "Task Detail";
+}
+
+@if (Model.Task == null)
+{
+    <div class="tp-empty">
+        <div class="tp-empty-icon"><i class="bi bi-exclamation-circle"></i></div>
+        <div class="tp-empty-title">Task not found</div>
+        <a href="/tasks" class="btn btn-primary mt-3">Back to Tasks</a>
+    </div>
+    return;
+}
+
+<div class="tp-page-header">
+    <div>
+        <nav class="mb-2">
+            <a href="/tasks" class="text-decoration-none text-muted small">
+                <i class="bi bi-arrow-left me-1"></i>Back to Tasks
+            </a>
+        </nav>
+        <h1 class="tp-page-title">@Model.Task.Title</h1>
+    </div>
+    <div class="d-flex gap-2">
+        @if (Model.Task.Status != TaskPilot.Models.Enums.TaskStatus.Completed)
+        {
+            <form method="post" asp-page-handler="Complete">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-lg me-1"></i>Complete
+                </button>
+            </form>
+        }
+        <form method="post" asp-page-handler="Delete"
+              onsubmit="return confirm('Delete this task?')">
+            <button type="submit" class="btn btn-outline-danger">
+                <i class="bi bi-trash me-1"></i>Delete
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="tp-card">
+            <div class="tp-card-header">Edit Task</div>
+            <div class="tp-card-body">
+                <form method="post" asp-page-handler="Update">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Title *</label>
+                            <input type="text" class="form-control" name="Title"
+                                   value="@Model.Task.Title" required />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="Description" rows="3">@Model.Task.Description</textarea>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label">Type *</label>
+                            <input type="text" class="form-control" name="Type"
+                                   value="@Model.Task.Type" required />
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label">Priority *</label>
+                            <select class="form-select" name="Priority">
+                                @foreach (var p in Enum.GetValues<TaskPilot.Models.Enums.TaskPriority>())
+                                {
+                                    <option value="@((int)p)" selected="@(Model.Task.Priority == p)">@p</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label">Status *</label>
+                            <select class="form-select" name="Status">
+                                @foreach (var s in Enum.GetValues<TaskPilot.Models.Enums.TaskStatus>())
+                                {
+                                    <option value="@((int)s)" selected="@(Model.Task.Status == s)">@s</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Target Date</label>
+                            <input type="date" class="form-control" name="TargetDate"
+                                   value="@Model.Task.TargetDate?.ToString("yyyy-MM-dd")" />
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Timeline</label>
+                            <select class="form-select" name="TargetDateType">
+                                @foreach (var t in Enum.GetValues<TaskPilot.Models.Enums.TargetDateType>())
+                                {
+                                    <option value="@((int)t)" selected="@(Model.Task.TargetDateType == t)">@t</option>
+                                }
+                            </select>
+                        </div>
+                        @if (Model.Task.Status == TaskPilot.Models.Enums.TaskStatus.Completed)
+                        {
+                            <div class="col-12">
+                                <label class="form-label">Result / Analysis</label>
+                                <textarea class="form-control" name="ResultAnalysis" rows="2">@Model.Task.ResultAnalysis</textarea>
+                            </div>
+                        }
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="tp-card">
+            <div class="tp-card-header">Details</div>
+            <div class="tp-card-body">
+                <dl class="row mb-0" style="font-size:13px">
+                    <dt class="col-5 text-muted">Created</dt>
+                    <dd class="col-7">@Model.Task.CreatedDate.ToString("MMM d, yyyy")</dd>
+                    <dt class="col-5 text-muted">Modified</dt>
+                    <dd class="col-7">@Model.Task.LastModifiedDate.ToString("MMM d, yyyy")</dd>
+                    <dt class="col-5 text-muted">By</dt>
+                    <dd class="col-7 text-truncate">@Model.Task.LastModifiedBy</dd>
+                    @if (Model.Task.CompletedDate.HasValue)
+                    {
+                        <dt class="col-5 text-muted">Completed</dt>
+                        <dd class="col-7">@Model.Task.CompletedDate.Value.ToString("MMM d, yyyy")</dd>
+                    }
+                    <dt class="col-5 text-muted">Recurring</dt>
+                    <dd class="col-7">@(Model.Task.IsRecurring ? "Yes" : "No")</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.ActivityLogs.Count > 0)
+{
+    <div class="tp-card mt-4">
+        <div class="tp-card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-clock-history me-2"></i>Change History</span>
+            <a href="/audit?tab=tasks&field=&changedBy=" class="btn btn-sm btn-outline-secondary">
+                View All
+            </a>
+        </div>
+        <table class="tp-table">
+            <thead>
+                <tr>
+                    <th>When</th>
+                    <th>Field</th>
+                    <th>Old Value</th>
+                    <th>New Value</th>
+                    <th>Changed By</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Model.ActivityLogs)
+                {
+                    <tr>
+                        <td class="small text-muted">@log.Timestamp.ToString("MMM d, yyyy HH:mm")</td>
+                        <td><span class="badge bg-secondary">@log.FieldChanged</span></td>
+                        <td class="small text-muted">@(log.OldValue ?? "—")</td>
+                        <td class="small">@(log.NewValue ?? "—")</td>
+                        <td class="small text-muted">@log.ChangedBy</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

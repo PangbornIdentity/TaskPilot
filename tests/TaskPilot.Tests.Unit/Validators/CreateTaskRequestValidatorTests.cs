@@ -1,6 +1,7 @@
-using TaskPilot.Shared.DTOs.Tasks;
-using TaskPilot.Shared.Enums;
-using TaskPilot.Shared.Validators;
+﻿using TaskPilot.Models.Tasks;
+using TaskPilot.Models.Enums;
+using TaskPilot.Models.Validators;
+using TaskStatus = TaskPilot.Models.Enums.TaskStatus;
 
 namespace TaskPilot.Tests.Unit.Validators;
 
@@ -13,7 +14,7 @@ public class CreateTaskRequestValidatorTests
         Description: null,
         Type: "Work",
         Priority: TaskPriority.Medium,
-        Status: Shared.Enums.TaskStatus.NotStarted,
+        Status: TaskStatus.NotStarted,
         TargetDateType: TargetDateType.ThisWeek,
         TargetDate: null,
         IsRecurring: false,

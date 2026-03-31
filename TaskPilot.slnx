@@ -1,8 +1,6 @@
-<Solution>
+﻿<Solution>
   <Folder Name="/src/">
-    <Project Path="src/TaskPilot.Client/TaskPilot.Client.csproj" />
-    <Project Path="src/TaskPilot.Server/TaskPilot.Server.csproj" />
-    <Project Path="src/TaskPilot.Shared/TaskPilot.Shared.csproj" />
+    <Project Path="src/TaskPilot.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TaskPilot.Tests.E2E/TaskPilot.Tests.E2E.csproj" />

@@ -1,9 +1,10 @@
-using Moq;
-using TaskPilot.Server.Entities;
-using TaskPilot.Server.Repositories.Interfaces;
-using TaskPilot.Server.Services;
-using TaskPilot.Shared.DTOs.Tasks;
-using TaskPilot.Shared.Enums;
+﻿using Moq;
+using TaskPilot.Entities;
+using TaskPilot.Repositories.Interfaces;
+using TaskPilot.Services;
+using TaskPilot.Models.Tasks;
+using TaskPilot.Models.Enums;
+using TaskStatus = TaskPilot.Models.Enums.TaskStatus;
 
 namespace TaskPilot.Tests.Unit.Services;
 
@@ -26,7 +27,7 @@ public class TaskServiceTests
         Title = "Test Task",
         Type = "Work",
         Priority = TaskPriority.Medium,
-        Status = Shared.Enums.TaskStatus.NotStarted,
+        Status = TaskStatus.NotStarted,
         TargetDateType = TargetDateType.ThisWeek,
         SortOrder = 1,
         UserId = userId,
@@ -39,7 +40,7 @@ public class TaskServiceTests
     public async Task CreateTaskAsync_ValidRequest_ReturnsTaskResponse()
     {
         var request = new CreateTaskRequest("My Task", null, "Work", TaskPriority.Medium,
-            Shared.Enums.TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
+            TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
 
         _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
         _taskRepoMock.Setup(r => r.AddAsync(It.IsAny<TaskItem>(), default)).Returns(Task.CompletedTask);
@@ -58,7 +59,7 @@ public class TaskServiceTests
         var tagId = Guid.NewGuid();
         var tags = new List<Tag> { new() { Id = tagId, Name = "Important", Color = "#ff0000", UserId = "user1" } };
         var request = new CreateTaskRequest("Task with tag", null, "Work", TaskPriority.High,
-            Shared.Enums.TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, [tagId]);
+            TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, [tagId]);
 
         _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
         _tagRepoMock.Setup(r => r.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>(), "user1", default))
@@ -88,7 +89,7 @@ public class TaskServiceTests
     public async Task CreateTaskAsync_SetsLastModifiedBy()
     {
         var request = new CreateTaskRequest("Task", null, "Personal", TaskPriority.Low,
-            Shared.Enums.TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
+            TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
 
         _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
         _taskRepoMock.Setup(r => r.AddAsync(It.IsAny<TaskItem>(), default)).Returns(Task.CompletedTask);
@@ -145,7 +146,7 @@ public class TaskServiceTests
         var result = await _service.CompleteTaskAsync(task.Id, request, "user1", "user:test@example.com");
 
         Assert.NotNull(result);
-        Assert.Equal(Shared.Enums.TaskStatus.Completed, result.Status);
+        Assert.Equal(TaskStatus.Completed, result.Status);
         Assert.NotNull(result.CompletedDate);
     }
 
@@ -190,12 +191,11 @@ public class TaskServiceTests
     {
         var task = MakeTask("user1");
 
-        _taskRepoMock.Setup(r => r.GetByIdAsync(task.Id, default)).ReturnsAsync(task);
+        _taskRepoMock.Setup(r => r.GetByIdWithTagsAsync(task.Id, "user1", default)).ReturnsAsync(task);
         _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
 
         var result = await _service.DeleteTaskAsync(task.Id, "user1", "user:test@example.com");
 
-        // Verify the service mutated the task object (EF change tracking picks this up)
         Assert.True(result);
         Assert.True(task.IsDeleted);
         Assert.NotNull(task.DeletedAt);
@@ -204,14 +204,108 @@ public class TaskServiceTests
     [Fact]
     public async Task DeleteTaskAsync_WrongUser_ReturnsFalse()
     {
-        var task = MakeTask("user1");
+        _taskRepoMock.Setup(r => r.GetByIdWithTagsAsync(It.IsAny<Guid>(), "other-user", default))
+            .ReturnsAsync((TaskItem?)null);
 
-        _taskRepoMock.Setup(r => r.GetByIdAsync(task.Id, default)).ReturnsAsync(task);
-
-        var result = await _service.DeleteTaskAsync(task.Id, "other-user", "user:other@example.com");
+        var result = await _service.DeleteTaskAsync(Guid.NewGuid(), "other-user", "user:other@example.com");
 
         Assert.False(result);
-        _taskRepoMock.Verify(r => r.Update(It.IsAny<TaskItem>()), Times.Never);
+        _taskRepoMock.Verify(r => r.SaveChangesAsync(default), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateTaskAsync_WritesCreatedActivityLog()
+    {
+        var request = new CreateTaskRequest("Go to the gym", null, "Personal", TaskPriority.Medium,
+            TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
+
+        _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
+        _taskRepoMock.Setup(r => r.AddAsync(It.IsAny<TaskItem>(), default)).Returns(Task.CompletedTask);
+        _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        TaskItem? capturedTask = null;
+        _taskRepoMock.Setup(r => r.AddAsync(It.IsAny<TaskItem>(), default))
+            .Callback<TaskItem, CancellationToken>((t, _) => capturedTask = t)
+            .Returns(Task.CompletedTask);
+
+        await _service.CreateTaskAsync(request, "user1", "user:test@example.com");
+
+        Assert.NotNull(capturedTask);
+        var log = Assert.Single(capturedTask.ActivityLogs);
+        Assert.Equal("Created", log.FieldChanged);
+        Assert.Equal("Go to the gym", log.NewValue);
+        Assert.Equal("user:test@example.com", log.ChangedBy);
+    }
+
+    [Fact]
+    public async Task DeleteTaskAsync_WritesDeletedActivityLog()
+    {
+        var task = MakeTask("user1");
+        task.Title = "Go to the gym";
+
+        _taskRepoMock.Setup(r => r.GetByIdWithTagsAsync(task.Id, "user1", default)).ReturnsAsync(task);
+        _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        await _service.DeleteTaskAsync(task.Id, "user1", "user:test@example.com");
+
+        var log = Assert.Single(task.ActivityLogs);
+        Assert.Equal("Deleted", log.FieldChanged);
+        Assert.Equal("Go to the gym", log.OldValue);
+        Assert.Equal("user:test@example.com", log.ChangedBy);
+    }
+
+    [Fact]
+    public async Task CompleteTaskAsync_LogsCorrectOldStatus()
+    {
+        var task = MakeTask("user1");
+        task.Status = TaskStatus.InProgress;
+        var request = new CompleteTaskRequest(null);
+
+        _taskRepoMock.Setup(r => r.GetByIdWithTagsAsync(task.Id, "user1", default)).ReturnsAsync(task);
+        _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        await _service.CompleteTaskAsync(task.Id, request, "user1", "user:test@example.com");
+
+        var log = Assert.Single(task.ActivityLogs);
+        Assert.Equal("Status", log.FieldChanged);
+        Assert.Equal("InProgress", log.OldValue);
+        Assert.Equal("Completed", log.NewValue);
+    }
+
+    [Fact]
+    public async Task PatchTaskAsync_WritesPerFieldActivityLogs()
+    {
+        var task = MakeTask("user1");
+        task.Title = "Original";
+        task.Priority = TaskPriority.Low;
+
+        _taskRepoMock.Setup(r => r.GetByIdWithTagsAsync(task.Id, "user1", default)).ReturnsAsync(task);
+        _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        var request = new PatchTaskRequest(Title: "Updated", Priority: TaskPriority.High);
+
+        await _service.PatchTaskAsync(task.Id, request, "user1", "user:test@example.com");
+
+        Assert.Equal(2, task.ActivityLogs.Count);
+        Assert.Contains(task.ActivityLogs, l => l.FieldChanged == "Title" && l.OldValue == "Original" && l.NewValue == "Updated");
+        Assert.Contains(task.ActivityLogs, l => l.FieldChanged == "Priority" && l.OldValue == "Low" && l.NewValue == "High");
+    }
+
+    [Fact]
+    public async Task PatchTaskAsync_UnchangedFields_DoNotProduceActivityLogs()
+    {
+        var task = MakeTask("user1");
+        task.Priority = TaskPriority.High;
+
+        _taskRepoMock.Setup(r => r.GetByIdWithTagsAsync(task.Id, "user1", default)).ReturnsAsync(task);
+        _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        // Patch with same priority — no change
+        var request = new PatchTaskRequest(Priority: TaskPriority.High);
+
+        await _service.PatchTaskAsync(task.Id, request, "user1", "user:test@example.com");
+
+        Assert.Empty(task.ActivityLogs);
     }
 
     [Fact]
@@ -248,7 +342,7 @@ public class TaskServiceTests
         _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
 
         var request = new UpdateTaskRequest("New Title", null, "Work", TaskPriority.Medium,
-            Shared.Enums.TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
+            TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
 
         await _service.UpdateTaskAsync(task.Id, request, "user1", "user:test@example.com");
 

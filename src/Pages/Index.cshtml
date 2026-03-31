@@ -1,0 +1,157 @@
+﻿@page "/"
+@model TaskPilot.Pages.IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="tp-page-header">
+    <div>
+        <h1 class="tp-page-title">Dashboard</h1>
+        <p class="tp-page-subtitle">@DateTime.Now.ToString("dddd, MMMM d")</p>
+    </div>
+    <a href="/tasks?action=new" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> New Task
+    </a>
+</div>
+
+<!-- Quick add -->
+<form method="post" asp-page-handler="QuickAdd" class="tp-quick-add mb-4">
+    <input type="text" name="title" placeholder="Add a task... (press Enter)" class="form-control" autocomplete="off" />
+    <button type="submit" class="btn btn-primary px-4">Add</button>
+</form>
+
+<!-- Summary cards -->
+<div class="tp-stats-grid">
+    <div class="tp-stat-card accent">
+        <div class="tp-stat-label">Total Active</div>
+        <div class="tp-stat-value">@Model.Stats?.TotalActive</div>
+    </div>
+    <div class="tp-stat-card success">
+        <div class="tp-stat-label">Completed Today</div>
+        <div class="tp-stat-value">@Model.Stats?.CompletedToday</div>
+    </div>
+    <div class="tp-stat-card danger">
+        <div class="tp-stat-label">Overdue</div>
+        <div class="tp-stat-value">@Model.Stats?.Overdue</div>
+    </div>
+    <div class="tp-stat-card warning">
+        <div class="tp-stat-label">In Progress</div>
+        <div class="tp-stat-value">@Model.Stats?.InProgress</div>
+    </div>
+    <div class="tp-stat-card">
+        <div class="tp-stat-label">Blocked</div>
+        <div class="tp-stat-value">@Model.Stats?.Blocked</div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="tp-charts-grid">
+    <div class="tp-card">
+        <div class="tp-card-header">Completed per Week</div>
+        <div class="tp-card-body">
+            <div id="chart-weekly" style="min-height:200px"></div>
+        </div>
+    </div>
+    <div class="tp-card">
+        <div class="tp-card-header">By Priority</div>
+        <div class="tp-card-body">
+            <div id="chart-priority" style="min-height:200px"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent tasks -->
+<div class="tp-card">
+    <div class="tp-card-header">
+        Recent Tasks
+        <a href="/tasks" class="btn btn-sm btn-outline-primary">View all</a>
+    </div>
+    @if (Model.RecentTasks.Count == 0)
+    {
+        <div class="tp-empty">
+            <div class="tp-empty-icon"><i class="bi bi-clipboard"></i></div>
+            <div class="tp-empty-title">No tasks yet</div>
+            <div class="tp-empty-text">Create your first task above</div>
+        </div>
+    }
+    else
+    {
+        <table class="tp-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var task in Model.RecentTasks)
+                {
+                    <tr>
+                        <td><a href="/tasks/@task.Id" class="text-decoration-none fw-medium">@task.Title</a></td>
+                        <td>@Html.Raw(PriorityBadge(task.Priority))</td>
+                        <td>@Html.Raw(StatusBadge(task.Status))</td>
+                        <td><span class="text-muted">@task.Type</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@functions {
+    string StatusBadge(TaskPilot.Models.Enums.TaskStatus s) => s switch {
+        TaskPilot.Models.Enums.TaskStatus.NotStarted => "<span class='tp-badge tp-badge-not-started'>Not Started</span>",
+        TaskPilot.Models.Enums.TaskStatus.InProgress  => "<span class='tp-badge tp-badge-in-progress'>In Progress</span>",
+        TaskPilot.Models.Enums.TaskStatus.Blocked      => "<span class='tp-badge tp-badge-blocked'>Blocked</span>",
+        TaskPilot.Models.Enums.TaskStatus.Completed    => "<span class='tp-badge tp-badge-completed'>Completed</span>",
+        TaskPilot.Models.Enums.TaskStatus.Cancelled    => "<span class='tp-badge tp-badge-cancelled'>Cancelled</span>",
+        _ => s.ToString()
+    };
+    string PriorityBadge(TaskPilot.Models.Enums.TaskPriority p) => p switch {
+        TaskPilot.Models.Enums.TaskPriority.Critical => "<span class='tp-badge tp-badge-critical'>Critical</span>",
+        TaskPilot.Models.Enums.TaskPriority.High     => "<span class='tp-badge tp-badge-high'>High</span>",
+        TaskPilot.Models.Enums.TaskPriority.Medium   => "<span class='tp-badge tp-badge-medium'>Medium</span>",
+        TaskPilot.Models.Enums.TaskPriority.Low      => "<span class='tp-badge tp-badge-low'>Low</span>",
+        _ => p.ToString()
+    };
+}
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
+<script>
+(function() {
+    var weeklyData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.CompletedPerWeek?.Select(w => w.Count).ToList() ?? new List<int>()));
+    var weeklyLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.CompletedPerWeek?.Select(w => w.WeekLabel).ToList() ?? new List<string>()));
+    var priorityData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.ByPriority?.Select(p => p.NotStarted + p.InProgress + p.Blocked).ToList() ?? new List<int>()));
+    var priorityLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.ByPriority?.Select(p => p.Priority).ToList() ?? new List<string>()));
+
+    if (weeklyLabels.length > 0) {
+        new ApexCharts(document.querySelector('#chart-weekly'), {
+            chart: { type: 'bar', height: 200, toolbar: { show: false } },
+            series: [{ name: 'Completed', data: weeklyData }],
+            xaxis: { categories: weeklyLabels },
+            colors: ['#6255EC'],
+            plotOptions: { bar: { borderRadius: 4 } },
+            dataLabels: { enabled: false }
+        }).render();
+    } else {
+        document.querySelector('#chart-weekly').innerHTML = '<div class="tp-empty py-4"><div class="tp-empty-text">No data yet</div></div>';
+    }
+
+    if (priorityLabels.length > 0) {
+        new ApexCharts(document.querySelector('#chart-priority'), {
+            chart: { type: 'donut', height: 200 },
+            series: priorityData,
+            labels: priorityLabels,
+            colors: ['#ef4444','#f59e0b','#6255EC','#10b981'],
+            legend: { position: 'bottom' },
+            dataLabels: { enabled: false }
+        }).render();
+    } else {
+        document.querySelector('#chart-priority').innerHTML = '<div class="tp-empty py-4"><div class="tp-empty-text">No data yet</div></div>';
+    }
+})();
+</script>
+}

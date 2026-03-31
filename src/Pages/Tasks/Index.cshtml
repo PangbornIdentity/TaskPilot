@@ -1,0 +1,246 @@
+﻿@page "/tasks"
+@model TaskPilot.Pages.Tasks.TasksIndexModel
+@{
+    ViewData["Title"] = "Tasks";
+    var isBoard = Model.View == "board";
+}
+
+<div class="tp-page-header">
+    <div>
+        <h1 class="tp-page-title">Tasks</h1>
+        <p class="tp-page-subtitle">@Model.TotalCount task@(Model.TotalCount != 1 ? "s" : "") found</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#taskModal">
+        <i class="bi bi-plus-lg me-1"></i> New Task
+    </button>
+</div>
+
+<!-- Filters -->
+<div class="tp-filters">
+    <div class="tp-search">
+        <i class="bi bi-search tp-search-icon"></i>
+        <input type="text" id="searchInput" placeholder="Search tasks..."
+               value="@Model.Search"
+               hx-get="/tasks"
+               hx-trigger="keyup changed delay:400ms"
+               hx-target="#task-container"
+               hx-include="#filterForm"
+               hx-vals='{"handler": "List"}'
+               name="search" />
+    </div>
+
+    <form id="filterForm" method="get" action="/tasks" class="d-flex gap-2 align-items-center">
+        <input type="hidden" name="view" value="@Model.View" />
+        <select name="status" class="form-select form-select-sm" style="width:auto"
+                onchange="this.form.submit()">
+            <option value="">All Status</option>
+            @foreach (var s in Enum.GetValues<TaskPilot.Models.Enums.TaskStatus>())
+            {
+                <option value="@s" selected="@(Model.StatusFilter == s)">@s</option>
+            }
+        </select>
+        <select name="priority" class="form-select form-select-sm" style="width:auto"
+                onchange="this.form.submit()">
+            <option value="">All Priority</option>
+            @foreach (var p in Enum.GetValues<TaskPilot.Models.Enums.TaskPriority>())
+            {
+                <option value="@p" selected="@(Model.PriorityFilter == p)">@p</option>
+            }
+        </select>
+    </form>
+
+    <div class="tp-view-toggle btn-group ms-auto" role="group">
+        <a href="?view=list&search=@Model.Search&status=@Model.StatusFilter&priority=@Model.PriorityFilter"
+           class="btn btn-sm @(isBoard ? "btn-outline-secondary" : "btn-secondary")" title="List view">
+            <i class="bi bi-list-ul"></i>
+        </a>
+        <a href="?view=board&search=@Model.Search&status=@Model.StatusFilter&priority=@Model.PriorityFilter"
+           class="btn btn-sm @(isBoard ? "btn-secondary" : "btn-outline-secondary")" title="Board view">
+            <i class="bi bi-kanban"></i>
+        </a>
+    </div>
+</div>
+
+<div id="task-container">
+    @if (!isBoard)
+    {
+        <!-- List View -->
+        @if (Model.Tasks.Count == 0)
+        {
+            <div class="tp-card">
+                <div class="tp-empty">
+                    <div class="tp-empty-icon"><i class="bi bi-clipboard"></i></div>
+                    <div class="tp-empty-title">No tasks found</div>
+                    <div class="tp-empty-text">Try changing your filters or create a new task</div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="tp-card">
+                <table class="tp-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Due</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var task in Model.Tasks)
+                        {
+                            <tr>
+                                <td>
+                                    <a href="/tasks/@task.Id" class="text-decoration-none fw-medium">
+                                        @task.Title
+                                    </a>
+                                </td>
+                                <td><span class="text-muted small">@task.Type</span></td>
+                                <td>@Html.Raw(PriorityBadge(task.Priority))</td>
+                                <td>@Html.Raw(StatusBadge(task.Status))</td>
+                                <td>
+                                    @if (task.TargetDate.HasValue)
+                                    {
+                                        <span class="small text-muted">@task.TargetDate.Value.ToString("MMM d")</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <a href="/tasks/@task.Id" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+    else
+    {
+        <!-- Board / Kanban View -->
+        <div class="tp-kanban">
+            @foreach (var col in Model.KanbanColumns)
+            {
+                <div class="tp-kanban-col">
+                    <div class="tp-kanban-col-header">
+                        @col.Key
+                        <span class="tp-kanban-count">@col.Value.Count</span>
+                    </div>
+                    @foreach (var task in col.Value)
+                    {
+                        <a href="/tasks/@task.Id" class="text-decoration-none">
+                            <div class="tp-task-card">
+                                <div class="tp-task-card-title">@task.Title</div>
+                                <div class="tp-task-card-meta">
+                                    @Html.Raw(PriorityBadge(task.Priority))
+                                    <span class="small text-muted">@task.Type</span>
+                                </div>
+                            </div>
+                        </a>
+                    }
+                    @if (col.Value.Count == 0)
+                    {
+                        <div class="text-center py-3 text-muted small">No tasks</div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- New Task Modal -->
+<div class="modal fade tp-modal" id="taskModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">New Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" asp-page-handler="Create">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Title *</label>
+                            <input type="text" class="form-control" name="Title" required placeholder="Task title" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="Description" rows="2" placeholder="Optional description"></textarea>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label">Type *</label>
+                            <input type="text" class="form-control" name="Type" required placeholder="e.g. Feature, Bug" value="Task" />
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label">Priority *</label>
+                            <select class="form-select" name="Priority">
+                                @foreach (var p in Enum.GetValues<TaskPilot.Models.Enums.TaskPriority>())
+                                {
+                                    <option value="@((int)p)" selected="@(p == TaskPilot.Models.Enums.TaskPriority.Medium)">@p</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label">Status *</label>
+                            <select class="form-select" name="Status">
+                                @foreach (var s in Enum.GetValues<TaskPilot.Models.Enums.TaskStatus>())
+                                {
+                                    <option value="@((int)s)">@s</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Target Date</label>
+                            <input type="date" class="form-control" name="TargetDate" />
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label">Timeline</label>
+                            <select class="form-select" name="TargetDateType">
+                                @foreach (var t in Enum.GetValues<TaskPilot.Models.Enums.TargetDateType>())
+                                {
+                                    <option value="@((int)t)">@t</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@functions {
+    string StatusBadge(TaskPilot.Models.Enums.TaskStatus s) => s switch {
+        TaskPilot.Models.Enums.TaskStatus.NotStarted => "<span class='tp-badge tp-badge-not-started'>Not Started</span>",
+        TaskPilot.Models.Enums.TaskStatus.InProgress  => "<span class='tp-badge tp-badge-in-progress'>In Progress</span>",
+        TaskPilot.Models.Enums.TaskStatus.Blocked      => "<span class='tp-badge tp-badge-blocked'>Blocked</span>",
+        TaskPilot.Models.Enums.TaskStatus.Completed    => "<span class='tp-badge tp-badge-completed'>Completed</span>",
+        TaskPilot.Models.Enums.TaskStatus.Cancelled    => "<span class='tp-badge tp-badge-cancelled'>Cancelled</span>",
+        _ => s.ToString()
+    };
+    string PriorityBadge(TaskPilot.Models.Enums.TaskPriority p) => p switch {
+        TaskPilot.Models.Enums.TaskPriority.Critical => "<span class='tp-badge tp-badge-critical'>Critical</span>",
+        TaskPilot.Models.Enums.TaskPriority.High     => "<span class='tp-badge tp-badge-high'>High</span>",
+        TaskPilot.Models.Enums.TaskPriority.Medium   => "<span class='tp-badge tp-badge-medium'>Medium</span>",
+        TaskPilot.Models.Enums.TaskPriority.Low      => "<span class='tp-badge tp-badge-low'>Low</span>",
+        _ => p.ToString()
+    };
+}
+
+@section Scripts {
+<script>
+// Open new task modal if ?action=new
+if (new URLSearchParams(location.search).get('action') === 'new') {
+    new bootstrap.Modal(document.getElementById('taskModal')).show();
+    history.replaceState({}, '', '/tasks');
+}
+</script>
+}

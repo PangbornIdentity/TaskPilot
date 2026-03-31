@@ -21,8 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\TaskPilot.Server\TaskPilot.Server.csproj" />
-    <ProjectReference Include="..\..\src\TaskPilot.Shared\TaskPilot.Shared.csproj" />
+    <ProjectReference Include="..\..\src\TaskPilot.csproj" />
   </ItemGroup>
 
 </Project>

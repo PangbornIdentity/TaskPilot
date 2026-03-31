@@ -7,6 +7,184 @@
 
 ---
 
+## 2026-03-27 — Azure Deployment Readiness
+
+### Architecture | Azure SQL provider, EF Core migrations, and production configuration
+- Added `Microsoft.EntityFrameworkCore.SqlServer` (v10.0.5) — Azure SQL provider for production
+- Added `DesignTimeDbContextFactory` — forces SQL Server provider during `dotnet ef migrations add` so generated migrations use Azure SQL-compatible types (`uniqueidentifier`, `nvarchar`, `datetime2`)
+- Generated `InitialCreate` SQL Server migration (`src/Migrations/20260331125530_InitialCreate.cs`) — full schema including all tables, Identity, and indexes
+- `Program.cs` startup schema management: `EnsureCreatedAsync` (Development/SQLite), `MigrateAsync` (Production/Azure SQL)
+- Added `appsettings.Production.json` — placeholder Azure SQL connection string, Console-only Serilog (no file sink, App Service filesystem is ephemeral), reduced EF Core log verbosity
+- Integration tests unaffected — `WebAppFactory` always forces SQLite + Development environment, bypassing `MigrateAsync`
+- **Docs updated**: ARCHITECTURE.md §7 (Azure Migration Map — database and logging rows marked implemented), §9 (package list updated with SQL Server entry)
+- Files affected: `src/TaskPilot.csproj`, `src/Data/DesignTimeDbContextFactory.cs`, `src/Migrations/20260331125530_InitialCreate.cs`, `src/Extensions/ServiceCollectionExtensions.cs`, `src/Program.cs`, `src/appsettings.Production.json`, `ARCHITECTURE.md`
+
+---
+
+## 2026-03-27 — Changelog Feature
+
+### Feature | In-app changelog page with version history and left-nav entry
+- New `/changelog` page shows all versions newest-first with major/minor distinction and change type badges (Feature, Fix, Improvement, Security)
+- `app-changelog.json` in project root — no DB, Azure-safe, read once at startup by a singleton `ChangelogService`
+- Left sidebar shows "What's new" link with a version pill badge (`v1.2`) above the footer
+- Version numbering: `MAJOR.MINOR` — major versions highlighted with purple left-border
+- `ChangelogService` accepts JSON content string — fully testable without filesystem mocks
+- **Tests**: 10 unit (`ChangelogServiceTests`), 4 integration (`ChangelogPageTests`), 6 E2E (`ChangelogTests`) — 86 unit, 55 integration, 34 E2E, all passing
+- Files affected: `src/app-changelog.json`, `src/Models/Changelog/ChangelogModels.cs`, `src/Services/Interfaces/IChangelogService.cs`, `src/Services/ChangelogService.cs`, `src/Extensions/ServiceCollectionExtensions.cs`, `src/Program.cs`, `src/Pages/Changelog/Index.cshtml(.cs)`, `src/Pages/Shared/_Layout.cshtml`, `src/wwwroot/css/app.css`
+
+---
+
+## 2026-03-27 — Activity Log CRUD Tests Added
+
+### Test | Unit and integration tests updated and passing for full CRUD activity logging
+- **Unit** (76 passing, +5): `CreateTaskAsync_WritesCreatedActivityLog`, `DeleteTaskAsync_WritesDeletedActivityLog`, `CompleteTaskAsync_LogsCorrectOldStatus`, `PatchTaskAsync_WritesPerFieldActivityLogs`, `PatchTaskAsync_UnchangedFields_DoNotProduceActivityLogs`; fixed `DeleteTaskAsync` mock from `GetByIdAsync` → `GetByIdWithTagsAsync`
+- **Integration** (51 passing, +2): `GetActivityLogs_AfterTaskCreate_ContainsCreatedLog`, `GetActivityLogs_AfterTaskDelete_DeletedLogStillVisible`
+- Files affected: `tests/TaskPilot.Tests.Unit/Services/TaskServiceTests.cs`, `tests/TaskPilot.Tests.Integration/ActivityLogs/ActivityLogApiTests.cs`, `TEST-CASES.md`
+
+---
+
+## 2026-03-27 — Activity Log Full CRUD Coverage
+
+### Fix | Activity log now records all CRUD operations, not just field updates
+- **Create**: new `"Created"` log entry written when a task is created (NewValue = task title)
+- **Delete**: new `"Deleted"` log entry written before soft-delete (OldValue = task title); repository now uses `IgnoreQueryFilters()` on the Tasks join so logs for deleted tasks remain visible in the audit trail
+- **Complete**: fixed bug where `OldValue` was read after `task.Status` was already set to `Completed`, causing it to log `Completed → Completed`; status is now captured before mutation
+- **Patch**: replaced single generic `"patch"` log entry with per-field change entries matching `UpdateTask` behavior
+- Files affected: `src/Services/TaskService.cs`, `src/Repositories/ActivityLogRepository.cs`
+
+---
+
+## 2026-03-26 — E2E Test Coverage for Activity Log UI
+
+### Test | Added E2E tests covering Change History and Task History tab with data
+- `TaskDetail_AfterEdit_ShowsChangeHistory` — creates a task, edits it via the detail form, verifies "Change History" section renders
+- `AuditPage_TaskHistoryTab_AfterTaskEdit_ShowsLog` — creates and edits a task then verifies the Task History tab on `/audit` shows log entries
+- Files affected: `tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs`, `tests/TaskPilot.Tests.E2E/Audit/AuditTests.cs`, `TEST-CASES.md`
+
+---
+
+## 2026-03-27 — Unified Audit Area + Activity Log API
+
+### Feature | Combined task history and API access into a single tabbed audit area
+- **New `GET /api/v1/activity-logs`** read-only endpoint — paginated, filterable by taskId, from, to, fieldChanged, changedBy
+- **`/audit` page** redesigned with Bootstrap nav-tabs: "Task History" (default) + "API Access"
+  - Task History tab: shows all task field changes across all tasks, filterable, links to task detail
+  - API Access tab: existing API key request log (moved into tab)
+- **Task detail page** (`/tasks/{id}`) now shows a "Change History" table at the bottom with full per-task log
+- **New service/repo layer**: `IActivityLogService` + `ActivityLogService`, `IActivityLogRepository` + `ActivityLogRepository`
+- **New tests**: `ActivityLogServiceTests.cs` (6 unit), `ActivityLogApiTests.cs` (6 integration), updated `AuditTests.cs` E2E (5 tests)
+- Files affected: `src/Models/Audit/ActivityLogModels.cs`, `src/Repositories/Interfaces/IActivityLogRepository.cs`, `src/Repositories/ActivityLogRepository.cs`, `src/Services/Interfaces/IActivityLogService.cs`, `src/Services/ActivityLogService.cs`, `src/Controllers/ActivityLogController.cs`, `src/Extensions/ServiceCollectionExtensions.cs`, `src/Pages/Audit/Index.cshtml`, `src/Pages/Audit/Index.cshtml.cs`, `src/Pages/Tasks/Detail.cshtml`, `src/Pages/Tasks/Detail.cshtml.cs`
+
+---
+
+## 2026-03-26 — Test Coverage Expansion
+
+### Test | Added missing unit and integration tests to fill pyramid gaps
+- Added `AuditServiceTests.cs` (5 tests) — mocks `IAuditLogRepository`, verifies mapping/delegation
+- Added `StatsServiceTests.cs` (9 tests) — uses EF Core InMemory, covers all count aggregations + groupings
+- Added `UpdateTaskRequestValidatorTests.cs` (10 tests) — mirrors `CreateTaskRequestValidator` coverage
+- Added `AuditApiTests.cs` (6 integration tests) — covers GET `/api/v1/audit` and GET `/api/v1/audit/summary`
+- **Test pyramid totals:** Unit: 65 | Integration: 43 | E2E: 26 = **134 total tests**
+- Files affected: `tests/TaskPilot.Tests.Unit/Services/AuditServiceTests.cs`, `tests/TaskPilot.Tests.Unit/Services/StatsServiceTests.cs`, `tests/TaskPilot.Tests.Unit/Validators/UpdateTaskRequestValidatorTests.cs`, `tests/TaskPilot.Tests.Integration/Audit/AuditApiTests.cs`
+
+---
+
+## 2026-03-26 — Folder Restructure & Namespace Rename
+
+### Refactor | Restructured project layout and renamed all namespaces
+- Moved project from `src/TaskPilot.Server/` directly into `src/`; renamed `TaskPilot.Server.csproj` → `TaskPilot.csproj`
+- Renamed `DTOs/` → `Models/` (preserving ApiKeys, Audit, Common, Stats, Tags, Tasks subfolders)
+- Moved `Enums/` → `Models/Enums/`, `Validators/` → `Models/Validators/`
+- Merged `Auth/` files into `Extensions/` (no separate Auth folder)
+- Namespace changes throughout all `.cs` and `.cshtml` files:
+  - `TaskPilot.Server.Auth` → `TaskPilot.Extensions`
+  - `TaskPilot.Server` → `TaskPilot`
+  - `TaskPilot.Shared.DTOs.*` → `TaskPilot.Models.*`
+  - `TaskPilot.Shared.Enums` → `TaskPilot.Models.Enums`
+  - `TaskPilot.Shared.Constants` → `TaskPilot.Constants`
+  - `TaskPilot.Shared.Validators` → `TaskPilot.Models.Validators`
+- Updated `TaskPilot.slnx`, `TaskPilot.Tests.Unit.csproj`, and `TaskPilot.Tests.Integration.csproj` project references
+- Added `using TaskStatus = TaskPilot.Models.Enums.TaskStatus` alias in files where ambiguity with `System.Threading.Tasks.TaskStatus` arose
+- Build verified: 0 errors, 0 warnings across all 4 projects
+- **Files affected:** All `.cs` and `.cshtml` files under `src/` and `tests/`; `TaskPilot.slnx`; `tests/TaskPilot.Tests.Unit/TaskPilot.Tests.Unit.csproj`; `tests/TaskPilot.Tests.Integration/TaskPilot.Tests.Integration.csproj`
+
+---
+
+## 2026-03-26 — Documentation & Project Cleanup (Post-MVC Pivot)
+
+### Docs | Updated DESIGN-SYSTEM.md for Bootstrap 5 + Bootstrap Icons
+- Section 7 (Iconography): Replaced Phosphor Icons / Blazor implementation with Bootstrap Icons CDN; updated icon name mapping table
+- Section 9 (UI Component Library): Replaced MudBlazor decision with Bootstrap 5 + HTMX + ApexCharts (all CDN); added comparison table and CDN snippet
+- **Files:** `DESIGN-SYSTEM.md`
+
+### Docs | Updated ARCHITECTURE.md for Razor Pages structure
+- Section 1 (Solution Structure): Replaced `TaskPilot.Client/` subtree with `Pages/` Razor Pages subtree; removed bUnit test folder from unit test tree
+- Section 4.1: "Blazor UI" → "Razor Pages web UI"
+- Section 4.7 (CORS): Updated code sample to match actual `SetIsOriginAllowed` implementation
+- Section 7 (Azure Migration): Updated Static Files and CORS rows; updated WebSockets note
+- Section 9 (Package Decisions): Replaced ApexCharts.Blazor and MudBlazor sections with CDN-based stack; removed `TaskPilot.Client` and bUnit/MudBlazor from package lists
+- **Files:** `ARCHITECTURE.md`
+
+### Docs | Updated REQUIREMENTS.md iteration 2 plan
+- Changed "Azure App Service (hosted Blazor WASM)" → "Azure App Service (ASP.NET Core Razor Pages + API)"
+- **Files:** `REQUIREMENTS.md`
+
+### Docs | Updated TEST-CASES.md for Razor Pages
+- Section 4: Replaced bUnit component tests with a note that page model logic is covered by integration + E2E tests
+- Section 12 (Playwright E2E): Replaced speculative test cases with the 23 actual implemented tests across Auth, Dashboard, Tasks, Settings, Audit test files
+- **Files:** `TEST-CASES.md`
+
+### Refactor | Deleted orphaned Blazor WASM project and tests
+- Deleted `src/TaskPilot.Client/` (entire Blazor WASM project — App.razor, Pages, Components, Services, wwwroot)
+- Deleted `tests/TaskPilot.Tests.Unit/Components/TaskSlideOverTests.cs` (bUnit test for removed Blazor component)
+- Removed `bunit`, `MudBlazor`, and `TaskPilot.Client` references from `TaskPilot.Tests.Unit.csproj`
+- **Files:** `tests/TaskPilot.Tests.Unit/TaskPilot.Tests.Unit.csproj`
+
+---
+
+## 2026-03-26 — Architectural Pivot: Blazor WebAssembly → Razor Pages MVC
+
+### Architecture | Replaced Blazor WebAssembly frontend with ASP.NET Core Razor Pages
+- Removed `TaskPilot.Client` (Blazor WASM) project from solution; `TaskPilot.Server` now serves both API and UI
+- Blazor WASM caused E2E test failures: fingerprinted `_framework/` URLs (404), CORS blocking ES module loads, `document.currentScript` null in module context, MudBlazor shadow DOM selectors, 40+ minute test runs with 1/24 passing
+- Razor Pages delivers server-rendered HTML — Playwright tests run in ~28 seconds, all 23 pass
+- **Files affected:** `TaskPilot.slnx`, `src/TaskPilot.Server/TaskPilot.Server.csproj`
+
+### Feature | Built complete Razor Pages frontend (13 page pairs)
+- **Auth:** `Pages/Auth/Login.cshtml`, `Register.cshtml`, `Logout.cshtml` — cookie auth, `[AllowAnonymous]`, `_LoginLayout`
+- **Dashboard:** `Pages/Index.cshtml` — 5 summary cards, ApexCharts (weekly bar + priority donut), quick-add form, recent tasks table
+- **Tasks:** `Pages/Tasks/Index.cshtml` — list/board toggle, HTMX search, status/priority filters, New Task modal; `Pages/Tasks/Detail.cshtml` — full edit, complete, delete
+- **Settings:** `Pages/Settings/Index.cshtml` — API key management (generate/activate/deactivate/revoke), change password, appearance section
+- **Audit:** `Pages/Audit/Index.cshtml` — 4 summary cards, filterable audit log table
+- **Shared:** `Pages/Shared/_Layout.cshtml` (sidebar nav, toast notifications), `Pages/Shared/_LoginLayout.cshtml`
+- **Files:** All `src/TaskPilot.Server/Pages/**/*.cshtml` and `*.cshtml.cs`
+
+### Design | Custom CSS design system with Bootstrap 5 + HTMX + ApexCharts (CDN)
+- CSS variables: `--tp-purple: #6255EC`, sidebar, stats grid, kanban, badges, auth, settings, audit
+- No npm/build pipeline — all dependencies via CDN; Bootstrap Icons for iconography
+- **Files:** `src/TaskPilot.Server/wwwroot/css/app.css`, `Pages/Shared/_Layout.cshtml`
+
+### Architecture | Updated Program.cs and ServiceCollectionExtensions for Razor Pages
+- Added `AddRazorPages()` with authorize-all convention, `AllowAnonymousToPage` for auth/error
+- `ConfigureApplicationCookie()`: `/auth/login` redirect for web, 401 for `/api` paths
+- CORS updated: `SetIsOriginAllowed(origin => uri.Host == "localhost")` for local dev
+- Same-process service injection in PageModels (no HTTP overhead, API controllers remain for LLM clients)
+- **Files:** `src/TaskPilot.Server/Program.cs`, `src/TaskPilot.Server/Extensions/ServiceCollectionExtensions.cs`
+
+### Test | Updated all 23 E2E Playwright tests for Razor Pages selectors
+- Updated `PlaywrightFixture.cs`: navigates to `/auth/register`, waits for `input[type='email']`
+- All test files updated: Auth (5), Dashboard (5), Tasks (7), Settings (4), Audit (2)
+- Fixed `Guid.NewGuid().ToString("N")[..8]` slice syntax in all test files
+- **Files:** `tests/TaskPilot.Tests.E2E/**/*.cs`
+
+### Fix | Resolved multiple C# compilation issues in Razor Pages
+- `using TaskStatus = TaskPilot.Shared.Enums.TaskStatus;` alias to resolve ambiguity with `System.Threading.Tasks.TaskStatus`
+- Renamed `AuditIndexModel.Page` → `CurrentPage` (conflicts with `PageModel.Page()` method)
+- All DTOs use positional record constructor syntax (no object initializers)
+- Removed `ResultAnalysis` from `UpdateTaskRequest` (belongs to `CompleteTaskRequest` only)
+
+---
+
 ## 2026-03-26 — Phase 5: Polish + README + Git Init
 
 ### Docs | Created README.md

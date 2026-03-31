@@ -1,0 +1,13 @@
+﻿@page "/error"
+@model TaskPilot.Pages.ErrorModel
+@{
+    Layout = null;
+    ViewData["Title"] = "Error";
+}
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>Error</title></head>
+<body style="font-family:sans-serif;text-align:center;padding:60px">
+    <h1>Something went wrong</h1>
+    <p>@Model.ErrorMessage</p>
+    <a href="/">Go to Dashboard</a>
+</body></html>

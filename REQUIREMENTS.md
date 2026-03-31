@@ -39,7 +39,7 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 - **NOT included**: Rate limiting (will be added in iteration 2)
 
 ### Iteration 2 (future)
-- Azure App Service (hosted Blazor WASM)
+- Azure App Service (ASP.NET Core Razor Pages + API)
 - Azure SQL Database or PostgreSQL Flexible Server
 - Azure Key Vault for secrets
 - Application Insights for monitoring

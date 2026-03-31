@@ -1,0 +1,45 @@
+{
+  "versions": [
+    {
+      "version": "1.2",
+      "releaseDate": "2026-03-27",
+      "versionType": "minor",
+      "summary": "Full CRUD activity logging",
+      "changes": [
+        { "type": "Fix", "description": "Activity log now records task creation ('Created' entry)" },
+        { "type": "Fix", "description": "Activity log records task deletion — visible even after soft-delete" },
+        { "type": "Fix", "description": "Complete task log no longer incorrectly shows Completed → Completed" },
+        { "type": "Fix", "description": "Patch endpoint now logs individual field changes instead of a generic 'patch' entry" }
+      ]
+    },
+    {
+      "version": "1.1",
+      "releaseDate": "2026-03-27",
+      "versionType": "minor",
+      "summary": "Unified Audit area and Activity Log API",
+      "changes": [
+        { "type": "Feature", "description": "New GET /api/v1/activity-logs endpoint — paginated, filterable task history" },
+        { "type": "Feature", "description": "Audit page redesigned with two tabs: Task History and API Access" },
+        { "type": "Feature", "description": "Task detail page shows a Change History table with per-field edits" },
+        { "type": "Improvement", "description": "Activity log filters by task, field, date range, and changed-by" }
+      ]
+    },
+    {
+      "version": "1.0",
+      "releaseDate": "2026-03-01",
+      "versionType": "major",
+      "summary": "Initial release",
+      "changes": [
+        { "type": "Feature", "description": "Task management: create, edit, complete, delete with soft-delete" },
+        { "type": "Feature", "description": "Dashboard with live stats: active, overdue, in-progress, blocked, by type and priority" },
+        { "type": "Feature", "description": "Kanban board view and list view with search and filters" },
+        { "type": "Feature", "description": "Tags with colour coding" },
+        { "type": "Feature", "description": "Recurring tasks with daily, weekly, and monthly patterns" },
+        { "type": "Feature", "description": "API key management with HMAC-SHA256 hashing" },
+        { "type": "Feature", "description": "API audit log: every API key request is recorded" },
+        { "type": "Feature", "description": "Settings page: profile, password, appearance, API keys" },
+        { "type": "Feature", "description": "Cookie auth for web UI, X-Api-Key header for REST API" }
+      ]
+    }
+  ]
+}

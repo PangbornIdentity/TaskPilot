@@ -1,0 +1,31 @@
+﻿@page "/auth/register"
+@model TaskPilot.Pages.Auth.RegisterModel
+@{
+    Layout = "_LoginLayout";
+    ViewData["Title"] = "Create Account";
+}
+
+<h5 class="fw-bold mb-4 text-center">Create your account</h5>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger py-2">@Model.ErrorMessage</div>
+}
+
+<form method="post">
+    <div class="mb-3">
+        <label class="form-label" for="email">Email</label>
+        <input type="email" class="form-control" id="email" name="Email"
+               value="@Model.Email" placeholder="you@example.com" required autofocus />
+    </div>
+    <div class="mb-4">
+        <label class="form-label" for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="Password"
+               placeholder="Min 8 characters, include a number" required />
+    </div>
+    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Create account</button>
+</form>
+
+<div class="tp-auth-footer mt-3">
+    Already have an account? <a href="/auth/login">Sign in</a>
+</div>

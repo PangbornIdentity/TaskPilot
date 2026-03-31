@@ -1,0 +1,127 @@
+﻿@page "/settings"
+@model TaskPilot.Pages.Settings.SettingsIndexModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<div class="tp-page-header">
+    <h1 class="tp-page-title">Settings</h1>
+</div>
+
+<!-- API Keys -->
+<div class="tp-settings-section">
+    <h2 class="tp-settings-section-title">
+        <i class="bi bi-key"></i> API Keys
+    </h2>
+    <div class="tp-settings-body">
+        <p class="text-muted small mb-3">
+            API keys allow LLM clients and automation tools to access your TaskPilot data.
+            Keys are shown only once at creation.
+        </p>
+
+        @if (Model.NewKey != null)
+        {
+            <div class="tp-new-key-display mb-4">
+                <i class="bi bi-check-circle text-success fs-4"></i>
+                <div class="flex-grow-1">
+                    <div class="fw-semibold mb-1 text-success">New API key created — copy it now!</div>
+                    <div class="tp-new-key-value" id="newKeyValue">@Model.NewKey.PlainTextKey</div>
+                </div>
+                <button class="btn btn-sm btn-outline-success"
+                        onclick="navigator.clipboard.writeText('@Model.NewKey.PlainTextKey');this.textContent='Copied!'">
+                    Copy
+                </button>
+            </div>
+        }
+
+        <!-- Existing keys -->
+        @if (Model.ApiKeys.Count == 0)
+        {
+            <p class="text-muted small">No API keys yet.</p>
+        }
+        @foreach (var key in Model.ApiKeys)
+        {
+            <div class="tp-apikey-row">
+                <div class="tp-apikey-info">
+                    <div class="tp-apikey-name">@key.Name</div>
+                    <div class="tp-apikey-meta">
+                        <span class="tp-apikey-prefix">@key.KeyPrefix…</span>
+                        &nbsp;·&nbsp;
+                        Created @key.CreatedDate.ToString("MMM d, yyyy")
+                        @if (key.LastUsedDate.HasValue)
+                        {
+                            <span> · Last used @key.LastUsedDate.Value.ToString("MMM d")</span>
+                        }
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    @if (key.IsActive)
+                    {
+                        <form method="post" asp-page-handler="Deactivate">
+                            <input type="hidden" name="keyId" value="@key.Id" />
+                            <button class="btn btn-sm btn-outline-warning">Deactivate</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Inactive</span>
+                        <form method="post" asp-page-handler="Activate">
+                            <input type="hidden" name="keyId" value="@key.Id" />
+                            <button class="btn btn-sm btn-outline-success">Activate</button>
+                        </form>
+                    }
+                    <form method="post" asp-page-handler="DeleteKey"
+                          onsubmit="return confirm('Revoke this API key?')">
+                        <input type="hidden" name="keyId" value="@key.Id" />
+                        <button class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <!-- Generate new key -->
+        <form method="post" asp-page-handler="Generate" class="d-flex gap-2 mt-4">
+            <input type="text" class="form-control" name="keyName"
+                   placeholder="Key name (e.g. My LLM Client)" required style="max-width:300px" />
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Generate Key
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Appearance -->
+<div class="tp-settings-section">
+    <h2 class="tp-settings-section-title">
+        <i class="bi bi-palette"></i> Appearance
+    </h2>
+    <div class="tp-settings-body">
+        <p class="text-muted small">Dark mode and theme preferences coming soon.</p>
+    </div>
+</div>
+
+<!-- Change Password -->
+<div class="tp-settings-section">
+    <h2 class="tp-settings-section-title">
+        <i class="bi bi-shield-lock"></i> Password
+    </h2>
+    <div class="tp-settings-body">
+        @if (!string.IsNullOrEmpty(Model.PasswordError))
+        {
+            <div class="alert alert-danger py-2">@Model.PasswordError</div>
+        }
+        <form method="post" asp-page-handler="ChangePassword" style="max-width:400px">
+            <div class="mb-3">
+                <label class="form-label">Current Password</label>
+                <input type="password" class="form-control" name="currentPassword" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">New Password</label>
+                <input type="password" class="form-control" name="newPassword" required />
+            </div>
+            <button type="submit" class="btn btn-primary">Update Password</button>
+        </form>
+    </div>
+</div>

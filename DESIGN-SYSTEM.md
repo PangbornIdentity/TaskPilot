@@ -289,59 +289,57 @@ When `prefers-reduced-motion: reduce`:
 
 ## 7. Iconography
 
-### Decision: Phosphor Icons
+### Decision: Bootstrap Icons
 
 **Rationale:**
-- Multiple weight variants (Thin, Light, Regular, Bold, Fill, Duotone) give layout flexibility — use `Regular` for most UI, `Bold` for primary actions, `Fill` for active/selected states
-- 1,248 icons covering every UI pattern needed (task management, navigation, settings, file operations)
-- Available as individual SVGs or a web font — both work in Blazor
-- More distinctive and modern than Lucide (which feels dated) and Heroicons (which feels utilitarian)
-- Consistent visual style without mixed metaphors
+- Designed specifically to complement Bootstrap 5 — consistent stroke weight and optical sizing
+- 2,000+ icons covering every UI pattern needed (task management, navigation, settings, file operations)
+- Loaded via CDN (`bootstrap-icons` CSS) — no build step, no npm
+- Single weight style keeps visual consistency across the UI
+- Zero configuration — just add `<i class="bi bi-icon-name"></i>`
 
-**Implementation in Blazor**: Use the [Phosphor Blazor](https://github.com/phosphor-icons/phosphor-blazor) component library or embed SVGs directly as Blazor components.
+**Implementation:** CDN link in `_Layout.cshtml`:
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+```
 
 **Size scale:**
-| Size | Pixels | Usage |
-|------|--------|-------|
-| `icon-xs` | 12px | Badge icons, inline with caption text |
-| `icon-sm` | 16px | Compact UI, button icons (sm button) |
-| `icon-md` | 20px | Default size — most UI contexts |
-| `icon-lg` | 24px | Navigation, prominent actions |
-| `icon-xl` | 32px | Empty state illustrations |
-| `icon-2xl` | 48px | Hero empty state icons |
+| Size | CSS | Pixels | Usage |
+|------|-----|--------|-------|
+| `icon-xs` | `fs-6` | ~12px | Badge icons, inline with caption text |
+| `icon-sm` | `fs-5` | ~16px | Compact UI, button icons (sm button) |
+| `icon-md` | `fs-4` | ~20px | Default size — most UI contexts |
+| `icon-lg` | `fs-3` | ~24px | Navigation, prominent actions |
+| `icon-xl` | `fs-2` | ~32px | Empty state illustrations |
+| `icon-2xl` | `fs-1` | ~48px | Hero empty state icons |
 
 **Key icon assignments:**
-| UI Element | Icon | Weight |
-|------------|------|--------|
-| New task | `Plus` | Bold |
-| Edit task | `PencilSimple` | Regular |
-| Delete/Trash | `Trash` | Regular |
-| Complete/Check | `CheckCircle` | Fill (active), Regular (idle) |
-| Search | `MagnifyingGlass` | Regular |
-| Filter | `Funnel` | Regular |
-| Sort | `SortAscending` | Regular |
-| Drag handle | `DotsSixVertical` | Regular |
-| Close/X | `X` | Regular |
-| Settings | `Gear` | Regular |
-| API/Key | `Key` | Regular |
-| Audit/Log | `ClipboardText` | Regular |
-| Dashboard | `SquaresFour` | Regular |
-| Tasks | `CheckSquare` | Regular |
-| Tag | `Tag` | Regular |
-| Calendar | `Calendar` | Regular |
-| Recurring | `ArrowsClockwise` | Regular |
-| Priority Critical | `Warning` | Fill |
-| Kebab menu | `DotsThreeVertical` | Regular |
-| Collapse | `CaretDown` | Regular |
-| Board view | `Columns` | Regular |
-| List view | `ListBullets` | Regular |
-| Copy | `Copy` | Regular |
-| Export | `Export` | Regular |
-| Dark mode | `Moon` | Fill |
-| Light mode | `Sun` | Fill |
-| System mode | `Desktop` | Regular |
-| Keyboard | `Keyboard` | Regular |
-| Undo | `ArrowCounterClockwise` | Regular |
+| UI Element | Bootstrap Icon class |
+|------------|----------------------|
+| New task | `bi-plus-lg` |
+| Edit task | `bi-pencil` |
+| Delete/Trash | `bi-trash` |
+| Complete/Check | `bi-check-circle-fill` (active), `bi-check-circle` (idle) |
+| Search | `bi-search` |
+| Filter | `bi-funnel` |
+| Sort | `bi-sort-down` |
+| Close/X | `bi-x-lg` |
+| Settings | `bi-gear` |
+| API/Key | `bi-key` |
+| Audit/Log | `bi-clipboard-check` |
+| Dashboard | `bi-speedometer2` |
+| Tasks | `bi-check2-square` |
+| Tag | `bi-tag` |
+| Calendar | `bi-calendar` |
+| Recurring | `bi-arrow-repeat` |
+| Priority Critical | `bi-exclamation-triangle-fill` |
+| Board view | `bi-kanban` |
+| List view | `bi-list-ul` |
+| Copy | `bi-clipboard` |
+| Dark mode | `bi-moon-fill` |
+| Light mode | `bi-sun-fill` |
+| Logout | `bi-box-arrow-right` |
+| Undo | `bi-arrow-counterclockwise` |
 
 ---
 
@@ -463,36 +461,50 @@ Cell padding: 0 16px. Border-bottom: 1px solid `--color-border-subtle`.
 
 ## 9. UI Component Library Decision
 
-**Decision: MudBlazor**
+**Decision: Bootstrap 5 + HTMX + ApexCharts (all CDN)**
 
-MudBlazor is the recommended component library for TaskPilot.
+TaskPilot uses server-rendered Razor Pages with Bootstrap 5 for layout and components, HTMX for lightweight interactivity, and ApexCharts for data visualisation. No npm, no build pipeline — all loaded from CDN in `_Layout.cshtml`.
 
-**Why MudBlazor over alternatives:**
+**Why this stack:**
 
-| Criterion | MudBlazor | Radzen Blazor | Custom Tailwind |
-|-----------|-----------|---------------|-----------------|
-| Component completeness | ★★★★★ | ★★★★ | ★★★ (build time) |
-| Design customization | ★★★★ (CSS vars) | ★★★ (limited) | ★★★★★ |
-| Accessibility (ARIA) | ★★★★ | ★★★ | Depends on impl |
-| Bundle size | ~850KB | ~600KB | ~200KB (Tailwind purged) |
-| Needed components | All available | All available | Must build |
-| Documentation | Excellent | Good | N/A |
+| Criterion | Bootstrap 5 + HTMX | MudBlazor (previous) | Custom CSS only |
+|-----------|-------------------|----------------------|-----------------|
+| Playwright testability | ★★★★★ (standard HTML) | ★★★ (shadow DOM issues) | ★★★★★ |
+| Page load / test speed | ★★★★★ (~28s E2E suite) | ★★ (WASM cold start) | ★★★★★ |
+| Component completeness | ★★★★ (modals, tables, forms) | ★★★★★ | ★★★ |
+| CDN / zero build | ★★★★★ | ✗ (NuGet only) | ★★★★★ |
+| Accessibility (ARIA) | ★★★★ (built-in) | ★★★★ | Depends on impl |
 
-**Why MudBlazor wins:** TaskPilot needs MudDrawer (slide-over), MudDataGrid (audit table + task table), MudSelect (multi-tag dropdown), MudDatePicker, MudDialog, MudBadge, MudChip, MudTooltip — all production-quality in MudBlazor. Building these from scratch in Tailwind would add weeks of work and risk accessibility gaps.
-
-**Theming approach:** Use `MudThemeProvider` with a custom `MudTheme` that maps the design system tokens to MudBlazor's palette properties. Override component CSS variables where MudBlazor's defaults differ from the design system.
-
-**CSS variable bridge example:**
-```css
-:root {
-  --mud-palette-primary: #6255EC;
-  --mud-palette-primary-darken: #4F44D5;
-  --mud-palette-primary-lighten: #9B90F8;
-  --mud-palette-background: #F8F8FB;
-  --mud-palette-surface: #FFFFFF;
-  /* etc. */
-}
+**CDN includes (in `_Layout.cshtml`):**
+```html
+<!-- Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<!-- Custom design tokens (wwwroot/css/app.css) -->
+<link rel="stylesheet" href="/css/app.css">
+<!-- ApexCharts -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- HTMX -->
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 ```
+
+**Theming approach:** CSS custom properties in `wwwroot/css/app.css` implement the design system tokens. Bootstrap utility classes handle spacing, grid, and typography. Component-specific styles (`.tp-stats-grid`, `.tp-kanban`, `.tp-sidebar`) are in `app.css`.
+
+**Key Bootstrap components used:**
+- `modal` — New Task dialog
+- `table table-hover` — Task list and Audit log tables
+- `btn` / `btn-primary` / `btn-outline-*` — All action buttons
+- `form-control` / `form-select` — All inputs and dropdowns
+- `badge` — Priority and status labels
+- `alert` — TempData toast notifications
+- `nav` / `navbar` — Sidebar navigation
+
+**HTMX usage (progressive enhancement):**
+- `hx-get` + `hx-trigger="keyup changed delay:400ms"` — Live search on task list
+- Server renders partial HTML fragments for HTMX responses
 
 ---
 

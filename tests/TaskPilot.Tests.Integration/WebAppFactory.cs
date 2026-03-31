@@ -1,9 +1,9 @@
-using Microsoft.AspNetCore.Hosting;
+﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using TaskPilot.Server.Data;
+using TaskPilot.Data;
 
 namespace TaskPilot.Tests.Integration;
 
@@ -17,12 +17,12 @@ public class TaskPilotWebAppFactory : WebApplicationFactory<Program>, IAsyncLife
 
         builder.ConfigureServices(services =>
         {
-            // Remove the real DbContext registration
+            // Remove the real DbContext registration (which may be SQL Server in non-dev environments)
             var descriptor = services.SingleOrDefault(
                 d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
             if (descriptor != null) services.Remove(descriptor);
 
-            // Use a unique SQLite file per factory instance
+            // Always use a unique SQLite file for integration tests — never Azure SQL
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlite($"Data Source={_dbPath}"));
         });

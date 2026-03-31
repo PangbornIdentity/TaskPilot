@@ -1,5 +1,5 @@
-using TaskPilot.Shared.DTOs.Tags;
-using TaskPilot.Shared.Validators;
+﻿using TaskPilot.Models.Tags;
+using TaskPilot.Models.Validators;
 
 namespace TaskPilot.Tests.Unit.Validators;
 

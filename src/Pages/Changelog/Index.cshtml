@@ -1,0 +1,56 @@
+@page "/changelog"
+@model TaskPilot.Pages.Changelog.ChangelogIndexModel
+@{
+    ViewData["Title"] = "Changelog";
+}
+
+<div class="tp-page-header">
+    <div>
+        <h1 class="tp-page-title"><i class="bi bi-journal-text me-2"></i>Changelog</h1>
+        <p class="text-muted mb-0">What's new in TaskPilot</p>
+    </div>
+</div>
+
+@if (!Model.Versions.Any())
+{
+    <div class="tp-empty">
+        <div class="tp-empty-icon"><i class="bi bi-journal-x"></i></div>
+        <div class="tp-empty-title">No changelog entries</div>
+    </div>
+}
+else
+{
+    <div class="tp-changelog">
+        @foreach (var version in Model.Versions)
+        {
+            <div class="tp-changelog-version @(version.IsMajor ? "tp-changelog-major" : "")">
+                <div class="tp-changelog-header">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="tp-version-badge @(version.IsMajor ? "tp-version-major" : "tp-version-minor")">
+                            v@(version.Version)
+                        </span>
+                        @if (version.IsMajor)
+                        {
+                            <span class="badge bg-primary">Major</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Minor</span>
+                        }
+                        <span class="fw-semibold">@version.Summary</span>
+                    </div>
+                    <span class="text-muted small">@(version.ReleaseDate.ToString("MMMM d, yyyy"))</span>
+                </div>
+                <ul class="tp-changelog-entries">
+                    @foreach (var change in version.Changes)
+                    {
+                        <li class="tp-changelog-entry">
+                            <span class="tp-change-badge tp-change-@(change.Type.ToLower())">@change.Type</span>
+                            @change.Description
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+}

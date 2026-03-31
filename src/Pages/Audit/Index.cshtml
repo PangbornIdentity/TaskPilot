@@ -1,0 +1,217 @@
+@page "/audit"
+@model TaskPilot.Pages.Audit.AuditIndexModel
+@{
+    ViewData["Title"] = "Audit";
+}
+
+<div class="tp-page-header">
+    <h1 class="tp-page-title">Audit</h1>
+</div>
+
+<!-- Tab navigation -->
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link @(Model.ActiveTab == "tasks" ? "active" : "")" href="/audit?tab=tasks">
+            <i class="bi bi-clock-history me-1"></i>Task History
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(Model.ActiveTab == "api" ? "active" : "")" href="/audit?tab=api">
+            <i class="bi bi-shield-lock me-1"></i>API Access
+        </a>
+    </li>
+</ul>
+
+@if (Model.ActiveTab == "tasks")
+{
+    <!-- Task History tab -->
+    <form method="get" action="/audit" class="tp-filters mb-4">
+        <input type="hidden" name="tab" value="tasks" />
+        <div class="tp-search">
+            <i class="bi bi-search tp-search-icon"></i>
+            <input type="text" name="field" placeholder="Field (Title, Status, Priority…)"
+                   value="@Model.FieldFilter" />
+        </div>
+        <div class="tp-search">
+            <i class="bi bi-person tp-search-icon"></i>
+            <input type="text" name="changedBy" placeholder="Changed by…"
+                   value="@Model.ChangedByFilter" />
+        </div>
+        <input type="date" class="form-control form-control-sm" name="from"
+               value="@Model.From?.ToString("yyyy-MM-dd")" style="width:auto" />
+        <span class="text-muted small">to</span>
+        <input type="date" class="form-control form-control-sm" name="to"
+               value="@Model.To?.ToString("yyyy-MM-dd")" style="width:auto" />
+        <button type="submit" class="btn btn-sm btn-outline-primary">Filter</button>
+        <a href="/audit?tab=tasks" class="btn btn-sm btn-outline-secondary">Clear</a>
+    </form>
+
+    <div class="tp-card">
+        @if (Model.ActivityLogs.Count == 0)
+        {
+            <div class="tp-empty">
+                <div class="tp-empty-icon"><i class="bi bi-clock-history"></i></div>
+                <div class="tp-empty-title">No task history</div>
+                <div class="tp-empty-text">Changes to tasks will appear here</div>
+            </div>
+        }
+        else
+        {
+            <table class="tp-table">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Task</th>
+                        <th>Field</th>
+                        <th>Old Value</th>
+                        <th>New Value</th>
+                        <th>Changed By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in Model.ActivityLogs)
+                    {
+                        <tr>
+                            <td class="small text-muted">@log.Timestamp.ToString("MMM d, yyyy HH:mm")</td>
+                            <td class="small">
+                                <a href="/tasks/@log.TaskId" class="text-decoration-none">@log.TaskTitle</a>
+                            </td>
+                            <td><span class="badge bg-secondary">@log.FieldChanged</span></td>
+                            <td class="small text-muted">@(log.OldValue ?? "—")</td>
+                            <td class="small">@(log.NewValue ?? "—")</td>
+                            <td class="small text-muted">@log.ChangedBy</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Model.ActivityTotalPages > 1)
+            {
+                <div class="d-flex justify-content-center p-3 gap-2">
+                    @if (Model.ActivityCurrentPage > 1)
+                    {
+                        <a href="?tab=tasks&activityPage=@(Model.ActivityCurrentPage - 1)&field=@Model.FieldFilter&changedBy=@Model.ChangedByFilter"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    }
+                    <span class="btn btn-sm disabled">@Model.ActivityCurrentPage / @Model.ActivityTotalPages</span>
+                    @if (Model.ActivityCurrentPage < Model.ActivityTotalPages)
+                    {
+                        <a href="?tab=tasks&activityPage=@(Model.ActivityCurrentPage + 1)&field=@Model.FieldFilter&changedBy=@Model.ChangedByFilter"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    }
+                </div>
+            }
+        }
+    </div>
+}
+else
+{
+    <!-- API Access tab -->
+    <div class="tp-stats-grid mb-4">
+        <div class="tp-stat-card accent">
+            <div class="tp-stat-label">Total Requests</div>
+            <div class="tp-stat-value">@Model.ApiSummary?.TotalRequests</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-label">GETs Today</div>
+            <div class="tp-stat-value">@Model.ApiSummary?.GetsToday</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-label">Writes Today</div>
+            <div class="tp-stat-value">@Model.ApiSummary?.WritesToday</div>
+        </div>
+        <div class="tp-stat-card">
+            <div class="tp-stat-label">Active API Keys</div>
+            <div class="tp-stat-value">@Model.ApiSummary?.ActiveApiKeys</div>
+        </div>
+    </div>
+
+    <form method="get" action="/audit" class="tp-filters mb-4">
+        <input type="hidden" name="tab" value="api" />
+        <div class="tp-search">
+            <i class="bi bi-search tp-search-icon"></i>
+            <input type="text" name="method" placeholder="Method (GET, POST…)"
+                   value="@Model.MethodFilter" />
+        </div>
+        <input type="date" class="form-control form-control-sm" name="from"
+               value="@Model.From?.ToString("yyyy-MM-dd")" style="width:auto" />
+        <span class="text-muted small">to</span>
+        <input type="date" class="form-control form-control-sm" name="to"
+               value="@Model.To?.ToString("yyyy-MM-dd")" style="width:auto" />
+        <button type="submit" class="btn btn-sm btn-outline-primary">Filter</button>
+        <a href="/audit?tab=api" class="btn btn-sm btn-outline-secondary">Clear</a>
+    </form>
+
+    <div class="tp-card">
+        @if (Model.ApiLogs.Count == 0)
+        {
+            <div class="tp-empty">
+                <div class="tp-empty-icon"><i class="bi bi-shield-check"></i></div>
+                <div class="tp-empty-title">No audit logs</div>
+                <div class="tp-empty-text">API key activity will appear here</div>
+            </div>
+        }
+        else
+        {
+            <table class="tp-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Key</th>
+                        <th>Method</th>
+                        <th>Endpoint</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in Model.ApiLogs)
+                    {
+                        <tr>
+                            <td class="small text-muted">@log.Timestamp.ToString("MMM d HH:mm:ss")</td>
+                            <td class="small">@log.ApiKeyName</td>
+                            <td>
+                                <span class="tp-audit-method @log.HttpMethod">@log.HttpMethod</span>
+                            </td>
+                            <td class="small text-muted"
+                                style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                @log.Endpoint
+                            </td>
+                            <td>
+                                <span class="badge @(log.ResponseStatusCode < 300 ? "bg-success" : log.ResponseStatusCode < 500 ? "bg-warning text-dark" : "bg-danger")">
+                                    @log.ResponseStatusCode
+                                </span>
+                            </td>
+                            <td class="small text-muted">@log.DurationMs ms</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Model.ApiTotalPages > 1)
+            {
+                <div class="d-flex justify-content-center p-3 gap-2">
+                    @if (Model.ApiCurrentPage > 1)
+                    {
+                        <a href="?tab=api&apiPage=@(Model.ApiCurrentPage - 1)&method=@Model.MethodFilter"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    }
+                    <span class="btn btn-sm disabled">@Model.ApiCurrentPage / @Model.ApiTotalPages</span>
+                    @if (Model.ApiCurrentPage < Model.ApiTotalPages)
+                    {
+                        <a href="?tab=api&apiPage=@(Model.ApiCurrentPage + 1)&method=@Model.MethodFilter"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    }
+                </div>
+            }
+        }
+    </div>
+}

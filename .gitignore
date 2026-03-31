@@ -65,3 +65,9 @@ Thumbs.db
 
 ## Serilog log files
 logs/
+
+## Azure deployment artifacts
+*.zip
+
+## Claude Code local settings
+.claude/settings.local.json

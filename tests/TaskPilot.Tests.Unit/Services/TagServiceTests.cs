@@ -1,8 +1,8 @@
-using Moq;
-using TaskPilot.Server.Entities;
-using TaskPilot.Server.Repositories.Interfaces;
-using TaskPilot.Server.Services;
-using TaskPilot.Shared.DTOs.Tags;
+﻿using Moq;
+using TaskPilot.Entities;
+using TaskPilot.Repositories.Interfaces;
+using TaskPilot.Services;
+using TaskPilot.Models.Tags;
 
 namespace TaskPilot.Tests.Unit.Services;
 
