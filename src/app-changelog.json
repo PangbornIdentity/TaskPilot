@@ -1,6 +1,17 @@
 {
   "versions": [
     {
+      "version": "1.3",
+      "releaseDate": "2026-04-01",
+      "versionType": "minor",
+      "summary": "Tags, Task Types, and Areas",
+      "changes": [
+        { "type": "Feature", "description": "Tags are now visible throughout the UI — add tags to tasks, filter by tag, and see top tags on the dashboard" },
+        { "type": "Feature", "description": "Task Type is now a dropdown (Task, Goal, Habit, Meeting, Note, Event) replacing the old free-form text field" },
+        { "type": "Feature", "description": "Area field (Personal / Work) added to every task — filter your list and see completion split on the dashboard" }
+      ]
+    },
+    {
       "version": "1.2",
       "releaseDate": "2026-03-27",
       "versionType": "minor",

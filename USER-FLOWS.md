@@ -335,6 +335,76 @@
 
 ---
 
+## Flow 13: Create a Task with Area, Type, and Tags
+
+**Trigger:** User wants to log a work meeting with specific tags.
+
+1. User clicks **"+ New Task"** (quick-add bar) or presses **N**
+2. Create slide-over opens. Area segmented control defaults to **Personal** (first segment active, `--color-primary-500` fill)
+3. User clicks the **Work** segment → Work becomes active, Personal becomes inactive. `Area = Work` will be sent on save.
+4. User clicks the **Type** dropdown → dropdown opens showing options: Task, Goal, Habit, Meeting, Note, Event
+5. User selects **"Meeting"** → dropdown closes, "Meeting" displayed as selected value
+6. User types title: "Quarterly client sync"
+7. User sets Priority and Target Date as needed (optional for this flow)
+8. User clicks **"+ Add tag"** in the Tags field → tag multi-select dropdown opens, anchored below the trigger
+9. Dropdown shows the search input and the user's existing tag list. User sees **"project-alpha"** in the list.
+10. User clicks **"project-alpha"** → row shows a `✓` check, pill `● project-alpha [×]` appears in the Tags field
+11. User types **"client-x"** in the dropdown search input → no existing tag matches → "Create 'client-x'" row appears at the bottom of the dropdown
+12. User clicks **"Create 'client-x'"** → inline colour picker row appears (8 swatches, Violet pre-selected)
+13. User clicks the **Blue** swatch → new tag "client-x" is created via `POST /api/v1/tags` with `color: Blue` → pill `● client-x [×]` appears in the Tags field alongside "project-alpha"
+14. User closes the dropdown (clicks outside or presses Escape)
+15. Tags field now shows: `● project-alpha [×]` `● client-x [×]` `┌ ─ + Add tag ─ ┐`
+16. User clicks **Save Task**
+17. **System:** `POST /api/v1/tasks` with `{ area: 1, taskTypeId: 4, tagIds: [<project-alpha-id>, <client-x-id>], ... }`
+18. Slide-over closes. Success toast: "Task created." (green, 5s)
+19. Task appears in the list with: **[Work]** area badge, **Meeting** type label, `● project-alpha` and `● client-x` tag pills
+
+**Edge cases:**
+- User creates a tag but network call fails → error toast: "Failed to create tag. Please try again." Dropdown remains open.
+- Typed text exactly matches an existing tag name → "Create" option NOT shown; existing tag is highlighted at top of list
+- Area control has both segments inactive state is not possible in the form (one is always selected; default is Personal)
+- Type field left at placeholder ("Select type…") → `taskTypeId` sent as `null`; task saved with no type assigned
+
+---
+
+## Flow 14: Filter Task List by Area, Type, and Tags
+
+**Trigger:** User wants to see only Work meetings tagged with a specific project.
+
+1. User navigates to **Task List** page — all tasks visible (mixed Personal and Work, all types, all tags)
+2. The Area segmented control at the top of the filter bar shows **both segments inactive** (no area filter applied)
+3. **System:** results count shows "Showing 24 tasks" (aria-live polite)
+4. User clicks **"Work"** on the Area segmented control → Work segment becomes active
+5. **System:** GET request to `/api/v1/tasks?area=1`. List updates to show Work tasks only. URL updates to `?area=1`. Results count updates: "Showing 14 tasks". Active filter chip `× Work` appears in the chip strip.
+6. User opens the **Type** filter dropdown → clicks **"Meeting"**
+7. **System:** GET request to `/api/v1/tasks?area=1&typeId=4`. List narrows to Work tasks of type Meeting. URL updates to `?area=1&typeId=4`. Active filter chip `× Meeting` appears. Results: "Showing 5 tasks".
+8. User opens the **Tags** filter dropdown → checks **"project-alpha"**
+9. **System:** GET request to `/api/v1/tasks?area=1&typeId=4&tags=<project-alpha-id>`. List narrows further. URL updates. Active filter chip `× project-alpha` appears. Results: "Showing 2 tasks".
+10. User wants to see all areas again — clicks **"Work"** segment (deactivates it; both segments become inactive)
+11. **System:** GET request to `/api/v1/tasks?typeId=4&tags=<project-alpha-id>` (area param removed). URL updates. Results: "Showing 3 tasks" (now includes matching Personal tasks too). `× Work` chip removed from chip strip.
+12. User clicks **"Clear all filters"** → all filters cleared, URL reverts to `/tasks`. Full task list restored: "Showing 24 tasks".
+
+**URL parameter mapping:**
+| Filter | URL param | Value |
+|--------|-----------|-------|
+| Area: Personal | `?area=0` | `Area.Personal = 0` |
+| Area: Work | `?area=1` | `Area.Work = 1` |
+| No area filter | (param absent) | both segments inactive |
+| Type | `?typeId={id}` | integer from `TaskType.Id` |
+| Tag(s) | `?tags={id1},{id2}` | comma-separated tag GUIDs |
+| Status | `?status={int}` | existing param |
+| Priority | `?priority={int}` | existing param |
+
+**Tag filter logic: AND.** When multiple tags are selected, only tasks that have ALL selected tags are returned. This matches the most common use case (users narrow down by project + category) and avoids showing too many unrelated results. A future iteration may add an OR toggle.
+
+**Edge cases:**
+- Navigating away and back: all active filters are preserved in the URL and re-applied on load
+- "Clear all filters" also resets the Area segmented control to both-segments-inactive
+- Selecting a tag in the filter while also having a Type filter: both apply simultaneously (AND logic across all filter dimensions)
+- If a filtered combination returns 0 results: empty state "No tasks match your filters" with [Clear All Filters] CTA shown; aria-live announces "Showing 0 tasks"
+
+---
+
 ## Interaction Pattern Specifications
 
 ### Slide-Over Panel

@@ -1,4 +1,4 @@
-﻿@page "/settings"
+@page "/settings"
 @model TaskPilot.Pages.Settings.SettingsIndexModel
 @{
     ViewData["Title"] = "Settings";
@@ -6,6 +6,71 @@
 
 <div class="tp-page-header">
     <h1 class="tp-page-title">Settings</h1>
+</div>
+
+<!-- Tags -->
+<div class="tp-settings-section">
+    <h2 class="tp-settings-section-title">
+        <i class="bi bi-tags"></i> Tags
+    </h2>
+    <div class="tp-settings-body">
+        <p class="text-muted small mb-3">
+            Tags help you categorise tasks. Create tags with a colour code and assign them when creating or editing tasks.
+        </p>
+
+        @if (!string.IsNullOrEmpty(TempData["Error"]?.ToString()))
+        {
+            <div class="alert alert-danger py-2">@TempData["Error"]</div>
+        }
+
+        @if (Model.Tags.Count == 0)
+        {
+            <p class="text-muted small">No tags yet. Create one below.</p>
+        }
+        else
+        {
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                @foreach (var tag in Model.Tags)
+                {
+                    <div class="d-flex align-items-center gap-1 border rounded px-2 py-1">
+                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:@tag.Color"></span>
+                        <span class="small fw-medium">@tag.Name</span>
+                        <form method="post" asp-page-handler="DeleteTag" class="ms-1"
+                              onsubmit="return confirm('Delete tag \'@tag.Name\'?')">
+                            <input type="hidden" name="tagId" value="@tag.Id" />
+                            <button class="btn btn-sm p-0 border-0 text-danger" style="line-height:1" title="Delete">
+                                <i class="bi bi-x-lg" style="font-size:11px"></i>
+                            </button>
+                        </form>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Create tag form -->
+        <form method="post" asp-page-handler="CreateTag" class="d-flex gap-2 align-items-end flex-wrap">
+            <div>
+                <label class="form-label small mb-1">Tag Name</label>
+                <input type="text" class="form-control form-control-sm" name="tagName"
+                       placeholder="e.g. Urgent" required style="width:180px" />
+            </div>
+            <div>
+                <label class="form-label small mb-1">Colour</label>
+                <div class="d-flex gap-1 align-items-center">
+                    @foreach (var color in new[] { "#7C3AED", "#2563EB", "#0D9488", "#16A34A", "#D97706", "#EA580C", "#E11D48", "#64748B" })
+                    {
+                        <label style="cursor:pointer" title="@color">
+                            <input type="radio" name="tagColor" value="@color" class="d-none tag-color-radio" />
+                            <span class="tag-color-swatch" style="display:inline-block;width:22px;height:22px;border-radius:50%;background:@color;border:2px solid transparent"></span>
+                        </label>
+                    }
+                </div>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Create Tag
+            </button>
+        </form>
+    </div>
 </div>
 
 <!-- API Keys -->
@@ -125,3 +190,24 @@
         </form>
     </div>
 </div>
+
+@section Scripts {
+<script>
+// Colour swatch selection
+document.querySelectorAll('.tag-color-radio').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        document.querySelectorAll('.tag-color-swatch').forEach(function(s) {
+            s.style.border = '2px solid transparent';
+        });
+        this.nextElementSibling.style.border = '2px solid #fff';
+        this.nextElementSibling.style.boxShadow = '0 0 0 2px ' + this.value;
+    });
+});
+// Select first colour by default
+var firstRadio = document.querySelector('.tag-color-radio');
+if (firstRadio) {
+    firstRadio.checked = true;
+    firstRadio.dispatchEvent(new Event('change'));
+}
+</script>
+}

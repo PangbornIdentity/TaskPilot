@@ -12,7 +12,8 @@ public class UpdateTaskRequestValidatorTests
     private static UpdateTaskRequest ValidRequest() => new(
         Title: "Valid Task",
         Description: null,
-        Type: "Work",
+        TaskTypeId: null,
+        Area: Area.Personal,
         Priority: TaskPriority.Medium,
         Status: TaskStatus.NotStarted,
         TargetDateType: TargetDateType.ThisWeek,
@@ -55,25 +56,12 @@ public class UpdateTaskRequestValidatorTests
         Assert.True(result.IsValid);
     }
 
-    [Fact]
-    public void Validate_InvalidType_HasError()
-    {
-        var request = ValidRequest() with { Type = "InvalidType" };
-        var result = _validator.Validate(request);
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.PropertyName == "Type");
-    }
-
     [Theory]
-    [InlineData("Work")]
-    [InlineData("Personal")]
-    [InlineData("Health")]
-    [InlineData("Finance")]
-    [InlineData("Learning")]
-    [InlineData("Other")]
-    public void Validate_ValidTypes_AreAccepted(string type)
+    [InlineData(Area.Personal)]
+    [InlineData(Area.Work)]
+    public void Validate_ValidAreas_AreAccepted(Area area)
     {
-        var request = ValidRequest() with { Type = type };
+        var request = ValidRequest() with { Area = area };
         var result = _validator.Validate(request);
         Assert.True(result.IsValid);
     }

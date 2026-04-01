@@ -225,6 +225,52 @@ The `Hmac:SecretKey` **must** be set via user-secrets locally or environment var
 
 ---
 
+## Deployment
+
+### Database Migrations
+
+TaskPilot uses a two-path schema strategy:
+
+- **Development (SQLite):** Schema is created automatically via `EnsureCreatedAsync()` on startup. No migrations are applied. Changes to the model are picked up immediately after restart.
+- **Production (Azure SQL):** `MigrateAsync()` runs on startup and applies all pending migrations automatically.
+
+#### Adding a new migration (for contributors)
+
+1. Make your entity/configuration changes in `src/`
+2. Run from the solution root:
+   ```bash
+   dotnet ef migrations add YourMigrationName --project src
+   ```
+   The `DesignTimeDbContextFactory` in `src/Data/` forces SQL Server provider, ensuring Azure SQL-compatible types (`uniqueidentifier`, `nvarchar`, `datetime2`, `bit`).
+3. Open the generated migration file and verify SQL Server types (not SQLite types)
+4. If the migration includes seed data, use `migrationBuilder.InsertData()` in `Up()` and `migrationBuilder.DeleteData()` in `Down()`
+
+#### Deploying to Azure
+
+After any migration change, the standard manual deployment process is:
+```bash
+# 1. Publish
+dotnet publish src/TaskPilot.csproj -c Release -o ./publish --nologo
+
+# 2. Create Linux-compatible zip (forward-slash paths)
+python -c "
+import zipfile, os
+with zipfile.ZipFile('taskpilot-deploy.zip', 'w', zipfile.ZIP_DEFLATED) as zf:
+    for root, dirs, files in os.walk('./publish'):
+        for file in files:
+            abs_path = os.path.join(root, file)
+            arc_name = os.path.relpath(abs_path, './publish').replace(os.sep, '/')
+            zf.write(abs_path, arc_name)
+"
+
+# 3. Deploy
+az webapp deploy --name taskpilot --resource-group taskpilot-rg --src-path ./taskpilot-deploy.zip --type zip
+```
+
+`MigrateAsync()` runs automatically on first request after deploy, applying any new migrations to Azure SQL.
+
+---
+
 ## Iteration 2 Roadmap
 
 The following are planned for iteration 2 (no code changes required — configuration only):

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TaskPilot.Data;
 using TaskPilot.Services.Interfaces;
 using TaskPilot.Models.Stats;
@@ -37,15 +37,17 @@ public class StatsService(ApplicationDbContext context) : IStatsService
         var byType = await GetByTypeAsync(userId, cancellationToken);
         var byPriority = await GetByPriorityAsync(userId, cancellationToken);
         var avgCompletion = await GetAvgCompletionAsync(userId, 12, cancellationToken);
+        var completionsByArea = await GetCompletionsByAreaAsync(userId, cancellationToken);
+        var topTags = await GetTopTagsAsync(userId, cancellationToken);
 
         return new TaskStatsResponse(totalActive, completedToday, overdue, inProgress, blocked,
-            completedPerWeek, completedPerMonth, completedPerYear, completionRate, byType, byPriority, avgCompletion);
+            completedPerWeek, completedPerMonth, completedPerYear, completionRate, byType, byPriority, avgCompletion,
+            completionsByArea, topTags);
     }
 
     private async Task<List<WeeklyCompletionData>> GetCompletedPerWeekAsync(string userId, int weeks, CancellationToken ct)
     {
         var cutoff = DateTime.UtcNow.AddDays(-weeks * 7);
-        // Load raw data client-side to avoid SQLite DayOfYear translation issues
         var raw = await context.Tasks
             .Where(t => t.UserId == userId && t.CompletedDate.HasValue && t.CompletedDate >= cutoff)
             .Select(t => new { t.CompletedDate })
@@ -83,7 +85,7 @@ public class StatsService(ApplicationDbContext context) : IStatsService
         return raw
             .GroupBy(t => t.CompletedDate!.Value.Year)
             .Select(g => new YearlyCompletionData(g.Key, g.Count()))
-            .OrderBy(x => x.Year) // Year is the property name from YearlyCompletionData
+            .OrderBy(x => x.Year)
             .ToList();
     }
 
@@ -121,17 +123,19 @@ public class StatsService(ApplicationDbContext context) : IStatsService
     private async Task<List<TypeBreakdownData>> GetByTypeAsync(string userId, CancellationToken ct)
     {
         var raw = await context.Tasks
+            .Include(t => t.TaskType)
             .Where(t => t.UserId == userId && t.Status != TaskStatus.Completed && t.Status != TaskStatus.Cancelled)
-            .GroupBy(t => t.Type)
-            .Select(g => new { Type = g.Key, Count = g.Count() })
+            .Select(t => new { TypeName = t.TaskType != null ? t.TaskType.Name : "Unknown" })
             .ToListAsync(ct);
 
-        return raw.Select(x => new TypeBreakdownData(x.Type, x.Count)).ToList();
+        return raw
+            .GroupBy(t => t.TypeName)
+            .Select(g => new TypeBreakdownData(g.Key, g.Count()))
+            .ToList();
     }
 
     private async Task<List<PriorityBreakdownData>> GetByPriorityAsync(string userId, CancellationToken ct)
     {
-        // Load client-side to avoid complex grouped subquery issues with SQLite
         var raw = await context.Tasks
             .Where(t => t.UserId == userId && t.Status != TaskStatus.Completed && t.Status != TaskStatus.Cancelled)
             .Select(t => new { t.Priority, t.Status })
@@ -150,7 +154,6 @@ public class StatsService(ApplicationDbContext context) : IStatsService
     private async Task<List<AvgCompletionData>> GetAvgCompletionAsync(string userId, int weeks, CancellationToken ct)
     {
         var cutoff = DateTime.UtcNow.AddDays(-weeks * 7);
-        // Load client-side to perform DateTime arithmetic that SQLite can't translate
         var raw = await context.Tasks
             .Where(t => t.UserId == userId && t.CompletedDate.HasValue && t.CompletedDate >= cutoff)
             .Select(t => new { t.CompletedDate, t.CreatedDate })
@@ -162,6 +165,35 @@ public class StatsService(ApplicationDbContext context) : IStatsService
                 $"W{g.Key.Week + 1}/{g.Key.Year}",
                 g.Average(t => (t.CompletedDate!.Value - t.CreatedDate).TotalDays)))
             .OrderBy(x => x.WeekLabel)
+            .ToList();
+    }
+
+    private async Task<CompletionsByAreaData> GetCompletionsByAreaAsync(string userId, CancellationToken ct)
+    {
+        var raw = await context.Tasks
+            .Where(t => t.UserId == userId && t.Status == TaskStatus.Completed)
+            .Select(t => new { t.Area })
+            .ToListAsync(ct);
+
+        var personal = raw.Count(t => t.Area == Area.Personal);
+        var work = raw.Count(t => t.Area == Area.Work);
+        return new CompletionsByAreaData(personal, work);
+    }
+
+    private async Task<List<TagTaskCountData>> GetTopTagsAsync(string userId, CancellationToken ct)
+    {
+        var raw = await context.TaskTags
+            .Include(tt => tt.Tag)
+            .Include(tt => tt.Task)
+            .Where(tt => tt.Task.UserId == userId && !tt.Task.IsDeleted)
+            .Select(tt => new { tt.Tag.Name })
+            .ToListAsync(ct);
+
+        return raw
+            .GroupBy(t => t.Name)
+            .Select(g => new TagTaskCountData(g.Key, g.Count()))
+            .OrderByDescending(x => x.TaskCount)
+            .Take(5)
             .ToList();
     }
 }

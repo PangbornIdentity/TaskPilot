@@ -1,19 +1,22 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Security.Claims;
 using TaskPilot.Services.Interfaces;
 using TaskPilot.Models.ApiKeys;
+using TaskPilot.Models.Tags;
 
 namespace TaskPilot.Pages.Settings;
 
 public class SettingsIndexModel(
     IApiKeyService apiKeyService,
+    ITagService tagService,
     UserManager<IdentityUser> userManager) : PageModel
 {
     public List<ApiKeyResponse> ApiKeys { get; private set; } = [];
     public CreateApiKeyResponse? NewKey { get; private set; }
     public string? PasswordError { get; private set; }
+    public List<TagResponse> Tags { get; private set; } = [];
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
     private string ModifiedBy => $"user:{User.Identity?.Name}";
@@ -21,6 +24,7 @@ public class SettingsIndexModel(
     public async Task OnGetAsync()
     {
         ApiKeys = (await apiKeyService.GetAllKeysAsync(UserId)).ToList();
+        Tags = (await tagService.GetAllTagsAsync(UserId)).ToList();
     }
 
     public async Task<IActionResult> OnPostGenerateAsync(string keyName)
@@ -31,9 +35,9 @@ public class SettingsIndexModel(
             new CreateApiKeyRequest(keyName.Trim()), UserId, ModifiedBy);
 
         ApiKeys = (await apiKeyService.GetAllKeysAsync(UserId)).ToList();
+        Tags = (await tagService.GetAllTagsAsync(UserId)).ToList();
         NewKey = created;
         TempData["Toast"] = "API key generated — copy it now, it won't be shown again.";
-        // Don't redirect — stay on page to show the key
         return Page();
     }
 
@@ -72,6 +76,32 @@ public class SettingsIndexModel(
 
         PasswordError = string.Join(" ", result.Errors.Select(e => e.Description));
         ApiKeys = (await apiKeyService.GetAllKeysAsync(UserId)).ToList();
+        Tags = (await tagService.GetAllTagsAsync(UserId)).ToList();
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostCreateTagAsync(string tagName, string tagColor)
+    {
+        if (string.IsNullOrWhiteSpace(tagName)) return RedirectToPage();
+        if (string.IsNullOrWhiteSpace(tagColor)) tagColor = "#64748B";
+
+        try
+        {
+            await tagService.CreateTagAsync(new CreateTagRequest(tagName.Trim(), tagColor), UserId, ModifiedBy);
+            TempData["Toast"] = $"Tag \"{tagName.Trim()}\" created.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostDeleteTagAsync(Guid tagId)
+    {
+        await tagService.DeleteTagAsync(tagId, UserId);
+        TempData["Toast"] = "Tag deleted.";
+        return RedirectToPage();
     }
 }

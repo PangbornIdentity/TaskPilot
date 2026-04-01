@@ -1,4 +1,4 @@
-﻿using TaskPilot.Models.Tags;
+using TaskPilot.Models.Tags;
 using TaskPilot.Models.Enums;
 
 namespace TaskPilot.Models.Tasks;
@@ -7,7 +7,10 @@ public record TaskResponse(
     Guid Id,
     string Title,
     string? Description,
-    string Type,
+    int? TaskTypeId,
+    string? TaskTypeName,
+    Area Area,
+    string AreaName,
     TaskPriority Priority,
     Enums.TaskStatus Status,
     TargetDateType TargetDateType,

@@ -1,8 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using TaskPilot.Data;
 using TaskPilot.Entities;
 using TaskPilot.Models.Enums;
 using TaskPilot.Services;
+using TaskPilot.Tests.Unit.Helpers;
 using TaskStatus = TaskPilot.Models.Enums.TaskStatus;
 
 namespace TaskPilot.Tests.Unit.Services;
@@ -14,24 +14,23 @@ public class StatsServiceTests : IDisposable
 
     public StatsServiceTests()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        _context = new ApplicationDbContext(options);
+        _context = TestDbContextFactory.Create();
         _service = new StatsService(_context);
     }
 
     public void Dispose() => _context.Dispose();
 
-    private TaskItem MakeTask(string userId, TaskStatus status, string type = "Work",
+    private TaskItem MakeTask(string userId, TaskStatus status,
         TaskPriority priority = TaskPriority.Medium, DateTime? targetDate = null,
-        DateTime? completedDate = null, DateTime? createdDate = null)
+        DateTime? completedDate = null, DateTime? createdDate = null,
+        Area area = Area.Personal, int? taskTypeId = null)
     {
         var task = new TaskItem
         {
             Id = Guid.NewGuid(),
             Title = "Task",
-            Type = type,
+            TaskTypeId = taskTypeId,
+            Area = area,
             Priority = priority,
             Status = status,
             TargetDateType = TargetDateType.ThisWeek,
@@ -138,25 +137,29 @@ public class StatsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetTaskStatsAsync_ByType_GroupsByType()
+    public async Task GetTaskStatsAsync_ByType_GroupsByTaskTypeName()
     {
+        // Add TaskType entities
+        var taskType1 = new TaskType { Id = 101, Name = "Goal", SortOrder = 1 };
+        var taskType2 = new TaskType { Id = 102, Name = "Habit", SortOrder = 2 };
+        _context.TaskTypes.AddRange(taskType1, taskType2);
         _context.Tasks.AddRange(
-            MakeTask("user1", TaskStatus.NotStarted, type: "Work"),
-            MakeTask("user1", TaskStatus.NotStarted, type: "Work"),
-            MakeTask("user1", TaskStatus.NotStarted, type: "Personal"),
-            MakeTask("user1", TaskStatus.Completed, type: "Work") // excluded from ByType
+            MakeTask("user1", TaskStatus.NotStarted, taskTypeId: 101),
+            MakeTask("user1", TaskStatus.NotStarted, taskTypeId: 101),
+            MakeTask("user1", TaskStatus.NotStarted, taskTypeId: 102),
+            MakeTask("user1", TaskStatus.Completed, taskTypeId: 101) // excluded from ByType
         );
         await _context.SaveChangesAsync();
 
         var result = await _service.GetTaskStatsAsync("user1");
 
-        var workType = result.ByType.FirstOrDefault(t => t.Type == "Work");
-        var personalType = result.ByType.FirstOrDefault(t => t.Type == "Personal");
+        var goalType = result.ByType.FirstOrDefault(t => t.Type == "Goal");
+        var habitType = result.ByType.FirstOrDefault(t => t.Type == "Habit");
 
-        Assert.NotNull(workType);
-        Assert.Equal(2, workType.Count);
-        Assert.NotNull(personalType);
-        Assert.Equal(1, personalType.Count);
+        Assert.NotNull(goalType);
+        Assert.Equal(2, goalType.Count);
+        Assert.NotNull(habitType);
+        Assert.Equal(1, habitType.Count);
     }
 
     [Fact]
@@ -200,5 +203,84 @@ public class StatsServiceTests : IDisposable
         Assert.Equal(0, result.Overdue);
         Assert.Equal(0, result.InProgress);
         Assert.Equal(0, result.Blocked);
+    }
+
+    [Fact]
+    public async Task GetTaskStatsAsync_CompletionsByArea_CountsCompletedByArea()
+    {
+        _context.Tasks.AddRange(
+            MakeTask("user1", TaskStatus.Completed, area: Area.Personal),
+            MakeTask("user1", TaskStatus.Completed, area: Area.Personal),
+            MakeTask("user1", TaskStatus.Completed, area: Area.Work),
+            MakeTask("user1", TaskStatus.NotStarted, area: Area.Work) // not completed
+        );
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetTaskStatsAsync("user1");
+
+        Assert.Equal(2, result.CompletionsByArea.Personal);
+        Assert.Equal(1, result.CompletionsByArea.Work);
+    }
+
+    // ── New tests — CompletionsByArea and TopTags ──────────────────────────
+
+    [Fact]
+    public async Task GetTaskStatsAsync_CompletionsByArea_CountsPersonalAndWorkSeparately()
+    {
+        _context.Tasks.AddRange(
+            MakeTask("user1", TaskStatus.Completed, area: Area.Personal),
+            MakeTask("user1", TaskStatus.Completed, area: Area.Personal),
+            MakeTask("user1", TaskStatus.Completed, area: Area.Personal),
+            MakeTask("user1", TaskStatus.Completed, area: Area.Work),
+            MakeTask("user1", TaskStatus.Completed, area: Area.Work),
+            MakeTask("user1", TaskStatus.NotStarted, area: Area.Personal) // not completed
+        );
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetTaskStatsAsync("user1");
+
+        Assert.Equal(3, result.CompletionsByArea.Personal);
+        Assert.Equal(2, result.CompletionsByArea.Work);
+    }
+
+    [Fact]
+    public async Task GetTaskStatsAsync_TopTags_ReturnsTopFiveByTaskCount()
+    {
+        // Create 6 tags; tasks reference them with varying frequencies
+        var tagA = new Tag { Id = Guid.NewGuid(), Name = "alpha",  Color = "#000001", UserId = "user1" };
+        var tagB = new Tag { Id = Guid.NewGuid(), Name = "beta",   Color = "#000002", UserId = "user1" };
+        var tagC = new Tag { Id = Guid.NewGuid(), Name = "gamma",  Color = "#000003", UserId = "user1" };
+        var tagD = new Tag { Id = Guid.NewGuid(), Name = "delta",  Color = "#000004", UserId = "user1" };
+        var tagE = new Tag { Id = Guid.NewGuid(), Name = "epsilon",Color = "#000005", UserId = "user1" };
+        var tagF = new Tag { Id = Guid.NewGuid(), Name = "zeta",   Color = "#000006", UserId = "user1" };
+        _context.Tags.AddRange(tagA, tagB, tagC, tagD, tagE, tagF);
+
+        // alpha: 6 tasks, beta: 5, gamma: 4, delta: 3, epsilon: 2, zeta: 1
+        for (var i = 0; i < 6; i++) AddTaskWithTag("user1", tagA);
+        for (var i = 0; i < 5; i++) AddTaskWithTag("user1", tagB);
+        for (var i = 0; i < 4; i++) AddTaskWithTag("user1", tagC);
+        for (var i = 0; i < 3; i++) AddTaskWithTag("user1", tagD);
+        for (var i = 0; i < 2; i++) AddTaskWithTag("user1", tagE);
+        for (var i = 0; i < 1; i++) AddTaskWithTag("user1", tagF);
+
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetTaskStatsAsync("user1");
+
+        // TopTags returns at most 5, ordered by count descending
+        Assert.Equal(5, result.TopTags.Count);
+        Assert.Equal("alpha",   result.TopTags[0].TagName);
+        Assert.Equal(6,         result.TopTags[0].TaskCount);
+        Assert.Equal("beta",    result.TopTags[1].TagName);
+        Assert.Equal(5,         result.TopTags[1].TaskCount);
+        // zeta (count 1) must be excluded
+        Assert.DoesNotContain(result.TopTags, t => t.TagName == "zeta");
+    }
+
+    private void AddTaskWithTag(string userId, Tag tag)
+    {
+        var task = MakeTask(userId, TaskStatus.NotStarted);
+        task.TaskTags = [new TaskTag { TagId = tag.Id, Tag = tag }];
+        _context.Tasks.Add(task);
     }
 }

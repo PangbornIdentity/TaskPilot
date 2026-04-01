@@ -1,4 +1,4 @@
-﻿namespace TaskPilot.Models.Stats;
+namespace TaskPilot.Models.Stats;
 
 public record TaskStatsResponse(
     int TotalActive,
@@ -12,7 +12,9 @@ public record TaskStatsResponse(
     IReadOnlyList<CompletionRateData> CompletionRateByWeek,
     IReadOnlyList<TypeBreakdownData> ByType,
     IReadOnlyList<PriorityBreakdownData> ByPriority,
-    IReadOnlyList<AvgCompletionData> AvgTimeToCompletionByWeek
+    IReadOnlyList<AvgCompletionData> AvgTimeToCompletionByWeek,
+    CompletionsByAreaData CompletionsByArea,
+    IReadOnlyList<TagTaskCountData> TopTags
 );
 
 public record WeeklyCompletionData(string WeekLabel, int Count);
@@ -22,3 +24,5 @@ public record CompletionRateData(string WeekLabel, int Created, int Completed);
 public record TypeBreakdownData(string Type, int Count);
 public record PriorityBreakdownData(string Priority, int NotStarted, int InProgress, int Blocked);
 public record AvgCompletionData(string WeekLabel, double AvgDays);
+public record CompletionsByAreaData(int Personal, int Work);
+public record TagTaskCountData(string TagName, int TaskCount);

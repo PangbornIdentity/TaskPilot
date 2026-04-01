@@ -1,11 +1,12 @@
-﻿using TaskPilot.Models.Enums;
+using TaskPilot.Models.Enums;
 
 namespace TaskPilot.Models.Tasks;
 
 public record CreateTaskRequest(
     string Title,
     string? Description,
-    string Type,
+    int? TaskTypeId,
+    Area Area,
     TaskPriority Priority,
     Enums.TaskStatus Status,
     TargetDateType TargetDateType,

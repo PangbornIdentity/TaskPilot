@@ -1,5 +1,4 @@
-﻿using FluentValidation;
-using TaskPilot.Constants;
+using FluentValidation;
 using TaskPilot.Models.Tasks;
 
 namespace TaskPilot.Models.Validators;
@@ -12,16 +11,14 @@ public class UpdateTaskRequestValidator : AbstractValidator<UpdateTaskRequest>
             .NotEmpty().WithMessage("Title is required.")
             .MaximumLength(200).WithMessage("Title must not exceed 200 characters.");
 
-        RuleFor(x => x.Type)
-            .NotEmpty().WithMessage("Type is required.")
-            .Must(t => TaskTypes.All.Contains(t))
-            .WithMessage($"Type must be one of: {string.Join(", ", TaskTypes.All)}.");
-
         RuleFor(x => x.Priority)
             .IsInEnum().WithMessage("Invalid priority value.");
 
         RuleFor(x => x.Status)
             .IsInEnum().WithMessage("Invalid status value.");
+
+        RuleFor(x => x.Area)
+            .IsInEnum().WithMessage("Invalid area value.");
 
         RuleFor(x => x.TargetDateType)
             .IsInEnum().WithMessage("Invalid target date type.");

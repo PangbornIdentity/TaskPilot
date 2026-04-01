@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using TaskPilot.Data;
+using TaskPilot.Entities;
 using TaskPilot.Tests.Integration.Helpers;
 
 namespace TaskPilot.Tests.Integration.Tasks;
@@ -19,7 +22,8 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
     {
         Title = title,
         Description = (string?)null,
-        Type = "Work",
+        TaskTypeId = (int?)null,
+        Area = 0, // Personal
         Priority = 1, // Medium
         Status = 0,   // NotStarted
         TargetDateType = 1, // ThisWeek
@@ -46,7 +50,7 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
     {
         var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
 
-        var request = new { Title = "", Type = "Work", Priority = 1, Status = 0, TargetDateType = 1, IsRecurring = false };
+        var request = new { Title = "", Area = 0, Priority = 1, Status = 0, TargetDateType = 1, IsRecurring = false };
         var response = await client.PostAsJsonAsync("/api/v1/tasks", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -154,7 +158,8 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
         {
             Title = "Updated Title",
             Description = (string?)null,
-            Type = "Work",
+            TaskTypeId = (int?)null,
+            Area = 0, // Personal
             Priority = 2, // High
             Status = 0,
             TargetDateType = 1,
@@ -261,5 +266,271 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.True(body.TryGetProperty("data", out var data));
         Assert.True(data.TryGetProperty("totalActive", out _));
+    }
+
+    // ── Area, Task Type, and Tag integration tests ─────────────────────────
+
+    [Fact]
+    public async Task CreateTask_WithAreaWork_PersistsAndReturnsWork()
+    {
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+
+        var request = new
+        {
+            Title = $"Work Task {Guid.NewGuid():N}",
+            Description = (string?)null,
+            TaskTypeId = (int?)null,
+            Area = 1, // Work
+            Priority = 1,
+            Status = 0,
+            TargetDateType = 1,
+            TargetDate = (DateTime?)null,
+            IsRecurring = false,
+            RecurrencePattern = (int?)null,
+            TagIds = (List<Guid>?)null
+        };
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/tasks", request);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskId = created.GetProperty("data").GetProperty("id").GetString();
+
+        // GET it back
+        var getResponse = await client.GetAsync($"/api/v1/tasks/{taskId}");
+        getResponse.EnsureSuccessStatusCode();
+        var body = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskData = body.GetProperty("data");
+
+        Assert.Equal(1, taskData.GetProperty("area").GetInt32());
+        Assert.Equal("Work", taskData.GetProperty("areaName").GetString());
+    }
+
+    [Fact]
+    public async Task CreateTask_WithTaskTypeId_ReturnsTaskTypeName()
+    {
+        // Seed a task type to use
+        var taskTypeId = await EnsureTaskTypeExistsAsync("Goal_Test");
+
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+
+        var request = new
+        {
+            Title = $"Typed Task {Guid.NewGuid():N}",
+            Description = (string?)null,
+            TaskTypeId = taskTypeId,
+            Area = 0,
+            Priority = 1,
+            Status = 0,
+            TargetDateType = 1,
+            TargetDate = (DateTime?)null,
+            IsRecurring = false,
+            RecurrencePattern = (int?)null,
+            TagIds = (List<Guid>?)null
+        };
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/tasks", request);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskId = created.GetProperty("data").GetProperty("id").GetString();
+
+        // The create response may not eagerly load TaskType; GET the task to verify taskTypeName
+        var getResponse = await client.GetAsync($"/api/v1/tasks/{taskId}");
+        getResponse.EnsureSuccessStatusCode();
+        var body = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskData = body.GetProperty("data");
+
+        Assert.Equal(taskTypeId, taskData.GetProperty("taskTypeId").GetInt32());
+        Assert.False(string.IsNullOrWhiteSpace(taskData.GetProperty("taskTypeName").GetString()),
+            "taskTypeName should be populated when retrieved by id");
+    }
+
+    [Fact]
+    public async Task CreateTask_WithTagIds_ReturnsTagsInResponse()
+    {
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+
+        // Create a tag first
+        var tagName = $"Tag_{Guid.NewGuid():N}";
+        var tagResponse = await client.PostAsJsonAsync("/api/v1/tags", new { Name = tagName, Color = "#aabbcc" });
+        tagResponse.EnsureSuccessStatusCode();
+        var tagBody = await tagResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var tagId = Guid.Parse(tagBody.GetProperty("data").GetProperty("id").GetString()!);
+
+        // Create task with the tag
+        var request = new
+        {
+            Title = $"Tagged Task {Guid.NewGuid():N}",
+            Description = (string?)null,
+            TaskTypeId = (int?)null,
+            Area = 0,
+            Priority = 1,
+            Status = 0,
+            TargetDateType = 1,
+            TargetDate = (DateTime?)null,
+            IsRecurring = false,
+            RecurrencePattern = (int?)null,
+            TagIds = new List<Guid> { tagId }
+        };
+
+        var createResponse = await client.PostAsJsonAsync("/api/v1/tasks", request);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var taskId = created.GetProperty("data").GetProperty("id").GetString();
+
+        // GET task back — tags should appear
+        var getResponse = await client.GetAsync($"/api/v1/tasks/{taskId}");
+        getResponse.EnsureSuccessStatusCode();
+        var body = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var tags = body.GetProperty("data").GetProperty("tags");
+
+        Assert.True(tags.GetArrayLength() >= 1, "Expected at least one tag in response");
+        Assert.Contains(tags.EnumerateArray(),
+            t => t.GetProperty("id").GetString() == tagId.ToString());
+    }
+
+    [Fact]
+    public async Task GetTasks_FilterByArea_ReturnsOnlyMatchingTasks()
+    {
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+
+        var workTitle    = $"WorkTask_{Guid.NewGuid():N}";
+        var personalTitle = $"PersonalTask_{Guid.NewGuid():N}";
+
+        // Create one Work task and one Personal task
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeCreateRequest(workTitle, area: 1));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeCreateRequest(personalTitle, area: 0));
+
+        // Filter by Work (area=1)
+        var response = await client.GetAsync("/api/v1/tasks?area=1");
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var tasks = body.GetProperty("data").EnumerateArray().ToList();
+
+        // All returned tasks must have area == 1 (Work)
+        Assert.All(tasks, t => Assert.Equal(1, t.GetProperty("area").GetInt32()));
+        // The work title should appear, personal should not
+        Assert.Contains(tasks, t => t.GetProperty("title").GetString() == workTitle);
+        Assert.DoesNotContain(tasks, t => t.GetProperty("title").GetString() == personalTitle);
+    }
+
+    [Fact]
+    public async Task GetTasks_FilterByTaskTypeId_ReturnsOnlyMatchingTasks()
+    {
+        var taskTypeId = await EnsureTaskTypeExistsAsync("FilterType_Test");
+
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+
+        var typedTitle   = $"TypedTask_{Guid.NewGuid():N}";
+        var untypedTitle = $"UntypedTask_{Guid.NewGuid():N}";
+
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeCreateRequest(typedTitle,   taskTypeId: taskTypeId));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeCreateRequest(untypedTitle, taskTypeId: null));
+
+        var response = await client.GetAsync($"/api/v1/tasks?taskTypeId={taskTypeId}");
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var tasks = body.GetProperty("data").EnumerateArray().ToList();
+
+        Assert.All(tasks, t => Assert.Equal(taskTypeId, t.GetProperty("taskTypeId").GetInt32()));
+        Assert.Contains(tasks, t => t.GetProperty("title").GetString() == typedTitle);
+        Assert.DoesNotContain(tasks, t => t.GetProperty("title").GetString() == untypedTitle);
+    }
+
+    [Fact]
+    public async Task GetTasks_FilterByTagIds_AndLogic_ReturnsOnlyTasksWithAllTags()
+    {
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+
+        // Create two tags
+        var tagAName = $"TagA_{Guid.NewGuid():N}";
+        var tagBName = $"TagB_{Guid.NewGuid():N}";
+
+        var tagAResp = await client.PostAsJsonAsync("/api/v1/tags", new { Name = tagAName, Color = "#001122" });
+        tagAResp.EnsureSuccessStatusCode();
+        var tagAId = Guid.Parse((await tagAResp.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("data").GetProperty("id").GetString()!);
+
+        var tagBResp = await client.PostAsJsonAsync("/api/v1/tags", new { Name = tagBName, Color = "#334455" });
+        tagBResp.EnsureSuccessStatusCode();
+        var tagBId = Guid.Parse((await tagBResp.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("data").GetProperty("id").GetString()!);
+
+        // Task with BOTH tags
+        var bothTitle = $"BothTags_{Guid.NewGuid():N}";
+        await client.PostAsJsonAsync("/api/v1/tasks", new
+        {
+            Title = bothTitle,
+            Description = (string?)null,
+            TaskTypeId = (int?)null,
+            Area = 0,
+            Priority = 1,
+            Status = 0,
+            TargetDateType = 1,
+            TargetDate = (DateTime?)null,
+            IsRecurring = false,
+            RecurrencePattern = (int?)null,
+            TagIds = new List<Guid> { tagAId, tagBId }
+        });
+
+        // Task with only TagA
+        var onlyATitle = $"OnlyTagA_{Guid.NewGuid():N}";
+        await client.PostAsJsonAsync("/api/v1/tasks", new
+        {
+            Title = onlyATitle,
+            Description = (string?)null,
+            TaskTypeId = (int?)null,
+            Area = 0,
+            Priority = 1,
+            Status = 0,
+            TargetDateType = 1,
+            TargetDate = (DateTime?)null,
+            IsRecurring = false,
+            RecurrencePattern = (int?)null,
+            TagIds = new List<Guid> { tagAId }
+        });
+
+        // Filter by both tagIds — AND logic: only tasks with BOTH tags
+        var url = $"/api/v1/tasks?tagIds={tagAId}&tagIds={tagBId}";
+        var response = await client.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var tasks = body.GetProperty("data").EnumerateArray().ToList();
+
+        Assert.Contains(tasks, t => t.GetProperty("title").GetString() == bothTitle);
+        Assert.DoesNotContain(tasks, t => t.GetProperty("title").GetString() == onlyATitle);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+
+    private static object MakeCreateRequest(string title, int area = 0, int? taskTypeId = null) => new
+    {
+        Title = title,
+        Description = (string?)null,
+        TaskTypeId = taskTypeId,
+        Area = area,
+        Priority = 1,
+        Status = 0,
+        TargetDateType = 1,
+        TargetDate = (DateTime?)null,
+        IsRecurring = false,
+        RecurrencePattern = (int?)null,
+        TagIds = (List<Guid>?)null
+    };
+
+    private async Task<int> EnsureTaskTypeExistsAsync(string name)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var existing = db.TaskTypes.FirstOrDefault(t => t.Name == name);
+        if (existing != null) return existing.Id;
+
+        var taskType = new TaskType { Name = name, SortOrder = 99, IsActive = true };
+        db.TaskTypes.Add(taskType);
+        await db.SaveChangesAsync();
+        return taskType.Id;
     }
 }

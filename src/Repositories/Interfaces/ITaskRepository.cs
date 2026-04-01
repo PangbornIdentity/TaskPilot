@@ -1,4 +1,4 @@
-﻿using TaskPilot.Entities;
+using TaskPilot.Entities;
 using TaskPilot.Models.Tasks;
 
 namespace TaskPilot.Repositories.Interfaces;

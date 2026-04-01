@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaskPilot.Data;
 
@@ -11,9 +12,11 @@ using TaskPilot.Data;
 namespace TaskPilot.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260401132821_AddTaskTypeAreaAndTagsUI")]
+    partial class AddTaskTypeAreaAndTagsUI
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -402,10 +405,6 @@ namespace TaskPilot.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("Area")
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
                     b.Property<DateTime?>("CompletedDate")
                         .HasColumnType("datetime2");
 
@@ -457,8 +456,10 @@ namespace TaskPilot.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<int?>("TaskTypeId")
-                        .HasColumnType("int");
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -474,8 +475,6 @@ namespace TaskPilot.Migrations
 
                     b.HasIndex("TargetDate");
 
-                    b.HasIndex("TaskTypeId");
-
                     b.HasIndex("UserId");
 
                     b.HasIndex("UserId", "IsDeleted");
@@ -483,32 +482,6 @@ namespace TaskPilot.Migrations
                     b.HasIndex("UserId", "Status");
 
                     b.ToTable("Tasks");
-                });
-
-            modelBuilder.Entity("TaskPilot.Entities.TaskType", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("TaskTypes");
                 });
 
             modelBuilder.Entity("TaskPilot.Entities.TaskTag", b =>
@@ -630,21 +603,9 @@ namespace TaskPilot.Migrations
 
             modelBuilder.Entity("TaskPilot.Entities.TaskItem", b =>
                 {
-                    b.HasOne("TaskPilot.Entities.TaskType", "TaskType")
-                        .WithMany("Tasks")
-                        .HasForeignKey("TaskTypeId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("TaskType");
-
                     b.Navigation("ActivityLogs");
 
                     b.Navigation("TaskTags");
-                });
-
-            modelBuilder.Entity("TaskPilot.Entities.TaskType", b =>
-                {
-                    b.Navigation("Tasks");
                 });
 #pragma warning restore 612, 618
         }

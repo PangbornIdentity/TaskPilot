@@ -1,4 +1,4 @@
-﻿using TaskPilot.Models.Tasks;
+using TaskPilot.Models.Tasks;
 using TaskPilot.Models.Enums;
 using TaskPilot.Models.Validators;
 using TaskStatus = TaskPilot.Models.Enums.TaskStatus;
@@ -12,7 +12,8 @@ public class CreateTaskRequestValidatorTests
     private static CreateTaskRequest ValidRequest() => new(
         Title: "Valid Task",
         Description: null,
-        Type: "Work",
+        TaskTypeId: null,
+        Area: Area.Personal,
         Priority: TaskPriority.Medium,
         Status: TaskStatus.NotStarted,
         TargetDateType: TargetDateType.ThisWeek,
@@ -45,15 +46,6 @@ public class CreateTaskRequestValidatorTests
         var result = _validator.Validate(request);
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, e => e.PropertyName == "Title");
-    }
-
-    [Fact]
-    public void Validate_InvalidType_HasError()
-    {
-        var request = ValidRequest() with { Type = "InvalidType" };
-        var result = _validator.Validate(request);
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, e => e.PropertyName == "Type");
     }
 
     [Fact]

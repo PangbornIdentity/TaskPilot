@@ -13,8 +13,9 @@
 6. [Motion & Animation](#6-motion--animation)
 7. [Iconography](#7-iconography)
 8. [Component Tokens](#8-component-tokens)
-9. [UI Component Library Decision](#9-ui-component-library-decision)
-10. [Accessibility Requirements](#10-accessibility-requirements)
+9. [New Feature Components](#9-new-feature-components) ← Tag Pill, Area Segmented Control, TaskType Dropdown
+10. [UI Component Library Decision](#10-ui-component-library-decision)
+11. [Accessibility Requirements](#11-accessibility-requirements)
 
 ---
 
@@ -340,6 +341,11 @@ When `prefers-reduced-motion: reduce`:
 | Light mode | `bi-sun-fill` |
 | Logout | `bi-box-arrow-right` |
 | Undo | `bi-arrow-counterclockwise` |
+| Tag (remove pill) | `bi-x` |
+| Tag (add trigger) | `bi-plus` |
+| Task type | `bi-layout-text-sidebar-reverse` |
+| Area: Personal | `bi-person` |
+| Area: Work | `bi-briefcase` |
 
 ---
 
@@ -459,7 +465,203 @@ Cell padding: 0 16px. Border-bottom: 1px solid `--color-border-subtle`.
 
 ---
 
-## 9. UI Component Library Decision
+## 9. New Feature Components
+
+This section specifies components introduced for the Tags UI, TaskType dropdown, and Area segmented control. All components use existing design tokens and Bootstrap 5 as the base.
+
+---
+
+### 9.1 Tag Pill
+
+Tag pills appear in three variants. All variants share the base size and font: `label-sm` (12px, 500 weight, DM Sans), `padding: 4px 8px`, `border-radius: --radius-full` (9999px).
+
+#### Colour swatches (user-assigned palette)
+
+Users pick one of these 8 fixed colours when creating or editing a tag. The same palette is used in Settings (existing tag colour picker) and throughout the UI.
+
+| Swatch name | Dot / background tint | Text colour (Light) | Text colour (Dark) |
+|-------------|----------------------|--------------------|--------------------|
+| Violet | `#6255EC` | `#FFFFFF` | `#FFFFFF` |
+| Blue | `#3B82F6` | `#FFFFFF` | `#FFFFFF` |
+| Teal | `#14B8A6` | `#FFFFFF` | `#FFFFFF` |
+| Green | `#22C55E` | `#FFFFFF` | `#FFFFFF` |
+| Amber | `#F59E0B` | `#1A1A2E` | `#1A1A2E` |
+| Orange | `#F97316` | `#FFFFFF` | `#FFFFFF` |
+| Rose | `#EF4444` | `#FFFFFF` | `#FFFFFF` |
+| Slate | `#64748B` | `#FFFFFF` | `#FFFFFF` |
+
+The swatch colour is used as both the dot colour (display variant) and pill background (at 15% opacity) with full-opacity text. Example for Violet: `background: rgba(98, 85, 236, 0.15)`, `color: #4F44D5` (light) / `#9186EE` (dark), dot `#6255EC`.
+
+#### Variant: Display
+
+Used on task cards, task detail metadata grid, and bulk tag toolbar.
+
+```
+┌──────────────────────┐
+│  ● project-alpha     │
+└──────────────────────┘
+```
+
+- Coloured dot (6px circle, swatch colour) + 4px gap + label text
+- Background: swatch colour at 15% opacity
+- Border: none
+- `border-radius: --radius-full`
+- Font: `label-sm`, colour follows swatch text colour table above
+- Not interactive by default (no hover/focus styles); becomes interactive only inside the Tag filter
+
+#### Variant: Removable
+
+Used inside the Tags field of the task create/edit form for each selected tag.
+
+```
+┌────────────────────────────┐
+│  ● project-alpha     [✕]   │
+└────────────────────────────┘
+```
+
+- Identical to Display variant, with a `✕` dismiss button appended on the right
+- `✕` button: Bootstrap `bi-x` icon, 10px, `--color-text-secondary`, no border, transparent background
+- `✕` button hover: `--color-error-text` colour, `transition: color --duration-micro`
+- `✕` button has `aria-label="Remove tag [name]"` and is keyboard focusable (`tabindex="0"`)
+- Clicking `✕` removes the tag from the selection; does NOT delete the tag from the user's tag library
+
+#### Variant: Add-new trigger
+
+Displayed at the end of the selected-tags list in the task form, acting as the trigger to open the tag selector dropdown.
+
+```
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ┐
+  + Add tag
+└ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+```
+
+- Dashed border: `1px dashed --color-border-default`
+- Background: transparent
+- Text: `+ Add tag`, `label-sm`, `--color-text-secondary`
+- Hover: background `--color-bg-overlay`, border colour `--color-border-strong`, text `--color-text-primary`
+- `transition: all --duration-micro`
+- `role="button"`, `tabindex="0"`, `aria-haspopup="listbox"`, `aria-label="Add tag"`
+- Clicking opens the tag multi-select dropdown (see §9.3 below)
+
+#### Tag multi-select dropdown
+
+Opens anchored below the Add-new trigger. Shadow: `--shadow-md`. Background: `--color-bg-elevated`. Border-radius: `--radius-lg`. Max-height: 280px with overflow-y scroll.
+
+```
+┌──────────────────────────────┐
+│  [🔍 Search or create tag…]  │
+│──────────────────────────────│
+│  ✓  ● project-alpha          │  ← already selected (check shown)
+│     ● client-x               │
+│     ● roadmap                │
+│──────────────────────────────│
+│  + Create "client-y"         │  ← shown only when typed text has no exact match
+└──────────────────────────────┘
+```
+
+- Search input at top: `form-control`, `sm` size, placeholder "Search or create tag…"
+- Each row: 36px height, `body-sm` font, `--color-text-primary`
+- Selected rows: `✓` icon (`bi-check`, `--color-primary-500`) + background `--color-primary-50` / `--color-primary-900` (dark)
+- Hover row: background `--color-bg-overlay`
+- "Create" row: shown when typed text does not exactly match any existing tag name. Text: `+ Create "[typed value]"`. Clicking calls `POST /api/v1/tags` (prompts for colour swatch first via an inline colour picker row injected below the "Create" option), then adds the new tag to the selection.
+- Inline colour picker row (shown when creating): 8 circular colour swatches (20px each), 6px gap. User clicks a swatch to confirm the colour. Default pre-selected: Violet.
+- Keyboard: Arrow Up/Down to navigate, Enter/Space to toggle selection, Escape to close.
+- `role="listbox"`, each option `role="option"`, `aria-selected` reflects selection state.
+
+---
+
+### 9.2 Area Segmented Control
+
+A two-segment toggle control used to set or filter the `Area` value (Personal / Work).
+
+```
+Desktop / Tablet (auto width, fit content):
+
+┌──────────────┬──────────────┐
+│   Personal   │     Work     │
+└──────────────┴──────────────┘
+  (active = filled primary)
+
+Mobile (full container width):
+
+┌──────────────────────────────┐
+│   Personal   │     Work      │
+└──────────────────────────────┘
+```
+
+#### Structure
+
+- Container: `display: flex`, `border: 1px solid --color-border-default`, `border-radius: --radius-md`, `overflow: hidden`
+- Desktop / Tablet: `width: fit-content`
+- Mobile (≤640px): `width: 100%`
+- Each segment: 50% width (flex: 1), `height: 36px`, `padding: 0 16px`, `font: label (14px, 500 weight, DM Sans)`, `cursor: pointer`, `transition: background-color --duration-micro, color --duration-micro`
+- Divider between segments: the shared border (1px solid `--color-border-default`)
+
+#### States
+
+| State | Background | Text colour | Border |
+|-------|-----------|-------------|--------|
+| Active | `--color-primary-500` | `--color-text-inverse` (white) | inherited from container |
+| Inactive | `--color-bg-surface` | `--color-text-secondary` | inherited from container |
+| Hover (inactive only) | `--color-bg-overlay` | `--color-text-primary` | — |
+| Disabled (whole control) | `--color-bg-overlay` | `--color-text-disabled` | `--color-border-subtle` |
+
+#### Usage contexts
+
+- **Task create/edit form**: first field at the top of the form body. Label: "Area". Default active segment: Personal.
+- **Task list filter bar**: placed above all other filters (Status, Priority, Type, Tags, Search). Acts as the primary filter; selecting a segment appends `?area=0` or `?area=1` to the URL. Both segments inactive = no area filter (all tasks shown). On the task list the control does not have a "Label" prefix — it stands alone as a clearly labelled toggle.
+
+#### Accessibility
+
+- Outer container: `role="group"`, `aria-label="Filter by area"` (task list) or `aria-label="Area"` (form)
+- Each segment: `role="radio"`, `aria-checked="true|false"`, `tabindex="0"` for active or focused segment, `-1` otherwise
+- Arrow Left/Right to navigate between segments; Space/Enter to activate
+- Focus ring: `outline: 2px solid --color-primary-500; outline-offset: 2px` on the focused segment
+
+---
+
+### 9.3 TaskType Dropdown
+
+A standard styled `<select>` element for choosing the task type. Uses existing Input tokens (height 40px `md` size, `border-radius: --radius-md`, Input state colours).
+
+```
+┌────────────────────────────────────────┐
+│  Select type…                       ▼  │
+└────────────────────────────────────────┘
+
+Open state (browser native <select> or custom):
+  ─ Select type… ─    ← disabled placeholder option
+    Task
+    Goal
+    Habit
+    Meeting
+    Note
+    Event
+```
+
+#### Spec
+
+- HTML element: `<select class="form-select">` (Bootstrap 5 styled)
+- Placeholder option: `<option value="">Select type…</option>` — `disabled` and `selected` by default on create form; shows current type on edit form
+- Options populated from `GET /api/v1/task-types` response, ordered by `SortOrder` ascending
+- Type is optional: if no option is selected (placeholder remains), `TaskTypeId` is sent as `null`
+- Width: full width of its container (same as other form fields)
+- States: Default, Hover, Focus, Disabled — all inherit from the Input token spec in §8
+
+#### Usage contexts
+
+- **Task create/edit form**: second field, below the Area segmented control, above Priority
+- **Task list filter bar**: rendered as a compact dropdown (height 32px `sm` size) alongside Status and Priority filters; placeholder text "Type" when used as a filter; selecting an option appends `?typeId={id}` to the URL; an explicit "All types" option (value `""`) at the top clears the filter
+
+#### Accessibility
+
+- `<label>` element associated via `for` / `id` pairing
+- `aria-label="Task type"` as fallback if no visible label is present (filter bar context)
+
+---
+
+## 10. UI Component Library Decision
+
 
 **Decision: Bootstrap 5 + HTMX + ApexCharts (all CDN)**
 
@@ -508,7 +710,7 @@ TaskPilot uses server-rendered Razor Pages with Bootstrap 5 for layout and compo
 
 ---
 
-## 10. Accessibility Requirements
+## 11. Accessibility Requirements
 
 ### WCAG 2.1 AA Compliance
 

@@ -6,7 +6,9 @@ public class TaskItem : BaseEntity
 {
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public string Type { get; set; } = string.Empty;
+    public int? TaskTypeId { get; set; }
+    public TaskType? TaskType { get; set; }
+    public Area Area { get; set; } = Area.Personal;
     public TaskPriority Priority { get; set; }
     public TaskPilot.Models.Enums.TaskStatus Status { get; set; }
     public TargetDateType TargetDateType { get; set; }

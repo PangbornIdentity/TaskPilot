@@ -79,6 +79,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<IActivityLogRepository, ActivityLogRepository>();
+        services.AddScoped<ITaskTypeRepository, TaskTypeRepository>();
         return services;
     }
 
@@ -90,6 +91,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IStatsService, StatsService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IActivityLogService, ActivityLogService>();
+        services.AddScoped<ITaskTypeService, TaskTypeService>();
         return services;
     }
 

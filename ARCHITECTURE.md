@@ -82,6 +82,8 @@ c:\projects\TaskPilot\
 │   │   ├── Tags/
 │   │   │   ├── TagResponse.cs
 │   │   │   └── CreateTagRequest.cs
+│   │   ├── TaskTypes/
+│   │   │   └── TaskTypeResponse.cs
 │   │   ├── ApiKeys/
 │   │   │   ├── ApiKeyResponse.cs
 │   │   │   ├── CreateApiKeyRequest.cs
@@ -98,7 +100,8 @@ c:\projects\TaskPilot\
 │   │   │   ├── TaskStatus.cs
 │   │   │   ├── TaskPriority.cs
 │   │   │   ├── TargetDateType.cs
-│   │   │   └── RecurrencePattern.cs
+│   │   │   ├── RecurrencePattern.cs
+│   │   │   └── Area.cs              ← Personal = 0, Work = 1 (fixed; no lookup table)
 │   │   └── Validators/
 │   │       ├── CreateTaskRequestValidator.cs
 │   │       ├── UpdateTaskRequestValidator.cs
@@ -151,8 +154,9 @@ c:\projects\TaskPilot\
 │   ├── Entities/               ← Domain entities (namespace: TaskPilot.Entities)
 │   │   ├── BaseEntity.cs
 │   │   ├── TaskItem.cs
-│   │   ├── Tag.cs
-│   │   ├── TaskTag.cs
+│   │   ├── Tag.cs              ← UI-exposed; users create/manage tags on task forms
+│   │   ├── TaskTag.cs          ← Join table; UI-exposed via tag multi-select on task forms
+│   │   ├── TaskType.cs         ← Lookup table; seeded via migration; read-only at runtime
 │   │   ├── ApiKey.cs
 │   │   ├── ApiAuditLog.cs
 │   │   └── TaskActivityLog.cs
@@ -246,6 +250,8 @@ erDiagram
         bool IsRecurring
         int RecurrencePattern
         int SortOrder
+        int Area
+        int TaskTypeId FK
         bool IsDeleted
         datetime DeletedAt
         datetime CreatedDate
@@ -254,6 +260,7 @@ erDiagram
         string UserId FK
     }
 
+    %% Tag and TaskTag are UI-exposed: users manage tags via the task create/edit forms
     Tag {
         guid Id PK
         string Name
@@ -267,6 +274,14 @@ erDiagram
     TaskTag {
         guid TaskId FK
         guid TagId FK
+    }
+
+    %% TaskType is a seeded lookup table; not user-editable at runtime
+    TaskType {
+        int Id PK
+        string Name
+        int SortOrder
+        bool IsActive
     }
 
     ApiKey {
@@ -313,6 +328,7 @@ erDiagram
     Tag ||--o{ TaskTag : "used in"
     TaskItem ||--o{ TaskActivityLog : "tracked by"
     ApiKey ||--o{ ApiAuditLog : "generates"
+    TaskType ||--o{ TaskItem : "categorises"
 ```
 
 ---
@@ -333,6 +349,37 @@ All endpoints: `Content-Type: application/json`, wrapped in the standard respons
 | DELETE | /api/v1/tasks/{id} | Cookie or ApiKey | — | 204 | 401, 404 |
 | POST | /api/v1/tasks/{id}/complete | Cookie or ApiKey | `CompleteTaskRequest` | 200 `ApiResponse<TaskResponse>` | 400, 401, 404, 409 |
 | GET | /api/v1/tasks/stats | Cookie or ApiKey | Query: date range | 200 `ApiResponse<StatsResponse>` | 401 |
+
+### 3.1a Task Type Lookup Endpoint
+
+| Method | Endpoint | Auth | Request | Success Response | Error Codes |
+|--------|----------|------|---------|-----------------|-------------|
+| GET | /api/v1/task-types | Cookie or ApiKey | — | 200 `ApiResponse<List<TaskTypeResponse>>` | 401 |
+
+Returns all active task types ordered by `SortOrder` ascending. This list is used by the UI to populate the task type dropdown. The endpoint is read-only; task types are seeded via migration and are not user-editable.
+
+#### TaskTypeResponse
+```csharp
+public record TaskTypeResponse
+{
+    public required int Id { get; init; }
+    public required string Name { get; init; }
+    public required int SortOrder { get; init; }
+}
+```
+
+**Seed data** (inserted by migration `AddTaskTypeAreaAndTagsUI`):
+
+| Id | Name | SortOrder |
+|----|------|-----------|
+| 1 | Task | 1 |
+| 2 | Goal | 2 |
+| 3 | Habit | 3 |
+| 4 | Meeting | 4 |
+| 5 | Note | 5 |
+| 6 | Event | 6 |
+
+> "Task" (Id=1) is the default general-purpose type. All seed rows have `IsActive = true`.
 
 #### TaskFilterParams (query string)
 ```csharp
@@ -359,14 +406,54 @@ public record CreateTaskRequest
 {
     public required string Title { get; init; }         // max 200
     public string? Description { get; init; }
-    public required string Type { get; init; }           // "Work" | "Personal" | etc.
+    public required string Type { get; init; }           // legacy free-text type field
     public required Priority Priority { get; init; }
     public TaskStatus Status { get; init; } = TaskStatus.NotStarted;
     public required TargetDateType TargetDateType { get; init; }
     public DateTime? TargetDate { get; init; }
     public bool IsRecurring { get; init; } = false;
     public RecurrencePattern? RecurrencePattern { get; init; }
-    public List<Guid> TagIds { get; init; } = [];
+    public int? TaskTypeId { get; init; }               // optional FK to TaskType lookup table
+    public Area Area { get; init; } = Area.Personal;    // 0=Personal (default), 1=Work
+    public List<Guid> TagIds { get; init; } = [];       // tag associations (empty = no tags)
+}
+```
+
+#### UpdateTaskRequest
+```csharp
+public record UpdateTaskRequest
+{
+    public required string Title { get; init; }         // max 200
+    public string? Description { get; init; }
+    public required string Type { get; init; }           // legacy free-text type field
+    public required Priority Priority { get; init; }
+    public required TaskStatus Status { get; init; }
+    public required TargetDateType TargetDateType { get; init; }
+    public DateTime? TargetDate { get; init; }
+    public bool IsRecurring { get; init; } = false;
+    public RecurrencePattern? RecurrencePattern { get; init; }
+    public int? TaskTypeId { get; init; }               // optional FK to TaskType lookup table
+    public Area Area { get; init; } = Area.Personal;    // 0=Personal (default), 1=Work
+    public List<Guid> TagIds { get; init; } = [];       // replaces full tag set on the task
+}
+```
+
+#### PatchTaskRequest (partial update — all fields optional)
+```csharp
+public record PatchTaskRequest
+{
+    public string? Title { get; init; }
+    public string? Description { get; init; }
+    public string? Type { get; init; }
+    public Priority? Priority { get; init; }
+    public TaskStatus? Status { get; init; }
+    public TargetDateType? TargetDateType { get; init; }
+    public DateTime? TargetDate { get; init; }
+    public bool? IsRecurring { get; init; }
+    public RecurrencePattern? RecurrencePattern { get; init; }
+    public int? TaskTypeId { get; init; }               // null = leave unchanged; 0 = clear
+    public Area? Area { get; init; }                    // null = leave unchanged
+    public List<Guid>? TagIds { get; init; }            // null = leave unchanged; [] = clear all tags
 }
 ```
 
@@ -387,12 +474,42 @@ public record TaskResponse
     public required bool IsRecurring { get; init; }
     public RecurrencePattern? RecurrencePattern { get; init; }
     public required int SortOrder { get; init; }
+    public int? TaskTypeId { get; init; }               // null if not assigned
+    public string? TaskTypeName { get; init; }          // null if not assigned
+    public required int Area { get; init; }             // 0=Personal, 1=Work (serialised as int)
+    public required string AreaName { get; init; }      // "Personal" or "Work"
     public required DateTime CreatedDate { get; init; }
     public required DateTime LastModifiedDate { get; init; }
     public required string LastModifiedBy { get; init; }
-    public required List<TagResponse> Tags { get; init; }
+    public required List<TagResponse> Tags { get; init; }  // always populated (empty list if none)
 }
 ```
+
+#### StatsResponse (`GET /api/v1/tasks/stats`)
+```csharp
+public record TaskStatsResponse(
+    int TotalActive,
+    int CompletedToday,
+    int Overdue,
+    int InProgress,
+    int Blocked,
+    IReadOnlyList<WeeklyCompletionData> CompletedPerWeek,
+    IReadOnlyList<MonthlyCompletionData> CompletedPerMonth,
+    IReadOnlyList<YearlyCompletionData> CompletedPerYear,
+    IReadOnlyList<CompletionRateData> CompletionRateByWeek,
+    IReadOnlyList<TypeBreakdownData> ByType,
+    IReadOnlyList<PriorityBreakdownData> ByPriority,
+    IReadOnlyList<AvgCompletionData> AvgTimeToCompletionByWeek,
+    CompletionsByAreaData CompletionsByArea,              // breakdown by Personal vs Work
+    IReadOnlyList<TagTaskCountData> TopTags               // top 5 tags by task count
+);
+
+public record CompletionsByAreaData(int Personal, int Work);
+public record TagTaskCountData(string TagName, int TaskCount);
+```
+
+> `CompletionsByArea` counts all completed tasks for the queried period split by `Area` value.
+> `TopTags` returns the top 5 tags ranked by number of associated tasks (completed + active) within the period.
 
 ### 3.2 Tag Endpoints
 
@@ -760,6 +877,23 @@ HTTP Request
 
 **Never**: Controller → DbContext. Service → HttpContext. Repository → another Service.
 
+### 5.8 Enum Serialisation — Area
+
+The `Area` enum **must always be serialised as an integer** in all JSON responses. Do NOT apply `JsonStringEnumConverter` to this enum. This is the default .NET `System.Text.Json` behaviour and must be preserved explicitly — do not add a global `StringEnumConverter` that would affect `Area`.
+
+```csharp
+// Models/Enums/Area.cs
+public enum Area
+{
+    Personal = 0,   // default
+    Work = 1
+}
+```
+
+JSON output: `"area": 0` (Personal) or `"area": 1` (Work). The companion `areaName` string field on `TaskResponse` provides the human-readable label.
+
+> **Design decision**: `Area` is intentionally a fixed enum (not a lookup table). The two-value set (Personal / Work) is a stable product constraint and does not warrant a DB table, migration seed, or admin UI.
+
 ---
 
 ## 6. Database Indexing Strategy
@@ -807,6 +941,44 @@ if (builder.Environment.IsProduction())
 }
 ```
 
+### 7.1 EF Core Migration Plan — `AddTaskTypeAreaAndTagsUI`
+
+This migration adds the `TaskType` lookup table, the `Area` column, and the `TaskTypeId` FK column to `TaskItem`. It also seeds the initial task type data.
+
+**Generate the migration:**
+```bash
+dotnet ef migrations add AddTaskTypeAreaAndTagsUI --project src
+```
+
+> `DesignTimeDbContextFactory` (at `src/Data/DesignTimeDbContextFactory.cs`) uses the SQL Server provider, so the generated migration uses Azure SQL-compatible column types. The SQLite dev environment applies schema via `EnsureCreatedAsync` and is unaffected by this migration file.
+
+**Key migration details:**
+
+| Concern | Decision |
+|---------|----------|
+| `TaskTypeId` nullability | Nullable (`int?`) — existing rows have no assigned type and must not fail on migration |
+| `Area` default | Column default value `0` (Personal) — no backfill required; all existing rows become "Personal" automatically |
+| Seed data | Inserted via `migrationBuilder.InsertData("TaskTypes", ...)` in `Up()`; removed via `migrationBuilder.DeleteData(...)` in `Down()` |
+| Production apply | `MigrateAsync()` in `Program.cs` runs automatically on next deploy to Azure — zero-downtime column add |
+| Integration tests | `WebAppFactory` uses SQLite + `EnsureCreatedAsync()` — it does NOT run migrations; tests continue to work without change |
+
+**Seed data inserted in `Up()`:**
+
+```csharp
+migrationBuilder.InsertData(
+    table: "TaskTypes",
+    columns: new[] { "Id", "Name", "SortOrder", "IsActive" },
+    values: new object[,]
+    {
+        { 1, "Task",    1, true },
+        { 2, "Goal",    2, true },
+        { 3, "Habit",   3, true },
+        { 4, "Meeting", 4, true },
+        { 5, "Note",    5, true },
+        { 6, "Event",   6, true }
+    });
+```
+
 ---
 
 ## 8. Iteration 2 Backlog
@@ -843,6 +1015,15 @@ if (builder.Environment.IsProduction())
 ---
 
 ## 9. Package Decisions
+
+### Tags UI, TaskType Lookup, and Area Feature — No New Packages Required
+
+**Decision: No new NuGet packages** for this feature set.
+
+- `TaskType` is a plain EF Core entity with seeded data — no additional ORM or seeding library needed.
+- `Area` is a C# enum stored as `int` — handled natively by EF Core and `System.Text.Json`.
+- Tag multi-select UI uses existing Bootstrap 5 + HTMX (CDN) — no JavaScript tag library added.
+- All migration tooling (`Microsoft.EntityFrameworkCore.Design`, `Microsoft.EntityFrameworkCore.Tools`) was already present from iteration 1.
 
 ### Charting Library: ApexCharts (CDN)
 

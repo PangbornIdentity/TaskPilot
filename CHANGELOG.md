@@ -7,6 +7,90 @@
 
 ---
 
+## 2026-03-31 — Tags, Task Type, and Area — Test Suite Expansion
+
+### Test | Unit, integration, and E2E tests added for Area, TaskType, and Tags features
+
+- **Unit — TaskService** (`tests/TaskPilot.Tests.Unit/Services/TaskServiceTests.cs`): +7 tests (U-T-024 to U-T-030) covering `Area` persistence on create/update/patch and `TaskTypeId` persistence on create/patch
+- **Unit — TaskTypeService** (`tests/TaskPilot.Tests.Unit/Services/TaskTypeServiceTests.cs`): new file with 2 tests (U-TT-001 to U-TT-002) — active type list ordering and empty repository edge case; uses mocked `ITaskTypeRepository`
+- **Unit — StatsService** (`tests/TaskPilot.Tests.Unit/Services/StatsServiceTests.cs`): +2 tests (U-ST-006 to U-ST-007) — `CompletionsByArea` personal/work split and `TopTags` top-5 by task count
+- **Unit — Infrastructure** (`tests/TaskPilot.Tests.Unit/Helpers/TestDbContextFactory.cs`): new helper that works around EF10 `HasDefaultValue(0)` breaking change on enum properties by building a clean IModel via a plain `DbContext` subclass and injecting it via `UseModel()`; all 11 previously-failing `StatsServiceTests` now pass
+- **Integration — WebAppFactory** (`tests/TaskPilot.Tests.Integration/WebAppFactory.cs`): added inner `PatchedApplicationDbContext` that manually configures Identity + TaskPilot entities without `HasDefaultValue`, fixing all 55 previously-failing integration tests
+- **Integration — TaskTypeApiTests** (`tests/TaskPilot.Tests.Integration/TaskTypes/TaskTypeApiTests.cs`): new file with 3 tests (I-TT-001 to I-TT-003) — unauthenticated returns 401, seeded list with 6 types returned in sort order, all types have id and name
+- **Integration — TasksApiTests** (`tests/TaskPilot.Tests.Integration/Tasks/TasksApiTests.cs`): +6 tests (I-T-036 to I-T-041) — area persistence, task type name in response, tag IDs in response, and filter-by-area/taskTypeId/tagIds
+- **E2E** (`tests/TaskPilot.Tests.E2E/Tasks/TaskAreaTypeTagTests.cs`): new file with 5 tests (E-ATT-001 to E-ATT-005) — area filter, all-filter, default Personal area, type on card, tag pill; uses graceful fallback assertions
+- **TEST-CASES.md**: added Section 14 documenting all 20 new test cases
+- **Test counts (before → after):** Unit 81 → 92 (all passing), Integration 55 → 64 (all passing; previously 0 passing), E2E +5 new tests
+- Files affected: `tests/TaskPilot.Tests.Unit/Helpers/TestDbContextFactory.cs`, `tests/TaskPilot.Tests.Unit/Services/TaskServiceTests.cs`, `tests/TaskPilot.Tests.Unit/Services/TaskTypeServiceTests.cs`, `tests/TaskPilot.Tests.Unit/Services/StatsServiceTests.cs`, `tests/TaskPilot.Tests.Integration/WebAppFactory.cs`, `tests/TaskPilot.Tests.Integration/TaskTypes/TaskTypeApiTests.cs`, `tests/TaskPilot.Tests.Integration/Tasks/TasksApiTests.cs`, `tests/TaskPilot.Tests.E2E/Tasks/TaskAreaTypeTagTests.cs`, `TEST-CASES.md`, `CHANGELOG.md`
+
+---
+
+## 2026-03-31 — Tags, TaskType, and Area — Requirements and README Documentation
+
+### Docs | REQUIREMENTS.md and README.md updated to reflect Tags UI, TaskType lookup, and Area feature
+
+**REQUIREMENTS.md:**
+- §3.1 Task: removed free-form `Type` field; replaced with `TaskTypeId` (int?, FK to TaskType) and `Area` (enum: Personal=0 / Work=1, default Personal, required)
+- §3.2 Tag / §3.3 TaskTag: added note that Tag and TaskTag are now fully UI-exposed (coloured pills on cards, detail, and create/edit form)
+- §3.7 TaskType: new lookup table spec — Id, Name, SortOrder, IsActive — with seed data (Task, Goal, Habit, Meeting, Note, Event)
+- §4.1 Dashboard: added three new chart specs — completions by Area, top 5 tags by task count, task count by type
+- §4.2 Task List View: updated Filters entry to include Area (Personal/Work/All), TaskType (single-select dropdown), and Tags (multi-select, AND logic)
+- §4.3 Task Create/Edit: added Area required toggle (default Personal) and TaskType optional dropdown sourced from /api/v1/task-types; tags shown as coloured pills
+- §4.4 Task Detail View: added tags shown as coloured pills beneath title/description
+- §5.1 Task Endpoints: updated GET /tasks query params (replaced `type` with `taskTypeId` and `area`)
+- §5.2 TaskType Endpoints: new section — GET /api/v1/task-types (read-only in iteration 1)
+- §5.3 Tag Endpoints: renumbered from §5.2
+- §5.4 Response Envelope / §5.5 API Behaviors: renumbered from §5.3/§5.4
+
+**README.md:**
+- Added "Deployment" section with "Database Migrations" sub-heading covering: two-path schema strategy (SQLite EnsureCreatedAsync vs Azure SQL MigrateAsync), contributor migration workflow with `dotnet ef migrations add`, and Azure deployment commands (publish → zip → `az webapp deploy`)
+
+Files affected: `REQUIREMENTS.md`, `README.md`, `CHANGELOG.md`
+
+---
+
+## 2026-03-31 — Tags UI, TaskType Lookup, and Area Feature — UX Documentation
+
+### Design | Tag Pill, Area Segmented Control, and TaskType Dropdown component specs; updated wireframes; two new user flows
+
+**DESIGN-SYSTEM.md:**
+- Added §9 "New Feature Components" (sections 9.1–9.3); renumbered old §9 → §10, old §10 → §11; updated Table of Contents
+- §9.1 Tag Pill: three variants (Display, Removable, Add-new trigger) with full spec — dimensions, typography (`label-sm`, 12px, 500 weight), padding (4px 8px), border-radius (`--radius-full`), 8-swatch colour palette with hex values and light/dark text pairings; tag multi-select dropdown spec including search, inline create, colour picker, keyboard/ARIA requirements
+- §9.2 Area Segmented Control: two-segment toggle (Personal / Work); active/inactive/hover/disabled state token table; full-width mobile, fit-content desktop; ARIA `role="group"` / `role="radio"` / keyboard nav spec; usage in form (first field, default Personal) and task list filter bar (both-segments-inactive = no filter)
+- §9.3 TaskType Dropdown: Bootstrap `<select class="form-select">`; placeholder "Select type…" (null = optional); options from `GET /api/v1/task-types`; `sm` (32px) in filter bar, `md` (40px) in form; ARIA label spec
+- §7 Iconography: added `bi-x`, `bi-plus`, `bi-layout-text-sidebar-reverse`, `bi-person`, `bi-briefcase` icon assignments
+
+**WIREFRAMES.md:**
+- Page 2 (Dashboard): added Area Split stat block (new full-width row between summary cards and charts; two stat blocks for Personal/Work completed counts with `bi-person` / `bi-briefcase` icons); added Charts Row 4 with Top Tags (horizontal bar chart, ApexCharts, top 5 tags by task count, `StatsResponse.TopTags`) and Type Breakdown (horizontal bar chart, `StatsResponse.ByType`); empty state spec for Top Tags when no tags exist; updated tablet and mobile layout notes
+- Page 3 (Task List — List View): complete rewrite of desktop layout; Area segmented control added as topmost element above filter bar; filter bar updated with Type dropdown and Tags multi-select filter; task row updated to two-line layout showing Area badge + TaskType label (line 1) and tag pills + date (line 2); row height updated to 56px; added filter chip anatomy; AND tag filter logic noted; tablet and mobile layout updated
+- Page 4 (Board/Kanban): card spec updated to include Area badge (top-right) and tag pills (Display variant, up to 3 + overflow)
+- Page 5 (Task Create/Edit): new field order documented (Area → Type → Title → Description → Priority → Status → Target Date → Tags → Recurring → Result Analysis); Area segmented control as first field; Type dropdown as second field; Tags field layout with removable pills and Add-new trigger; legacy free-text Type pill buttons removed; tablet and mobile slide-over notes added
+- Page 6 (Task Detail): metadata grid updated to include Area badge row and TaskType name row; Tags row updated to show Display pill variants
+
+**USER-FLOWS.md:**
+- Added Flow 13: "Create a Task with Area, Type, and Tags" — 19 steps covering area selection, type dropdown, tag selection (existing tag), inline tag create with colour picker, form submit, and expected task list appearance; 4 edge cases
+- Added Flow 14: "Filter Task List by Area, Type, and Tags" — 12 steps covering progressive filter application (area → type → tags), URL param updates, results count, filter chip appearance, clearing individual filters, and "Clear all filters"; URL parameter mapping table; AND-logic tag filtering decision documented; 4 edge cases
+
+**Design decisions:**
+- Tag filter logic is **AND** (tasks must match ALL selected tags). Rationale: narrowing by multiple tags is the primary use case; OR logic would make results less predictable and harder to scan. OR mode deferred to a future iteration.
+- Area segmented control supports a **both-inactive** state on the task list (= no area filter, show all tasks). On the create/edit form, one segment is always active (default: Personal) because Area is a required field on the task entity.
+- Files affected: `DESIGN-SYSTEM.md`, `WIREFRAMES.md`, `USER-FLOWS.md`, `CHANGELOG.md`
+
+---
+
+## 2026-03-31 — Tags UI, TaskType Lookup, and Area Feature — Architecture Documentation
+
+### Architecture | Document TaskType entity, Area enum, new API endpoints, migration plan, and updated DTOs
+- **§1 Solution Structure**: added `TaskType.cs` entity, `TaskTypes/TaskTypeResponse.cs` DTO, `Area.cs` enum to directory tree
+- **§2 ER Diagram**: added `TaskType` entity (Id, Name, SortOrder, IsActive); added `Area` (int) and `TaskTypeId` (int FK, nullable) to `TaskItem`; added `TaskType ||--o{ TaskItem : "categorises"` relationship; added comments noting Tag/TaskTag are now UI-exposed
+- **§3 API Endpoints**: added §3.1a `GET /api/v1/task-types` endpoint with `TaskTypeResponse` DTO and seed data table; updated `CreateTaskRequest`, `UpdateTaskRequest`, and `PatchTaskRequest` DTOs to include `taskTypeId` (int?, optional), `area` (Area enum, default Personal), `tagIds` (List<Guid>); updated `TaskResponse` DTO to include `taskTypeId`, `taskTypeName`, `area`, `areaName`, and `tags`; added `StatsResponse` DTO spec with `CompletionsByArea` and `TopTags` fields
+- **§5 Coding Standards**: added §5.8 documenting that `Area` enum must always serialise as integer (no `StringEnumConverter`); documented `Area` enum values (Personal=0, Work=1) and design rationale for fixed enum over lookup table
+- **§7 Azure Migration Map**: added §7.1 migration plan for `AddTaskTypeAreaAndTagsUI` — migration command, `DesignTimeDbContextFactory` note, nullable `TaskTypeId`, `Area` default 0, seed data via `InsertData`, `MigrateAsync` production apply, integration test unaffected note
+- **§9 Package Decisions**: added note confirming no new NuGet packages required for this feature
+- Files affected: `ARCHITECTURE.md`, `CHANGELOG.md`
+
+---
+
 ## 2026-03-27 — Azure Deployment Readiness
 
 ### Architecture | Azure SQL provider, EF Core migrations, and production configuration

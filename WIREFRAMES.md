@@ -82,6 +82,12 @@
 │                         │  │  24  ││  3   ││  7   ││  8   ││ 2 ││
 │                         │  └──────┘└──────┘└──────┘└──────┘└──┘│
 │                         │                                        │
+│                         │  AREA SPLIT ROW (2 stat blocks)       │
+│                         │  ┌──────────────────────────────────┐ │
+│                         │  │  Personal [12]  │  Work [11]     │ │
+│                         │  │  completed      │  completed     │ │
+│                         │  └──────────────────────────────────┘ │
+│                         │                                        │
 │                         │  CHARTS ROW 1 (2 charts, equal width) │
 │                         │  ┌────────────────┐┌─────────────────┐│
 │                         │  │ Weekly Complete ││Monthly Complete ││
@@ -91,7 +97,7 @@
 │                         │  CHARTS ROW 2 (3 charts, equal width) │
 │                         │  ┌──────────┐┌──────────┐┌───────────┐│
 │                         │  │Completion ││ By Type  ││By Priority││
-│                         │  │Rate Trend ││ [donut]  ││[stacked ] ││
+│                         │  │Rate Trend ││[donut/bar]││[stacked] ││
 │                         │  │ [line]    ││          ││[bar]      ││
 │                         │  └──────────┘└──────────┘└───────────┘│
 │                         │                                        │
@@ -100,6 +106,12 @@
 │                         │  │ Time-to-Complete││ Tasks Per Year  ││
 │                         │  │  Trend [line]   ││  [bar chart]   ││
 │                         │  └────────────────┘└─────────────────┘│
+│                         │                                        │
+│                         │  CHARTS ROW 4 (2 charts, equal width) │
+│                         │  ┌────────────────┐┌─────────────────┐│
+│                         │  │ Top Tags       ││ Type Breakdown  ││
+│                         │  │ [horiz. bar]   ││  [donut/bar]   ││
+│                         │  └────────────────┘└─────────────────┘│
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -107,16 +119,39 @@
 
 **Chart cards:** Same card style. Chart title (h4) at top left of card. 16px padding.
 
+**Area Split stat block (new):**
+- Sits in its own full-width row between the Summary Cards and Charts Row 1
+- Two side-by-side stat blocks inside a single card (`--radius-lg`, `--shadow-sm`), divided by a 1px vertical separator
+- Each block shows: an icon (`bi-person` / `bi-briefcase`, `icon-md`, `--color-text-secondary`), label ("Personal" / "Work", `label` style), number (h2, `--color-text-primary`), sub-label ("completed tasks", `caption`, `--color-text-tertiary`)
+- Data source: `StatsResponse.CompletionsByArea` → counts completed tasks split by `Area` for the active period
+
+**Top Tags chart (new, Charts Row 4 left):**
+- ApexCharts horizontal bar chart
+- Y-axis: tag names (up to 5 tags); X-axis: task count
+- Bar colour: `--color-primary-400` (single series; no legend needed)
+- Data source: `StatsResponse.TopTags` (top 5 tags by associated task count)
+- If fewer than 5 tags exist, chart shows only the available tags
+- Empty state (no tags yet): card shows the chart skeleton replaced by the empty state message "No tags yet — add tags to your tasks to see this chart"
+
+**Type Breakdown chart (updated label; Charts Row 2 middle and Charts Row 4 right):**
+- "By Type" in Charts Row 2 shows a donut chart: one segment per active task type, count as tooltip
+- "Type Breakdown" in Charts Row 4 shows a horizontal bar chart for the same data — both are acceptable implementations; use whichever fits the available space better. Preferred for Row 4: bar chart
+- Data source: `StatsResponse.ByType`
+
 ### Tablet Layout
 - Sidebar collapses to icon rail (72px)
 - Summary cards: 3-column first row (Total, Completed, Overdue), then 2 more below
+- Area Split block: same 2-column layout, full width
 - Charts: 2-column grid throughout
+- Charts Row 4 (Top Tags + Type Breakdown): 2-column
 
 ### Mobile Layout
 - No sidebar, bottom tab bar
 - Quick-add bar at top
 - Summary cards: 2-column grid (2+2+1 centered)
+- Area Split block: full width, 2-column inside
 - Charts: single column, each chart full width
+- Charts Row 4 charts stack below all other charts
 
 ---
 
@@ -125,56 +160,86 @@
 ### Desktop Layout
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ SIDEBAR  │  [+ Quick-add: Type a task title...]                  │
-│          │────────────────────────────────────────────────────── │
-│          │  [🔍 Search tasks...]    [☰ List][⊞ Board]  [Filters▼] [Sort▼] │
-│          │                                                        │
-│          │  [× Work] [× High Priority]  ← active filter chips   │
-│          │                                                        │
-│          │  ┌─ Bulk toolbar (shown when items selected) ─────┐   │
-│          │  │ [✓] 3 selected  [✓Complete] [Priority▼] [🏷Tag▼] [🗑] │
-│          │  └───────────────────────────────────────────────┘   │
-│          │                                                        │
-│          │  ▼ IN PROGRESS (4)                                     │
-│          │  ┌────────────────────────────────────────────────┐   │
-│          │  │[□]  ● High  │ Redesign onboarding flow   │Work│#ui│ Mar 28 │In Progress│ ⠿│
-│          │  │[□]  ● Med   │ Write Q1 report           │Work│   │ Apr 2  │In Progress│ ⠿│
-│          │  └────────────────────────────────────────────────┘   │
-│          │                                                        │
-│          │  ▼ NOT STARTED (12)                                    │
-│          │  ┌────────────────────────────────────────────────┐   │
-│          │  │[□]  ● Crit  │ Fix login bug              │Work│   │ Today  │Not Started│ ⠿│
-│          │  │  ...                                           │   │
-│          │  └────────────────────────────────────────────────┘   │
-│          │                                                        │
-│          │  ▶ COMPLETED (8)  ← collapsed by default             │
-│          │  ▶ BLOCKED (2)                                        │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ SIDEBAR  │  [+ Quick-add: Type a task title...]                               │
+│          │────────────────────────────────────────────────────────────────── │
+│          │                                                                    │
+│          │  AREA FILTER (primary — above all other filters)                  │
+│          │  ┌────────────────────────────────────────────────────────┐       │
+│          │  │  [  Personal  ] [    Work    ]   ← Area segmented ctrl │       │
+│          │  └────────────────────────────────────────────────────────┘       │
+│          │                                                                    │
+│          │  FILTER & SEARCH BAR                                              │
+│          │  [🔍 Search tasks...]  [☰ List][⊞ Board]  [Sort▼]               │
+│          │  [Status▼]  [Priority▼]  [Type▼]  [Tags▼]  [Clear filters]      │
+│          │                                                                    │
+│          │  ACTIVE FILTER CHIPS                                              │
+│          │  [× Work] [× High Priority] [× Meeting] [× project-alpha]        │
+│          │                                                                    │
+│          │  ┌─ Bulk toolbar (shown when items selected) ─────────────────┐  │
+│          │  │ [✓] 3 selected  [✓Complete] [Priority▼] [🏷Tag▼] [🗑]     │  │
+│          │  └─────────────────────────────────────────────────────────────┘  │
+│          │                                                                    │
+│          │  ▼ IN PROGRESS (4)                                                │
+│          │  ┌──────────────────────────────────────────────────────────┐    │
+│          │  │[□] ●High │ Redesign onboarding flow  [Work] Meeting      │    │
+│          │  │          │  ● project-alpha  ● ui          Mar 28  ⠿    │    │
+│          │  ├──────────────────────────────────────────────────────────┤    │
+│          │  │[□] ●Med  │ Write Q1 report            [Work] Goal        │    │
+│          │  │          │  ● roadmap                      Apr 2   ⠿    │    │
+│          │  └──────────────────────────────────────────────────────────┘    │
+│          │                                                                    │
+│          │  ▼ NOT STARTED (12)                                               │
+│          │  ┌──────────────────────────────────────────────────────────┐    │
+│          │  │[□] ●Crit │ Fix login bug              [Work] Task        │    │
+│          │  │          │  ● auth  ● bug                   Today   ⠿   │    │
+│          │  │  ...                                                     │    │
+│          │  └──────────────────────────────────────────────────────────┘    │
+│          │                                                                    │
+│          │  ▶ COMPLETED (8)  ← collapsed by default                         │
+│          │  ▶ BLOCKED (2)                                                    │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Task row anatomy (left to right):**
+**Task row anatomy — two-line layout (desktop):**
+
+Line 1 (left to right):
 1. Checkbox (24px, 36px touch target)
 2. Priority badge (pill, colored)
 3. Title (body, primary text) — click to open detail, double-click to inline edit
-4. Type chip (subtle, secondary)
-5. Tag chips (up to 2 visible, +N if more)
-6. Target date (caption, tertiary; red if overdue)
-7. Drag handle (⠿, visible on row hover only)
+4. Area badge (small, `label-sm`): `[Personal]` or `[Work]` — background `--color-primary-50` / `--color-primary-900` dark; text `--color-primary-600` / `--color-primary-400` dark; `border-radius: --radius-sm`; only shown when no area filter is active (to avoid redundancy)
+5. TaskType label (`label-sm`, `--color-text-secondary`)
 
-**Row height:** 48px. Hover: background `--color-bg-overlay`.
+Line 2 (indented to align with title):
+6. Tag pills (Display variant, up to 3 visible; `+N` overflow badge if more)
+7. Target date (caption, tertiary; red if overdue; right-aligned)
+8. Drag handle (⠿, visible on row hover only; far right)
+
+**Row height:** 56px (two-line). Hover: background `--color-bg-overlay`.
+
+**Filter bar controls:**
+- **Area segmented control**: full-width of filter area on mobile; auto-width on desktop/tablet. Both segments inactive = no area filter applied.
+- **Type dropdown** (filter mode, `sm` size, 32px height): options from `GET /api/v1/task-types`; first option "All types" (value `""`) clears the filter.
+- **Tags multi-select dropdown** (filter mode): renders a popover with tag checkboxes; active selected tags shown as filter chips. Tag filter logic: **AND** — tasks must have ALL selected tags.
+- Active filter chips: each shows `× [label]` and removes that filter when clicked. "Clear filters" removes all.
 
 ### Tablet Layout
 - Sidebar collapsed to icon rail
-- Task row: hide Type chip if narrow; truncate tags to 1
+- Area segmented control: full width of content area
+- Filter bar: Status, Priority, Type, Tags filters collapse into a single `[Filters ▼]` dropdown button to save horizontal space; active filter count badge shown on button
+- Task row: single line; omit TaskType label if viewport < 800px; truncate tag pills to 1 + overflow count
 
 ### Mobile Layout
-- No sidebar, bottom tab bar
-- Search bar full width
-- No view toggle (list view only)
-- Task row: [checkbox] [priority dot] [title] [date] (simplified)
-- Swipe right: green overlay appears with ✓ icon → complete
-- Swipe left: red overlay appears with 🗑 icon → soft-delete
+- No sidebar; bottom tab bar
+- Area segmented control: full width, above search bar
+- Search bar full width below area control
+- No view toggle (list view only on mobile)
+- Filter bar: tap `[Filters ▼]` to open bottom-sheet drawer with all filter options (Status, Priority, Type, Tags)
+- Task row simplified — two sub-lines:
+  - Line 1: [checkbox] [priority dot] [title] [Area badge]
+  - Line 2 (indented): [tag pills, max 2] [date]
+- Swipe right: green overlay with ✓ icon → complete
+- Swipe left: red overlay with 🗑 icon → soft-delete
 
 ---
 
@@ -205,7 +270,7 @@
 ```
 
 **Column width:** Equal distribution. Min 200px per column. Horizontal scroll if needed.
-**Card:** `--radius-lg`, `--shadow-sm`, 12px padding. Shows: priority badge, title, type chip, tags, target date.
+**Card:** `--radius-lg`, `--shadow-sm`, 12px padding. Shows: priority badge, Area badge (top-right corner, `label-sm`), title, TaskType label (`label-sm`, `--color-text-secondary`), tag pills (Display variant, up to 3; +N overflow), target date.
 
 ### Mobile Layout
 - Single column at a time
@@ -223,6 +288,16 @@
 │                              ┌──────────────────────────┐  │
 │                              │ New Task           [✕]   │  │
 │                              │──────────────────────────│  │
+│                              │ (scrollable)             │  │
+│                              │                          │  │
+│                              │  Area                    │  │
+│                              │  ┌──────────┬──────────┐ │  │
+│                              │  │ Personal │   Work   │ │  │
+│                              │  └──────────┴──────────┘ │  │
+│                              │  (default: Personal)     │  │
+│                              │                          │  │
+│                              │  Type                    │  │
+│                              │  [Select type…        ▼] │  │
 │                              │                          │  │
 │                              │  Title *                 │  │
 │                              │  [_______________________]│  │
@@ -230,10 +305,6 @@
 │                              │  Description             │  │
 │                              │  [_____________________  │  │
 │                              │   _____________________ ]│  │
-│                              │                          │  │
-│                              │  Type                    │  │
-│                              │  [Work][Personal][Health]│  │
-│                              │  [Finance][Learning][Othr]│ │
 │                              │                          │  │
 │                              │  Priority                │  │
 │                              │  [Critical][High][Med][Low]│ │
@@ -245,7 +316,13 @@
 │                              │  [Specific Day ▼] [date] │  │
 │                              │                          │  │
 │                              │  Tags                    │  │
-│                              │  [#ui ×][#work ×] [+New] │  │
+│                              │  ┌─────────────────────┐ │  │
+│                              │  │● proj-alpha [×]     │ │  │
+│                              │  │● client-x   [×]     │ │  │
+│                              │  │┌ ─ ─ ─ ─ ─ ─ ─ ─ ─┐│ │  │
+│                              │  ││  + Add tag        ││ │  │
+│                              │  │└ ─ ─ ─ ─ ─ ─ ─ ─ ─┘│ │  │
+│                              │  └─────────────────────┘ │  │
 │                              │                          │  │
 │                              │  [○] Recurring           │  │
 │                              │  (shows pattern if ON)   │  │
@@ -261,8 +338,32 @@
 └────────────────────────────────────────────────────────────┘
 ```
 
-**Type selector:** Segmented/pill buttons (6 options). Wrap to 2 rows if needed.
+**Field order (top to bottom):**
+1. **Area** — segmented control (Personal / Work). First field, default: Personal. Full width of form body.
+2. **Type** — `<select>` dropdown, options from `/api/v1/task-types`. Placeholder "Select type…". Optional.
+3. **Title** — required text input.
+4. **Description** — optional textarea (3 rows).
+5. **Priority** — segmented/pill buttons (Critical, High, Medium, Low, colored).
+6. **Status** — `<select>` dropdown.
+7. **Target Date** — date type selector + optional date picker.
+8. **Tags** — tag multi-select field (see §9.1 in DESIGN-SYSTEM.md).
+9. **Recurring** — toggle + recurrence pattern (shown when toggle is ON).
+10. **Result Analysis** — textarea, only visible in edit mode when Status = Completed.
+
+**Tags field layout:**
+- Shows selected tags as Removable pill variants, wrapping to multiple lines if needed
+- "Add tag" trigger (dashed-border pill) always appears at end of the tag list
+- Clicking "Add tag" opens the tag multi-select dropdown anchored to the trigger
+- New tags created inline via the dropdown's "Create" option; colour picker shown before confirming
+
 **Priority selector:** Segmented/pill buttons (4 options, colored).
+**Note:** The legacy free-text "Type" field that previously showed 6 pill buttons (Work/Personal/Health/Finance/Learning/Other) is replaced by the new Area segmented control + TaskType dropdown combination.
+
+### Tablet Layout
+
+- Slide-over: full width (100%), not 480px
+- All fields same as desktop, stacked vertically
+- Area segmented control: full width
 
 ### Mobile — Full Screen Slide Up
 
@@ -271,10 +372,24 @@
 │ New Task      [✕]    │
 │──────────────────────│
 │ (scrollable form)    │
+│  Area                │
+│  ┌────────┬────────┐ │
+│  │Personal│  Work  │ │
+│  └────────┴────────┘ │
+│                      │
+│  Type                │
+│  [Select type…    ▼] │
+│                      │
 │  Title *             │
 │  [________________]  │
 │                      │
 │  ... same fields ... │
+│                      │
+│  Tags                │
+│  ● tag-1 [×]         │
+│  ┌ ─ ─ ─ ─ ─ ─ ─ ─┐ │
+│   + Add tag          │
+│  └ ─ ─ ─ ─ ─ ─ ─ ─┘ │
 │                      │
 │──────────────────────│
 │ [Cancel] [Save Task] │
@@ -282,6 +397,7 @@
 ```
 
 Full-width. Slides up from bottom with 300ms ease-out. Header and footer sticky, content scrollable.
+Area segmented control full width. Tag multi-select dropdown opens as a bottom-sheet on mobile.
 
 ---
 
@@ -304,11 +420,12 @@ Full-width. Slides up from bottom with 300ms ease-out. Header and footer sticky,
 │          │  └──────────────────────────────────────────────┘    │
 │          │                                                        │
 │          │  ┌──────────┬────────────────────────────────────┐   │
-│          │  │ Type     │ Work                               │   │
+│          │  │ Area     │ [Work]  ← Area badge               │   │
+│          │  │ Type     │ Task  ← TaskType name              │   │
 │          │  │ Target   │ Today, Mar 28                      │   │
 │          │  │ Created  │ Mar 24, 2026                       │   │
 │          │  │ Modified │ 2 hours ago by user:rpang          │   │
-│          │  │ Tags     │ #bug  #auth                        │   │
+│          │  │ Tags     │ ● bug  ● auth  ← tag Display pills │   │
 │          │  └──────────┴────────────────────────────────────┘   │
 │          │                                                        │
 │          │  Result Analysis  ← (prominent if Completed)         │

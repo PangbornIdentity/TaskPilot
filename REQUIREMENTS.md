@@ -60,7 +60,8 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 | Id | GUID | Primary key, server-generated |
 | Title | string | Required, max 200 chars |
 | Description | string? | Optional, supports markdown rendering in UI |
-| Type | string | `Work`, `Personal`, `Health`, `Finance`, `Learning`, `Other` — stored as string for user extensibility |
+| TaskTypeId | int? | FK to `TaskType` lookup table (§3.7); optional |
+| Area | enum | `Personal=0`, `Work=1` — default `Personal`; required |
 | Priority | enum | `Critical`, `High`, `Medium`, `Low` |
 | Status | enum | `NotStarted`, `InProgress`, `Blocked`, `Completed`, `Cancelled` |
 | TargetDateType | enum | `SpecificDay`, `ThisWeek`, `ThisMonth` |
@@ -88,6 +89,8 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 | CreatedDate | DateTime | Auto-set |
 | LastModifiedDate | DateTime | Auto-updated |
 | LastModifiedBy | string | Same format as Task |
+
+> **Note:** `Tag` and `TaskTag` are now fully UI-exposed. Tags are shown as coloured pills on task cards, task detail, and the create/edit form. Previously the data layer existed but tags were not surfaced in the UI.
 
 ### 3.3 TaskTag (join table)
 
@@ -138,6 +141,28 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 | NewValue | string? | New value as string |
 | ChangedBy | string | Same format as LastModifiedBy |
 
+### 3.7 TaskType (lookup table)
+
+| Field | Type | Rules |
+|-------|------|-------|
+| Id | int | PK, identity |
+| Name | string | Display name, unique, required |
+| SortOrder | int | Controls sort order in dropdowns |
+| IsActive | bool | Inactive types are hidden from dropdowns but retained for existing tasks |
+
+**Seed data (applied at startup):**
+
+| Id | Name | SortOrder | IsActive |
+|----|------|-----------|----------|
+| 1 | Task | 1 | true |
+| 2 | Goal | 2 | true |
+| 3 | Habit | 3 | true |
+| 4 | Meeting | 4 | true |
+| 5 | Note | 5 | true |
+| 6 | Event | 6 | true |
+
+TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed via `GET /api/v1/task-types`.
+
 ---
 
 ## 4. Web UI Features
@@ -161,6 +186,9 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 | Breakdown by Type | Donut | All active tasks |
 | Breakdown by Priority | Stacked bar | All active tasks |
 | Average time-to-completion trend | Line | Time from creation to completion, by week |
+| Completions by Area | Bar | Personal vs Work completion count |
+| Top 5 tags by task count | Bar | All active tasks |
+| Task count by type | Donut | All active tasks grouped by TaskType |
 
 **Quick-add bar:** Persistent at top of every page.
 
@@ -169,7 +197,7 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 - **Default grouping:** By status, sorted by priority within each group
 - **View toggle:** List view (dense table) / Board/Kanban view (columns by status)
 - **Search:** Full-text across title + description (debounced 300ms)
-- **Filters (combinable):** Type, priority, status, date range (target date), tags, recurring only
+- **Filters (combinable):** Area (Personal / Work / All), TaskType (dropdown, single-select, sourced from `/api/v1/task-types`), Tags (multi-select chip picker, AND logic — task must have ALL selected tags), priority, status, date range (target date), recurring only
 - **Sort options:** Priority, target date, created date, last modified date (ascending/descending)
 - **Bulk actions toolbar** (when items selected): mark complete, change priority, change status, add/remove tag, soft-delete
 - **Drag-and-drop reordering** within groups (persists `SortOrder`)
@@ -180,7 +208,10 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 
 - Opens as a **slide-over panel** from the right (not a separate page)
 - All task fields with appropriate inputs (text, dropdowns, date pickers, tag multi-select)
+- **Area** is a required toggle/select (Personal / Work), defaulting to Personal
+- **TaskType** is an optional dropdown sourced from `GET /api/v1/task-types` (active types only, sorted by `SortOrder`)
 - Tag selector with inline "create new tag" capability (type name, pick color)
+- Tags displayed as coloured pills in the selector and on the saved form
 - **"Save & Create Another"** button for rapid batch entry
 - **Auto-save draft** to localStorage if user navigates away mid-edit
 - Inline validation feedback on each field
@@ -188,6 +219,7 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 ### 4.4 Task Detail View
 
 - Full read view of all task fields
+- **Tags** displayed as coloured pills beneath the title/description
 - **Result Analysis** prominently displayed when status = Completed (prompt to fill in if empty)
 - **Activity log:** Chronological list of all field changes (from `TaskActivityLog`)
 - Edit button → opens edit slide-over
@@ -282,9 +314,17 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 | POST | /api/v1/tasks/{id}/complete | Mark complete. Optional: `{ "resultAnalysis": "..." }` |
 | GET | /api/v1/tasks/stats | Aggregated stats |
 
-**GET /api/v1/tasks query params:** `status`, `type`, `priority`, `search`, `tags` (comma-sep), `isRecurring`, `page`, `pageSize`, `sortBy`, `sortDir`
+**GET /api/v1/tasks query params:** `status`, `taskTypeId` (int), `area` (enum: `Personal`, `Work`), `priority`, `search`, `tags` (comma-sep tag names, AND logic), `isRecurring`, `page`, `pageSize`, `sortBy`, `sortDir`
 
-### 5.2 Tag Endpoints
+### 5.2 TaskType Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/v1/task-types | List all active TaskType records (sorted by SortOrder) |
+
+Read-only in iteration 1. No create/update/delete endpoints.
+
+### 5.3 Tag Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -292,7 +332,7 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 | POST | /api/v1/tags | Create tag |
 | DELETE | /api/v1/tags/{id} | Delete tag (removes from all tasks) |
 
-### 5.3 Response Envelope
+### 5.4 Response Envelope
 
 All API responses use the standard envelope. No exceptions.
 
@@ -302,7 +342,7 @@ All API responses use the standard envelope. No exceptions.
 
 **Error:** `{ "error": { "code": "VALIDATION_ERROR", "message": "...", "details": [{ "field": "title", "message": "..." }] } }`
 
-### 5.4 API Behaviors
+### 5.5 API Behaviors
 
 - All write operations set `LastModifiedBy` to `"api:{apiKeyName}"`
 - All write operations create a `TaskActivityLog` entry

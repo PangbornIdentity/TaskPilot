@@ -1,11 +1,12 @@
-﻿using TaskPilot.Models.Enums;
+using TaskPilot.Models.Enums;
 
 namespace TaskPilot.Models.Tasks;
 
 public record PatchTaskRequest(
     string? Title = null,
     string? Description = null,
-    string? Type = null,
+    int? TaskTypeId = null,
+    Area? Area = null,
     TaskPriority? Priority = null,
     Enums.TaskStatus? Status = null,
     TargetDateType? TargetDateType = null,

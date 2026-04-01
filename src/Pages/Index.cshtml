@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @model TaskPilot.Pages.IndexModel
 @{
     ViewData["Title"] = "Dashboard";
@@ -44,6 +44,42 @@
     </div>
 </div>
 
+<!-- Area split stat block -->
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <div class="tp-card h-100">
+            <div class="tp-card-header">Completed by Area</div>
+            <div class="tp-card-body d-flex justify-content-around align-items-center py-3">
+                <div class="text-center">
+                    <div class="tp-stat-value" style="font-size:2rem">@Model.Stats?.CompletionsByArea.Personal</div>
+                    <div class="text-muted small"><span class="badge bg-secondary">Personal</span></div>
+                </div>
+                <div class="text-center">
+                    <div class="tp-stat-value" style="font-size:2rem">@Model.Stats?.CompletionsByArea.Work</div>
+                    <div class="text-muted small"><span class="badge bg-info text-dark">Work</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="tp-card h-100">
+            <div class="tp-card-header">Top Tags</div>
+            <div class="tp-card-body">
+                @if (Model.Stats?.TopTags?.Count > 0)
+                {
+                    <div id="chart-top-tags" style="min-height:150px"></div>
+                }
+                else
+                {
+                    <div class="tp-empty py-3">
+                        <div class="tp-empty-text">No tags yet</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Charts -->
 <div class="tp-charts-grid">
     <div class="tp-card">
@@ -57,6 +93,14 @@
         <div class="tp-card-body">
             <div id="chart-priority" style="min-height:200px"></div>
         </div>
+    </div>
+</div>
+
+<!-- Type breakdown chart -->
+<div class="tp-card mb-3">
+    <div class="tp-card-header">Tasks by Type</div>
+    <div class="tp-card-body">
+        <div id="chart-type" style="min-height:200px"></div>
     </div>
 </div>
 
@@ -80,6 +124,7 @@
             <thead>
                 <tr>
                     <th>Title</th>
+                    <th>Area</th>
                     <th>Priority</th>
                     <th>Status</th>
                     <th>Type</th>
@@ -90,9 +135,19 @@
                 {
                     <tr>
                         <td><a href="/tasks/@task.Id" class="text-decoration-none fw-medium">@task.Title</a></td>
+                        <td>
+                            @if (task.Area == TaskPilot.Models.Enums.Area.Work)
+                            {
+                                <span class="badge bg-info text-dark">Work</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Personal</span>
+                            }
+                        </td>
                         <td>@Html.Raw(PriorityBadge(task.Priority))</td>
                         <td>@Html.Raw(StatusBadge(task.Status))</td>
-                        <td><span class="text-muted">@task.Type</span></td>
+                        <td><span class="text-muted">@(task.TaskTypeName ?? "—")</span></td>
                     </tr>
                 }
             </tbody>
@@ -126,6 +181,10 @@
     var weeklyLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.CompletedPerWeek?.Select(w => w.WeekLabel).ToList() ?? new List<string>()));
     var priorityData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.ByPriority?.Select(p => p.NotStarted + p.InProgress + p.Blocked).ToList() ?? new List<int>()));
     var priorityLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.ByPriority?.Select(p => p.Priority).ToList() ?? new List<string>()));
+    var typeData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.ByType?.Select(t => t.Count).ToList() ?? new List<int>()));
+    var typeLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.ByType?.Select(t => t.Type).ToList() ?? new List<string>()));
+    var topTagData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.TopTags?.Select(t => t.TaskCount).ToList() ?? new List<int>()));
+    var topTagLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.TopTags?.Select(t => t.TagName).ToList() ?? new List<string>()));
 
     if (weeklyLabels.length > 0) {
         new ApexCharts(document.querySelector('#chart-weekly'), {
@@ -151,6 +210,30 @@
         }).render();
     } else {
         document.querySelector('#chart-priority').innerHTML = '<div class="tp-empty py-4"><div class="tp-empty-text">No data yet</div></div>';
+    }
+
+    if (typeLabels.length > 0) {
+        new ApexCharts(document.querySelector('#chart-type'), {
+            chart: { type: 'bar', height: 200, toolbar: { show: false } },
+            plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+            series: [{ name: 'Tasks', data: typeData }],
+            xaxis: { categories: typeLabels },
+            colors: ['#6255EC'],
+            dataLabels: { enabled: false }
+        }).render();
+    } else {
+        document.querySelector('#chart-type').innerHTML = '<div class="tp-empty py-4"><div class="tp-empty-text">No data yet</div></div>';
+    }
+
+    if (topTagLabels.length > 0) {
+        new ApexCharts(document.querySelector('#chart-top-tags'), {
+            chart: { type: 'bar', height: 150, toolbar: { show: false } },
+            plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+            series: [{ name: 'Tasks', data: topTagData }],
+            xaxis: { categories: topTagLabels },
+            colors: ['#6255EC'],
+            dataLabels: { enabled: false }
+        }).render();
     }
 })();
 </script>

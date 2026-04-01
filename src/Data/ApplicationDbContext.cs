@@ -10,6 +10,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<TaskItem> Tasks => Set<TaskItem>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<TaskTag> TaskTags => Set<TaskTag>();
+    public DbSet<TaskType> TaskTypes => Set<TaskType>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<ApiAuditLog> ApiAuditLogs => Set<ApiAuditLog>();
     public DbSet<TaskActivityLog> TaskActivityLogs => Set<TaskActivityLog>();

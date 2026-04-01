@@ -1,4 +1,4 @@
-﻿using TaskPilot.Entities;
+using TaskPilot.Entities;
 using TaskPilot.Repositories.Interfaces;
 using TaskPilot.Services.Interfaces;
 using TaskPilot.Models.Common;
@@ -34,7 +34,8 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         {
             Title = request.Title,
             Description = request.Description,
-            Type = request.Type,
+            TaskTypeId = request.TaskTypeId,
+            Area = request.Area,
             Priority = request.Priority,
             Status = request.Status,
             TargetDateType = request.TargetDateType,
@@ -76,7 +77,8 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
 
         task.Title = request.Title;
         task.Description = request.Description;
-        task.Type = request.Type;
+        task.TaskTypeId = request.TaskTypeId;
+        task.Area = request.Area;
         task.Priority = request.Priority;
         task.Status = request.Status;
         task.TargetDateType = request.TargetDateType;
@@ -114,7 +116,8 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
 
         if (request.Title is not null) { PatchLog(nameof(task.Title), task.Title, request.Title); task.Title = request.Title; }
         if (request.Description is not null) { PatchLog(nameof(task.Description), task.Description, request.Description); task.Description = request.Description; }
-        if (request.Type is not null) { PatchLog(nameof(task.Type), task.Type, request.Type); task.Type = request.Type; }
+        if (request.TaskTypeId.HasValue) { PatchLog(nameof(task.TaskTypeId), task.TaskTypeId?.ToString(), request.TaskTypeId.Value.ToString()); task.TaskTypeId = request.TaskTypeId.Value; }
+        if (request.Area.HasValue) { PatchLog(nameof(task.Area), task.Area.ToString(), request.Area.Value.ToString()); task.Area = request.Area.Value; }
         if (request.Priority.HasValue) { PatchLog(nameof(task.Priority), task.Priority.ToString(), request.Priority.Value.ToString()); task.Priority = request.Priority.Value; }
         if (request.Status.HasValue) { PatchLog(nameof(task.Status), task.Status.ToString(), request.Status.Value.ToString()); task.Status = request.Status.Value; }
         if (request.TargetDateType.HasValue) { PatchLog(nameof(task.TargetDateType), task.TargetDateType.ToString(), request.TargetDateType.Value.ToString()); task.TargetDateType = request.TargetDateType.Value; }
@@ -213,7 +216,8 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         {
             Title = source.Title,
             Description = source.Description,
-            Type = source.Type,
+            TaskTypeId = source.TaskTypeId,
+            Area = source.Area,
             Priority = source.Priority,
             Status = TaskStatus.NotStarted,
             TargetDateType = source.TargetDateType,
@@ -242,7 +246,8 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
 
         Log(nameof(task.Title), task.Title, request.Title);
         Log(nameof(task.Description), task.Description, request.Description);
-        Log(nameof(task.Type), task.Type, request.Type);
+        Log(nameof(task.TaskTypeId), task.TaskTypeId?.ToString(), request.TaskTypeId?.ToString());
+        Log(nameof(task.Area), task.Area.ToString(), request.Area.ToString());
         Log(nameof(task.Priority), task.Priority.ToString(), request.Priority.ToString());
         Log(nameof(task.Status), task.Status.ToString(), request.Status.ToString());
         Log(nameof(task.TargetDate), task.TargetDate?.ToString("O"), request.TargetDate?.ToString("O"));
@@ -254,7 +259,10 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         task.Id,
         task.Title,
         task.Description,
-        task.Type,
+        task.TaskTypeId,
+        task.TaskType?.Name,
+        task.Area,
+        task.Area == Area.Work ? "Work" : "Personal",
         task.Priority,
         task.Status,
         task.TargetDateType,

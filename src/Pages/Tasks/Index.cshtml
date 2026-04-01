@@ -1,5 +1,6 @@
-﻿@page "/tasks"
+@page "/tasks"
 @model TaskPilot.Pages.Tasks.TasksIndexModel
+@using TaskPilot.Models.Enums
 @{
     ViewData["Title"] = "Tasks";
     var isBoard = Model.View == "board";
@@ -13,6 +14,16 @@
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#taskModal">
         <i class="bi bi-plus-lg me-1"></i> New Task
     </button>
+</div>
+
+<!-- Area filter -->
+<div class="tp-area-filter btn-group mb-3" role="group">
+    <a href="@Url.Page("/Tasks/Index", new { view = Model.View, search = Model.Search, status = Model.StatusFilter, priority = Model.PriorityFilter, taskTypeId = Model.TaskTypeIdFilter })"
+       class="btn btn-sm @(Model.AreaFilter == null ? "btn-primary" : "btn-outline-secondary")">All</a>
+    <a href="@Url.Page("/Tasks/Index", new { view = Model.View, search = Model.Search, status = Model.StatusFilter, priority = Model.PriorityFilter, taskTypeId = Model.TaskTypeIdFilter, area = Area.Personal })"
+       class="btn btn-sm @(Model.AreaFilter == Area.Personal ? "btn-primary" : "btn-outline-secondary")">Personal</a>
+    <a href="@Url.Page("/Tasks/Index", new { view = Model.View, search = Model.Search, status = Model.StatusFilter, priority = Model.PriorityFilter, taskTypeId = Model.TaskTypeIdFilter, area = Area.Work })"
+       class="btn btn-sm @(Model.AreaFilter == Area.Work ? "btn-primary" : "btn-outline-secondary")">Work</a>
 </div>
 
 <!-- Filters -->
@@ -29,24 +40,56 @@
                name="search" />
     </div>
 
-    <form id="filterForm" method="get" action="/tasks" class="d-flex gap-2 align-items-center">
+    <form id="filterForm" method="get" action="/tasks" class="d-flex gap-2 align-items-center flex-wrap">
         <input type="hidden" name="view" value="@Model.View" />
-        <select name="status" class="form-select form-select-sm" style="width:auto"
-                onchange="this.form.submit()">
+        @if (Model.AreaFilter.HasValue)
+        {
+            <input type="hidden" name="area" value="@((int)Model.AreaFilter.Value)" />
+        }
+        <select name="status" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
             <option value="">All Status</option>
             @foreach (var s in Enum.GetValues<TaskPilot.Models.Enums.TaskStatus>())
             {
                 <option value="@s" selected="@(Model.StatusFilter == s)">@s</option>
             }
         </select>
-        <select name="priority" class="form-select form-select-sm" style="width:auto"
-                onchange="this.form.submit()">
+        <select name="priority" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
             <option value="">All Priority</option>
             @foreach (var p in Enum.GetValues<TaskPilot.Models.Enums.TaskPriority>())
             {
                 <option value="@p" selected="@(Model.PriorityFilter == p)">@p</option>
             }
         </select>
+        <select name="taskTypeId" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+            <option value="">All Types</option>
+            @foreach (var t in Model.TaskTypes)
+            {
+                <option value="@t.Id" selected="@(Model.TaskTypeIdFilter == t.Id)">@t.Name</option>
+            }
+        </select>
+        @if (Model.AllTags.Count > 0)
+        {
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    Tags @(Model.TagIdFilter?.Count > 0 ? $"({Model.TagIdFilter.Count})" : "")
+                </button>
+                <div class="dropdown-menu p-2" style="min-width:180px">
+                    @foreach (var tag in Model.AllTags)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="tagIds" value="@tag.Id"
+                                   id="tag-filter-@tag.Id"
+                                   @(Model.TagIdFilter != null && Model.TagIdFilter.Contains(tag.Id) ? "checked" : "")
+                                   onchange="this.form.submit()" />
+                            <label class="form-check-label d-flex align-items-center gap-1" for="tag-filter-@tag.Id">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:@tag.Color"></span>
+                                @tag.Name
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
     </form>
 
     <div class="tp-view-toggle btn-group ms-auto" role="group">
@@ -82,10 +125,12 @@
                     <thead>
                         <tr>
                             <th>Title</th>
+                            <th>Area</th>
                             <th>Type</th>
                             <th>Priority</th>
                             <th>Status</th>
                             <th>Due</th>
+                            <th>Tags</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -98,13 +143,20 @@
                                         @task.Title
                                     </a>
                                 </td>
-                                <td><span class="text-muted small">@task.Type</span></td>
+                                <td>@Html.Raw(AreaBadge(task.Area))</td>
+                                <td><span class="text-muted small">@(task.TaskTypeName ?? "—")</span></td>
                                 <td>@Html.Raw(PriorityBadge(task.Priority))</td>
                                 <td>@Html.Raw(StatusBadge(task.Status))</td>
                                 <td>
                                     @if (task.TargetDate.HasValue)
                                     {
                                         <span class="small text-muted">@task.TargetDate.Value.ToString("MMM d")</span>
+                                    }
+                                </td>
+                                <td>
+                                    @foreach (var tag in task.Tags)
+                                    {
+                                        <span class="badge" style="background-color:@tag.Color;font-size:11px">@tag.Name</span>
                                     }
                                 </td>
                                 <td class="text-end">
@@ -137,8 +189,21 @@
                                 <div class="tp-task-card-title">@task.Title</div>
                                 <div class="tp-task-card-meta">
                                     @Html.Raw(PriorityBadge(task.Priority))
-                                    <span class="small text-muted">@task.Type</span>
+                                    @Html.Raw(AreaBadge(task.Area))
+                                    @if (task.TaskTypeName != null)
+                                    {
+                                        <span class="small text-muted">@task.TaskTypeName</span>
+                                    }
                                 </div>
+                                @if (task.Tags.Count > 0)
+                                {
+                                    <div class="mt-1">
+                                        @foreach (var tag in task.Tags)
+                                        {
+                                            <span class="badge" style="background-color:@tag.Color;font-size:10px">@tag.Name</span>
+                                        }
+                                    </div>
+                                }
                             </div>
                         </a>
                     }
@@ -163,6 +228,16 @@
             <form method="post" asp-page-handler="Create">
                 <div class="modal-body">
                     <div class="row g-3">
+                        <!-- Area segmented control -->
+                        <div class="col-12">
+                            <label class="form-label">Area</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="area" id="areaPersonal" value="0" checked autocomplete="off" />
+                                <label class="btn btn-outline-primary" for="areaPersonal">Personal</label>
+                                <input type="radio" class="btn-check" name="area" id="areaWork" value="1" autocomplete="off" />
+                                <label class="btn btn-outline-primary" for="areaWork">Work</label>
+                            </div>
+                        </div>
                         <div class="col-12">
                             <label class="form-label">Title *</label>
                             <input type="text" class="form-control" name="Title" required placeholder="Task title" />
@@ -172,8 +247,14 @@
                             <textarea class="form-control" name="Description" rows="2" placeholder="Optional description"></textarea>
                         </div>
                         <div class="col-sm-4">
-                            <label class="form-label">Type *</label>
-                            <input type="text" class="form-control" name="Type" required placeholder="e.g. Feature, Bug" value="Task" />
+                            <label class="form-label">Type</label>
+                            <select class="form-select" name="taskTypeId">
+                                <option value="">-- None --</option>
+                                @foreach (var t in Model.TaskTypes)
+                                {
+                                    <option value="@t.Id">@t.Name</option>
+                                }
+                            </select>
                         </div>
                         <div class="col-sm-4">
                             <label class="form-label">Priority *</label>
@@ -206,6 +287,24 @@
                                 }
                             </select>
                         </div>
+                        @if (Model.AllTags.Count > 0)
+                        {
+                            <div class="col-12">
+                                <label class="form-label">Tags</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach (var tag in Model.AllTags)
+                                    {
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" name="tagIds" value="@tag.Id" id="modal-tag-@tag.Id" />
+                                            <label class="form-check-label" for="modal-tag-@tag.Id">
+                                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:@tag.Color;margin-right:3px"></span>
+                                                @tag.Name
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -232,6 +331,11 @@
         TaskPilot.Models.Enums.TaskPriority.Medium   => "<span class='tp-badge tp-badge-medium'>Medium</span>",
         TaskPilot.Models.Enums.TaskPriority.Low      => "<span class='tp-badge tp-badge-low'>Low</span>",
         _ => p.ToString()
+    };
+    string AreaBadge(TaskPilot.Models.Enums.Area a) => a switch {
+        TaskPilot.Models.Enums.Area.Work     => "<span class='badge bg-info text-dark'>Work</span>",
+        TaskPilot.Models.Enums.Area.Personal => "<span class='badge bg-secondary'>Personal</span>",
+        _ => a.ToString()
     };
 }
 

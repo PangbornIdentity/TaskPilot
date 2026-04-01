@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TaskPilot.Data;
 using TaskPilot.Entities;
 using TaskPilot.Repositories.Interfaces;
@@ -15,6 +15,7 @@ public class TaskRepository(ApplicationDbContext context) : GenericRepository<Ta
         CancellationToken cancellationToken = default)
     {
         var query = Context.Tasks
+            .Include(t => t.TaskType)
             .Include(t => t.TaskTags)
             .ThenInclude(tt => tt.Tag)
             .Where(t => t.UserId == userId)
@@ -23,8 +24,11 @@ public class TaskRepository(ApplicationDbContext context) : GenericRepository<Ta
         if (queryParams.Status.HasValue)
             query = query.Where(t => t.Status == queryParams.Status.Value);
 
-        if (!string.IsNullOrWhiteSpace(queryParams.Type))
-            query = query.Where(t => t.Type == queryParams.Type);
+        if (queryParams.TaskTypeId.HasValue)
+            query = query.Where(t => t.TaskTypeId == queryParams.TaskTypeId.Value);
+
+        if (queryParams.Area.HasValue)
+            query = query.Where(t => t.Area == queryParams.Area.Value);
 
         if (queryParams.Priority.HasValue)
             query = query.Where(t => t.Priority == queryParams.Priority.Value);
@@ -39,10 +43,13 @@ public class TaskRepository(ApplicationDbContext context) : GenericRepository<Ta
         if (queryParams.IsRecurring.HasValue)
             query = query.Where(t => t.IsRecurring == queryParams.IsRecurring.Value);
 
-        if (!string.IsNullOrWhiteSpace(queryParams.Tags))
+        if (queryParams.TagIds?.Count > 0)
         {
-            var tagNames = queryParams.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            query = query.Where(t => t.TaskTags.Any(tt => tagNames.Contains(tt.Tag.Name)));
+            foreach (var tagId in queryParams.TagIds)
+            {
+                var capturedId = tagId;
+                query = query.Where(t => t.TaskTags.Any(tt => tt.TagId == capturedId));
+            }
         }
 
         query = queryParams.SortBy.ToLower() switch
@@ -72,12 +79,14 @@ public class TaskRepository(ApplicationDbContext context) : GenericRepository<Ta
 
     public async Task<TaskItem?> GetByIdWithTagsAsync(Guid id, string userId, CancellationToken cancellationToken = default)
         => await Context.Tasks
+            .Include(t => t.TaskType)
             .Include(t => t.TaskTags)
             .ThenInclude(tt => tt.Tag)
             .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId, cancellationToken);
 
     public async Task<TaskItem?> GetByIdWithDetailsAsync(Guid id, string userId, CancellationToken cancellationToken = default)
         => await Context.Tasks
+            .Include(t => t.TaskType)
             .Include(t => t.TaskTags)
             .ThenInclude(tt => tt.Tag)
             .Include(t => t.ActivityLogs.OrderByDescending(a => a.Timestamp))

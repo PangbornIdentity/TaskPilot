@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Security.Claims;
 using TaskPilot.Services.Interfaces;
@@ -35,7 +35,8 @@ public class IndexModel(ITaskService taskService, IStatsService statsService) : 
         await taskService.CreateTaskAsync(new CreateTaskRequest(
             Title: title.Trim(),
             Description: null,
-            Type: "Task",
+            TaskTypeId: null,
+            Area: Area.Personal,
             Priority: TaskPriority.Medium,
             Status: TaskStatus.NotStarted,
             TargetDateType: TargetDateType.ThisWeek,

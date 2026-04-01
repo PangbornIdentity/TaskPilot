@@ -11,8 +11,9 @@ public class TaskItemConfiguration : IEntityTypeConfiguration<TaskItem>
         builder.HasKey(t => t.Id);
 
         builder.Property(t => t.Title).IsRequired().HasMaxLength(200);
-        builder.Property(t => t.Type).IsRequired().HasMaxLength(50);
         builder.Property(t => t.UserId).IsRequired();
+        builder.Property(t => t.TaskTypeId);
+        builder.Property(t => t.Area).HasConversion<int>().HasDefaultValue(0);
         builder.Property(t => t.LastModifiedBy).IsRequired();
 
         builder.Property(t => t.Priority).HasConversion<int>();

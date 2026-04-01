@@ -21,6 +21,7 @@
 11. [Integration Tests — Middleware & Pipeline](#11-integration-tests--middleware--pipeline)
 12. [Playwright E2E Tests](#12-playwright-e2e-tests)
 13. [Security Validation Tests](#13-security-validation-tests)
+14. [Tags, Task Type, and Area Tests](#14-tags-task-type-and-area-tests)
 
 **Naming convention:** `MethodName_Scenario_ExpectedResult`
 **Pattern:** Arrange–Act–Assert, one logical assertion per test
@@ -395,7 +396,7 @@ _No dedicated page model unit tests are required — PageModel handlers are thin
 **Pattern:** xUnit test classes with shared `PlaywrightFixture` (ICollectionFixture).
 **Collection:** `[Collection("Playwright")]` — tests share one browser instance and test server.
 **Run command:** `dotnet test tests/TaskPilot.Tests.E2E/`
-**Total:** 23 tests, all passing in ~28 seconds.
+**Total:** 28 tests (23 original + 5 area/type/tag tests added in Phase 4).
 
 ### Setup
 ```bash
@@ -491,6 +492,79 @@ pwsh tests/TaskPilot.Tests.E2E/bin/Debug/net10.0/playwright.ps1 install
 | S-012 | All UI routes require login | Playwright: navigate to `/tasks`, `/audit`, `/settings` without auth | All redirect to `/login` |
 | S-013 | Security headers present | Integration: inspect any response headers | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy` present |
 | S-014 | Rate limiting insertion point documented | Review `ARCHITECTURE.md §4.8` | Insertion point documented, NO rate limiting code present |
+
+---
+
+## 14. Tags, Task Type, and Area Tests
+
+> Tests added in Phase 4 to cover the Area (Personal/Work) field, TaskType lookup, and Tags UI features.
+
+### 14.1 Unit Tests — TaskService (Area & TaskType)
+
+**File:** `TaskPilot.Tests.Unit/Services/TaskServiceTests.cs`
+
+| # | Test Name | Type | Description | Expected |
+|---|-----------|------|-------------|----------|
+| U-T-024 | `CreateTaskAsync_WithArea_PersistsAreaOnTask` | Unit | Create task with `Area = Work` | Returned and persisted task has `Area = Work` |
+| U-T-025 | `CreateTaskAsync_WithTaskTypeId_PersistsTaskTypeId` | Unit | Create task with a valid `TaskTypeId` | Returned task has matching `TaskTypeId` |
+| U-T-026 | `CreateTaskAsync_DefaultArea_IsPersonal` | Unit | Create task without specifying `Area` | `Area = Personal` (default enum value 0) |
+| U-T-027 | `UpdateTaskAsync_ChangesArea_FromPersonalToWork` | Unit | Create task with `Area=Personal`, update to `Area=Work` | Updated task has `Area = Work` |
+| U-T-028 | `PatchTaskAsync_WithArea_UpdatesArea` | Unit | Patch task with `Area = Work` | Task `Area` changes to `Work` |
+| U-T-029 | `PatchTaskAsync_WithTaskTypeId_UpdatesTaskTypeId` | Unit | Patch task with a new `TaskTypeId` | Task `TaskTypeId` is updated |
+| U-T-030 | `PatchTaskAsync_NullArea_DoesNotChangeArea` | Unit | Patch task with `Area = null` in patch doc | Task `Area` remains unchanged |
+
+### 14.2 Unit Tests — TaskTypeService
+
+**File:** `TaskPilot.Tests.Unit/Services/TaskTypeServiceTests.cs`
+
+| # | Test Name | Type | Description | Expected |
+|---|-----------|------|-------------|----------|
+| U-TT-001 | `GetAllActiveAsync_ReturnsAllActiveTypes_OrderedBySortOrder` | Unit | Repo returns 3 task types with varying `SortOrder`; 1 inactive | Returns 2 active types ordered by `SortOrder` ascending |
+| U-TT-002 | `GetAllActiveAsync_EmptyRepository_ReturnsEmptyList` | Unit | Repo returns empty list | Returns empty list, no exception |
+
+### 14.3 Unit Tests — StatsService (Area & Tags)
+
+**File:** `TaskPilot.Tests.Unit/Services/StatsServiceTests.cs`
+
+| # | Test Name | Type | Description | Expected |
+|---|-----------|------|-------------|----------|
+| U-ST-006 | `GetTaskStatsAsync_CompletionsByArea_CountsPersonalAndWorkSeparately` | Unit | 3 completed Personal + 2 completed Work + 1 not-started Personal | `CompletionsByArea.Personal = 3`, `CompletionsByArea.Work = 2` |
+| U-ST-007 | `GetTaskStatsAsync_TopTags_ReturnsTopFiveByTaskCount` | Unit | 6 tags with task counts 6, 5, 4, 3, 2, 1 respectively | Returns exactly 5 entries ordered descending; tag with count 1 excluded; top tag is "alpha" with count 6 |
+
+### 14.4 Integration Tests — Task Type Endpoints
+
+**File:** `TaskPilot.Tests.Integration/TaskTypes/TaskTypeApiTests.cs`
+
+| # | Test Name | Type | Description | Expected |
+|---|-----------|------|-------------|----------|
+| I-TT-001 | `GetTaskTypes_Unauthenticated_Returns401` | Integration | GET `/api/v1/task-types` without auth | 401 Unauthorized |
+| I-TT-002 | `GetTaskTypes_Authenticated_ReturnsSeededList` | Integration | Seed 6 standard types; GET `/api/v1/task-types` | 200; `data` array length ≥ 6; all 6 names present (Task, Goal, Habit, Meeting, Note, Event); items ordered by `sortOrder` ascending |
+| I-TT-003 | `GetTaskTypes_Authenticated_AllTypesHaveNameAndId` | Integration | Seed 6 types; GET `/api/v1/task-types` | Every item in `data` has `id > 0` and non-empty `name` |
+
+### 14.5 Integration Tests — Task Endpoints (Area & Tags)
+
+**File:** `TaskPilot.Tests.Integration/Tasks/TasksApiTests.cs`
+
+| # | Test Name | Type | Description | Expected |
+|---|-----------|------|-------------|----------|
+| I-T-036 | `CreateTask_WithAreaWork_PersistsAndReturnsWork` | Integration | POST task with `area = 1` (Work) | 201; response `data.area = 1`; DB record has `Area = Work` |
+| I-T-037 | `CreateTask_WithTaskTypeId_ReturnsTaskTypeName` | Integration | Seed a TaskType; POST task with that `taskTypeId` | 201 or GET confirms `taskTypeName` matches seeded type name |
+| I-T-038 | `CreateTask_WithTagIds_ReturnsTagsInResponse` | Integration | Create a tag; POST task with `tagIds = [tagId]` | 201; GET task confirms `tags` array includes the tag name |
+| I-T-039 | `GetTasks_FilterByArea_ReturnsOnlyMatchingTasks` | Integration | Create 1 Personal + 1 Work task; GET `?area=1` | Only the Work task appears in `data` |
+| I-T-040 | `GetTasks_FilterByTaskTypeId_ReturnsOnlyMatchingTasks` | Integration | Seed TaskType; create 1 task with type + 1 without; GET `?taskTypeId=<id>` | Only typed task appears |
+| I-T-041 | `GetTasks_FilterByTagIds_AndLogic_ReturnsOnlyTasksWithAllTags` | Integration | Create 2 tags; task A has both, task B has one, task C has neither; GET `?tagIds=id1,id2` | Only task A returned |
+
+### 14.6 E2E Tests — Area, Task Type, and Tags UI
+
+**File:** `TaskPilot.Tests.E2E/Tasks/TaskAreaTypeTagTests.cs`
+
+| # | Test Name | Type | Steps | Expected |
+|---|-----------|------|-------|----------|
+| E-ATT-001 | `TaskList_AreaFilter_Work_ShowsOnlyWorkTasks` | E2E | Create 1 Work + 1 Personal task via modal; click Work area filter | Page does not show "An unhandled error"; filter applies without crash |
+| E-ATT-002 | `TaskList_AreaFilter_All_ShowsBothAreas` | E2E | Navigate to `/tasks`; click "All" filter if present | Page loads without "An unhandled error" |
+| E-ATT-003 | `TaskCreateForm_AreaToggle_DefaultIsPersonal` | E2E | Open "New Task" modal; inspect area control | If area control exists, Personal is selected by default; no unhandled error |
+| E-ATT-004 | `TaskCreateForm_SelectType_AppearsOnCard` | E2E | Open modal; select "Meeting" from task type dropdown if present; submit | Task title appears in page content; no unhandled error |
+| E-ATT-005 | `TaskCreateForm_AddTag_AppearsAsTagPill` | E2E | Open modal; type "urgent" in tag input if present; submit | Task title appears in page content; no unhandled error |
 
 ---
 
