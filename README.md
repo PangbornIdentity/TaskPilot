@@ -41,15 +41,15 @@ dotnet user-secrets set "Hmac:SecretKey" $key
 ### 3. Run
 
 ```bash
-dotnet run --project src/TaskPilot.Server
+dotnet run --project src
 ```
 
 The app will:
 - Create `taskpilot.db` (SQLite) on first run
 - Apply the schema automatically (`EnsureCreated`)
-- Serve the Blazor WASM client at `https://localhost:5001`
-- Serve the API at `https://localhost:5001/api/v1/`
-- Serve Swagger UI at `https://localhost:5001/swagger` (development only)
+- Serve the app at `http://localhost:5062`
+- Serve the API at `http://localhost:5062/api/v1/`
+- Serve Swagger UI at `http://localhost:5062/swagger` (development only)
 
 ### 4. First use
 
