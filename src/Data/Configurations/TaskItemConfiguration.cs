@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using TaskPilot.Entities;
+using TaskPilot.Models.Enums;
 
 namespace TaskPilot.Data.Configurations;
 
@@ -13,7 +14,7 @@ public class TaskItemConfiguration : IEntityTypeConfiguration<TaskItem>
         builder.Property(t => t.Title).IsRequired().HasMaxLength(200);
         builder.Property(t => t.UserId).IsRequired();
         builder.Property(t => t.TaskTypeId);
-        builder.Property(t => t.Area).HasConversion<int>().HasDefaultValue(0);
+        builder.Property(t => t.Area).HasConversion<int>().HasDefaultValue(Area.Personal);
         builder.Property(t => t.LastModifiedBy).IsRequired();
 
         builder.Property(t => t.Priority).HasConversion<int>();
