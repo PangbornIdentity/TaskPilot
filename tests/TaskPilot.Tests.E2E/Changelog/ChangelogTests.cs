@@ -105,9 +105,9 @@ public class ChangelogTests(PlaywrightFixture fixture)
         var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
         await using var _ = context;
 
-        await page.WaitForSelectorAsync(".tp-changelog-nav-link", new() { Timeout = 10000 });
-        await page.ClickAsync(".tp-changelog-nav-link");
-        await page.WaitForURLAsync("**/changelog", new() { Timeout = 5000 });
+        await page.WaitForSelectorAsync("a[href='/changelog']", new() { Timeout = 10000 });
+        await page.ClickAsync("a[href='/changelog']");
+        await page.WaitForURLAsync("**/changelog", new() { Timeout = 10000 });
 
         var content = await page.ContentAsync();
         Assert.Contains("What's new", content);

@@ -568,6 +568,28 @@ pwsh tests/TaskPilot.Tests.E2E/bin/Debug/net10.0/playwright.ps1 install
 
 ---
 
+## 15. Integrations Page and Swagger Link
+
+### 15.1 E2E Tests — Integrations Page
+
+**File:** `TaskPilot.Tests.E2E/Integrations/IntegrationsPageTests.cs`
+
+| # | Test Name | Type | Steps | Expected |
+|---|-----------|------|-------|----------|
+| E-INT-001 | `IntegrationsPage_AuthenticatedUser_LoadsWithoutError` | E2E | Authenticate; navigate to `/integrations` | Page loads; title contains "Integrations"; no unhandled error |
+| E-INT-002 | `IntegrationsPage_UnauthenticatedUser_RedirectsToLogin` | E2E | No auth; navigate to `/integrations` | Redirected to `/auth/login` |
+| E-INT-003 | `IntegrationsPage_ContainsApiKeySection` | E2E | Authenticate; navigate to `/integrations` | Page contains "API key", "X-Api-Key", or "Quick Start" |
+| E-INT-004 | `IntegrationsPage_ContainsCurlExample` | E2E | Authenticate; navigate to `/integrations` | Page contains "curl" |
+| E-INT-005 | `IntegrationsPage_ContainsClaudeToolDefinition` | E2E | Authenticate; navigate to `/integrations` | Page contains "input_schema" or "Claude" |
+| E-INT-006 | `IntegrationsPage_ContainsOpenAiToolDefinition` | E2E | Authenticate; navigate to `/integrations` | Page contains "OpenAI", "GPT", or `"type": "function"` |
+| E-INT-007 | `IntegrationsPage_ContainsMcpComingSoon` | E2E | Authenticate; navigate to `/integrations` | Page contains "Coming Soon", "coming soon", or "MCP" |
+| E-INT-008 | `IntegrationsPage_SwaggerLink_IsPresent` | E2E | Authenticate; navigate to `/integrations` | Page references "/swagger" or "swagger" |
+| E-INT-009 | `IntegrationsPage_CopyButton_IsClickableWithoutError` | E2E | Authenticate; navigate to `/integrations`; click first copy button | No unhandled error |
+| E-INT-010 | `NavSidebar_ContainsIntegrationsLink` | E2E | Authenticate; navigate to `/`; inspect sidebar | `a[href='/integrations']` exists |
+| E-INT-011 | `SettingsPage_ContainsApiReferenceSection` | E2E | Authenticate; navigate to `/settings` | Page contains "API Reference" or "Integrations" |
+
+---
+
 ## Coverage Targets
 
 | Layer | Target | How to measure |

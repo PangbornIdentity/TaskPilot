@@ -11,18 +11,21 @@ namespace TaskPilot.Pages.Settings;
 public class SettingsIndexModel(
     IApiKeyService apiKeyService,
     ITagService tagService,
-    UserManager<IdentityUser> userManager) : PageModel
+    UserManager<IdentityUser> userManager,
+    IWebHostEnvironment env) : PageModel
 {
     public List<ApiKeyResponse> ApiKeys { get; private set; } = [];
     public CreateApiKeyResponse? NewKey { get; private set; }
     public string? PasswordError { get; private set; }
     public List<TagResponse> Tags { get; private set; } = [];
+    public bool IsDevelopment { get; private set; }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
     private string ModifiedBy => $"user:{User.Identity?.Name}";
 
     public async Task OnGetAsync()
     {
+        IsDevelopment = env.IsDevelopment();
         ApiKeys = (await apiKeyService.GetAllKeysAsync(UserId)).ToList();
         Tags = (await tagService.GetAllTagsAsync(UserId)).ToList();
     }

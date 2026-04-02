@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "1.4",
+      "releaseDate": "2026-04-01",
+      "versionType": "minor",
+      "summary": "LLM Integrations and API Docs",
+      "changes": [
+        { "type": "Feature", "description": "New Integrations page — step-by-step setup guides for connecting Claude, OpenAI/GPT, and any LLM to TaskPilot via the REST API" },
+        { "type": "Feature", "description": "Copy-ready Claude tool definitions and OpenAI function definitions included on the Integrations page" },
+        { "type": "Feature", "description": "MCP (Model Context Protocol) support coming soon — placeholder added to Integrations page" },
+        { "type": "Improvement", "description": "Swagger / API Docs link added to the sidebar nav and Settings page (visible in development mode only)" }
+      ]
+    },
+    {
       "version": "1.3",
       "releaseDate": "2026-04-01",
       "versionType": "minor",

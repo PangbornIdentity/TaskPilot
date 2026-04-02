@@ -1209,6 +1209,33 @@ public static class ConfigKeys
 
 ---
 
+## 11. LLM Integration
+
+### 11.1 Integrations Page (`/integrations`)
+
+A static Razor Page that documents how to connect any LLM or automation tool to TaskPilot.
+
+| Section | Content |
+|---------|---------|
+| Quick Start | 3-step guide, curl example with copy button |
+| REST API Reference | Endpoint table; Swagger link (dev only) |
+| Claude (Anthropic) | `list_tasks` + `create_task` tool definitions in Anthropic tool-use format |
+| OpenAI / GPT | `list_tasks` + `create_task` function definitions in OpenAI function-calling format |
+| MCP | Coming-soon placeholder — no endpoint implemented yet |
+
+**Page model:** `src/Pages/Integrations/Index.cshtml.cs` — injects `IWebHostEnvironment` to conditionally show Swagger link.
+
+### 11.2 Swagger / API Docs
+
+- Available at `/swagger` in Development only (`Program.cs` guards with `app.Environment.IsDevelopment()`)
+- Linked from: sidebar nav "API Docs" button (dev only), `/integrations` REST API section, `/settings` API Reference card
+
+### 11.3 MCP (Planned — Iteration 2)
+
+MCP (Model Context Protocol) is planned for a future release. When implemented it will expose a `/mcp` endpoint using the `ModelContextProtocol` NuGet package, protected by the existing API key authentication handler. Planned tools: `list_tasks`, `get_task`, `create_task`, `update_task`, `complete_task`, `delete_task`, `get_stats`, `list_tags`, `list_task_types`.
+
+---
+
 ## Dockerfile (for Azure Container Apps — iteration 2)
 
 ```dockerfile

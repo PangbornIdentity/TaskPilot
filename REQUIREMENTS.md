@@ -250,7 +250,24 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 **Account:**
 - Change password
 
-### 4.7 Interaction & UX Behaviors
+### 4.7 Integrations Page (`/integrations`)
+
+**Purpose:** Teach users how to connect LLMs and automation tools to TaskPilot using the REST API.
+
+**Sections:**
+- **Quick Start:** 3-step guide (create API key → note base URL → add header), curl example with copy button
+- **REST API Reference:** Endpoint table (method, path, description); Swagger link in dev mode only
+- **Claude (Anthropic):** Copy-ready `list_tasks` and `create_task` tool definitions in Anthropic tool-use JSON format
+- **OpenAI / GPT:** Copy-ready `list_tasks` and `create_task` function definitions in OpenAI function-calling JSON format
+- **MCP (Coming Soon):** Informational placeholder; no MCP endpoint is implemented in iteration 1
+
+**Access:** Authenticated users only. Unauthenticated users are redirected to login.
+
+**Swagger link visibility:** Link to `/swagger` is shown only in Development environment. In Production a text note is shown instead.
+
+**Future work (Iteration 2):** MCP server at `/mcp` using `ModelContextProtocol` NuGet package, protected by existing API key authentication.
+
+### 4.8 Interaction & UX Behaviors
 
 **Keyboard shortcuts:**
 | Key | Action |

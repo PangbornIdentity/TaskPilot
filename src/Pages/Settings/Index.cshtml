@@ -157,6 +157,29 @@
     </div>
 </div>
 
+<!-- API Reference -->
+<div class="tp-settings-section" id="api-reference">
+    <h2 class="tp-settings-section-title">
+        <i class="bi bi-braces"></i> API Reference
+    </h2>
+    <div class="tp-settings-body">
+        <p class="text-muted small mb-3">
+            Use your API keys to connect LLMs and automation tools. See the
+            <a href="/integrations">Integrations page</a> for Claude and OpenAI tool definitions.
+        </p>
+        @if (Model.IsDevelopment)
+        {
+            <a href="/swagger" target="_blank" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-box-arrow-up-right me-1"></i>Open API Docs (Swagger)
+            </a>
+        }
+        else
+        {
+            <p class="text-muted small">Interactive API docs are available in development mode at <code>/swagger</code>.</p>
+        }
+    </div>
+</div>
+
 <!-- Appearance -->
 <div class="tp-settings-section">
     <h2 class="tp-settings-section-title">

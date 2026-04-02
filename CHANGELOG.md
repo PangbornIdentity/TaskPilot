@@ -7,6 +7,21 @@
 
 ---
 
+## 2026-04-01 — LLM Integrations Page and Swagger UI Link
+
+### Feature | Integrations page, API Docs link, and MCP coming-soon placeholder
+
+- **Integrations page** (`src/Pages/Integrations/Index.cshtml`, `Index.cshtml.cs`): new `/integrations` route with 5 sections — Quick Start (curl example with copy button), REST API endpoint table, Claude tool definitions (list_tasks + create_task), OpenAI function definitions, MCP coming-soon placeholder
+- **Swagger nav link** (`src/Pages/Shared/_Layout.cshtml`): "API Docs" link added to sidebar (dev mode only, opens `/swagger` in new tab)
+- **Integrations nav item** (`src/Pages/Shared/_Layout.cshtml`): "Integrations" added to sidebar nav with plug icon
+- **Settings — API Reference card** (`src/Pages/Settings/Index.cshtml`, `Index.cshtml.cs`): new section linking to Integrations page and Swagger (dev mode only)
+- **CSS** (`src/wwwroot/css/app.css`): `.tp-code-block`, `.tp-step-number`, `.tp-swagger-nav` styles added
+- **In-app changelog** (`src/app-changelog.json`): v1.4 entry added — visible at `/changelog`
+- **E2E tests** (`tests/TaskPilot.Tests.E2E/Integrations/IntegrationsPageTests.cs`): 10 new tests
+- Files affected: `src/Pages/Integrations/Index.cshtml`, `src/Pages/Integrations/Index.cshtml.cs`, `src/Pages/Shared/_Layout.cshtml`, `src/Pages/Settings/Index.cshtml`, `src/Pages/Settings/Index.cshtml.cs`, `src/wwwroot/css/app.css`, `src/app-changelog.json`, `tests/TaskPilot.Tests.E2E/Integrations/IntegrationsPageTests.cs`, `ARCHITECTURE.md`, `REQUIREMENTS.md`, `TEST-CASES.md`
+
+---
+
 ## 2026-03-31 — Tags, Task Type, and Area — Test Suite Expansion
 
 ### Test | Unit, integration, and E2E tests added for Area, TaskType, and Tags features

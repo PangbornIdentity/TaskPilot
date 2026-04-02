@@ -1,4 +1,5 @@
 @inject TaskPilot.Services.Interfaces.IChangelogService _changelogService
+@inject IWebHostEnvironment _env
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -48,7 +49,25 @@
                 <span>Settings</span>
             </a>
         </li>
+        <li class="tp-nav-item">
+            <a class="tp-nav-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Integrations") == true ? "active" : "")"
+               href="/integrations">
+                <i class="bi bi-plug"></i>
+                <span>Integrations</span>
+            </a>
+        </li>
     </ul>
+
+    @if (_env.IsDevelopment())
+    {
+        <div class="tp-swagger-nav">
+            <a class="tp-swagger-nav-link" href="/swagger" target="_blank">
+                <i class="bi bi-code-slash"></i>
+                <span>API Docs</span>
+                <i class="bi bi-box-arrow-up-right ms-auto" style="font-size:10px;opacity:.6"></i>
+            </a>
+        </div>
+    }
 
     <div class="tp-changelog-nav">
         <a class="tp-changelog-nav-link @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Changelog") == true ? "active" : "")"
