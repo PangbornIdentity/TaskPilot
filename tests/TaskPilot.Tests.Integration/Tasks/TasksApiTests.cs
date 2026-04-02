@@ -22,7 +22,7 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
     {
         Title = title,
         Description = (string?)null,
-        TaskTypeId = (int?)null,
+        TaskTypeId = 1, // Task
         Area = 0, // Personal
         Priority = 1, // Medium
         Status = 0,   // NotStarted
@@ -158,7 +158,7 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
         {
             Title = "Updated Title",
             Description = (string?)null,
-            TaskTypeId = (int?)null,
+            TaskTypeId = 1,
             Area = 0, // Personal
             Priority = 2, // High
             Status = 0,
@@ -279,7 +279,7 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
         {
             Title = $"Work Task {Guid.NewGuid():N}",
             Description = (string?)null,
-            TaskTypeId = (int?)null,
+            TaskTypeId = 1,
             Area = 1, // Work
             Priority = 1,
             Status = 0,
@@ -363,7 +363,7 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
         {
             Title = $"Tagged Task {Guid.NewGuid():N}",
             Description = (string?)null,
-            TaskTypeId = (int?)null,
+            TaskTypeId = 1,
             Area = 0,
             Priority = 1,
             Status = 0,
@@ -423,11 +423,11 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
 
         var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
 
-        var typedTitle   = $"TypedTask_{Guid.NewGuid():N}";
-        var untypedTitle = $"UntypedTask_{Guid.NewGuid():N}";
+        var typedTitle      = $"TypedTask_{Guid.NewGuid():N}";
+        var differentTypedTitle = $"DifferentTypeTask_{Guid.NewGuid():N}";
 
-        await client.PostAsJsonAsync("/api/v1/tasks", MakeCreateRequest(typedTitle,   taskTypeId: taskTypeId));
-        await client.PostAsJsonAsync("/api/v1/tasks", MakeCreateRequest(untypedTitle, taskTypeId: null));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeCreateRequest(typedTitle,         taskTypeId: taskTypeId));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeCreateRequest(differentTypedTitle, taskTypeId: 1)); // Use a different known type (Task)
 
         var response = await client.GetAsync($"/api/v1/tasks?taskTypeId={taskTypeId}");
         response.EnsureSuccessStatusCode();
@@ -436,7 +436,7 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
 
         Assert.All(tasks, t => Assert.Equal(taskTypeId, t.GetProperty("taskTypeId").GetInt32()));
         Assert.Contains(tasks, t => t.GetProperty("title").GetString() == typedTitle);
-        Assert.DoesNotContain(tasks, t => t.GetProperty("title").GetString() == untypedTitle);
+        Assert.DoesNotContain(tasks, t => t.GetProperty("title").GetString() == differentTypedTitle);
     }
 
     [Fact]
@@ -464,7 +464,7 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
         {
             Title = bothTitle,
             Description = (string?)null,
-            TaskTypeId = (int?)null,
+            TaskTypeId = 1,
             Area = 0,
             Priority = 1,
             Status = 0,
@@ -481,7 +481,7 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
         {
             Title = onlyATitle,
             Description = (string?)null,
-            TaskTypeId = (int?)null,
+            TaskTypeId = 1,
             Area = 0,
             Priority = 1,
             Status = 0,
@@ -505,7 +505,7 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
-    private static object MakeCreateRequest(string title, int area = 0, int? taskTypeId = null) => new
+    private static object MakeCreateRequest(string title, int area = 0, int taskTypeId = 1) => new
     {
         Title = title,
         Description = (string?)null,

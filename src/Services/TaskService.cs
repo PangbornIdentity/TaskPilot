@@ -116,7 +116,7 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
 
         if (request.Title is not null) { PatchLog(nameof(task.Title), task.Title, request.Title); task.Title = request.Title; }
         if (request.Description is not null) { PatchLog(nameof(task.Description), task.Description, request.Description); task.Description = request.Description; }
-        if (request.TaskTypeId.HasValue) { PatchLog(nameof(task.TaskTypeId), task.TaskTypeId?.ToString(), request.TaskTypeId.Value.ToString()); task.TaskTypeId = request.TaskTypeId.Value; }
+        if (request.TaskTypeId.HasValue) { PatchLog(nameof(task.TaskTypeId), task.TaskTypeId.ToString(), request.TaskTypeId.Value.ToString()); task.TaskTypeId = request.TaskTypeId.Value; }
         if (request.Area.HasValue) { PatchLog(nameof(task.Area), task.Area.ToString(), request.Area.Value.ToString()); task.Area = request.Area.Value; }
         if (request.Priority.HasValue) { PatchLog(nameof(task.Priority), task.Priority.ToString(), request.Priority.Value.ToString()); task.Priority = request.Priority.Value; }
         if (request.Status.HasValue) { PatchLog(nameof(task.Status), task.Status.ToString(), request.Status.Value.ToString()); task.Status = request.Status.Value; }
@@ -246,7 +246,7 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
 
         Log(nameof(task.Title), task.Title, request.Title);
         Log(nameof(task.Description), task.Description, request.Description);
-        Log(nameof(task.TaskTypeId), task.TaskTypeId?.ToString(), request.TaskTypeId?.ToString());
+        Log(nameof(task.TaskTypeId), task.TaskTypeId.ToString(), request.TaskTypeId.ToString());
         Log(nameof(task.Area), task.Area.ToString(), request.Area.ToString());
         Log(nameof(task.Priority), task.Priority.ToString(), request.Priority.ToString());
         Log(nameof(task.Status), task.Status.ToString(), request.Status.ToString());

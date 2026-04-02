@@ -19,9 +19,10 @@ public class ActivityLogApiTests : IClassFixture<TaskPilotWebAppFactory>
     {
         Title = title,
         Description = (string?)null,
-        Type = "Work",
-        Priority = 1, // Medium
-        Status = 0,   // NotStarted
+        TaskTypeId = 1, // Task
+        Area = 0,       // Personal
+        Priority = 1,   // Medium
+        Status = 0,     // NotStarted
         TargetDateType = 1, // ThisWeek
         TargetDate = (DateTime?)null,
         IsRecurring = false,
@@ -70,11 +71,16 @@ public class ActivityLogApiTests : IClassFixture<TaskPilotWebAppFactory>
         var updateResponse = await client.PutAsJsonAsync($"/api/v1/tasks/{taskId}", new
         {
             Title = "Updated Title",
-            Type = "Work",
+            Description = (string?)null,
+            TaskTypeId = 1,
+            Area = 0,
             Priority = 1,
             Status = 0,
             TargetDateType = 1,
-            IsRecurring = false
+            TargetDate = (DateTime?)null,
+            IsRecurring = false,
+            RecurrencePattern = (int?)null,
+            TagIds = (List<Guid>?)null
         });
         updateResponse.EnsureSuccessStatusCode();
 
@@ -193,7 +199,7 @@ public class ActivityLogApiTests : IClassFixture<TaskPilotWebAppFactory>
 
         await client.PutAsJsonAsync($"/api/v1/tasks/{taskId}", new
         {
-            Title = "Fields Test Updated", Type = "Work", Priority = 1, Status = 0, TargetDateType = 1, IsRecurring = false
+            Title = "Fields Test Updated", TaskTypeId = 1, Area = 0, Priority = 1, Status = 0, TargetDateType = 1, IsRecurring = false
         });
 
         var response = await client.GetAsync($"/api/v1/activity-logs?taskId={taskId}");

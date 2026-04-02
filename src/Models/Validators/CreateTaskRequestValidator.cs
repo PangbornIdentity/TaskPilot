@@ -11,6 +11,9 @@ public class CreateTaskRequestValidator : AbstractValidator<CreateTaskRequest>
             .NotEmpty().WithMessage("Title is required.")
             .MaximumLength(200).WithMessage("Title must not exceed 200 characters.");
 
+        RuleFor(x => x.TaskTypeId)
+            .GreaterThan(0).WithMessage("TaskTypeId is required and must be a valid type.");
+
         RuleFor(x => x.Priority)
             .IsInEnum().WithMessage("Invalid priority value.");
 

@@ -59,7 +59,7 @@ public class TaskServiceTests
     {
         var tagId = Guid.NewGuid();
         var tags = new List<Tag> { new() { Id = tagId, Name = "Important", Color = "#ff0000", UserId = "user1" } };
-        var request = new CreateTaskRequest("Task with tag", null, null, Area.Work, TaskPriority.High,
+        var request = new CreateTaskRequest("Task with tag", null, 1, Area.Work, TaskPriority.High,
             TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, [tagId]);
 
         _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
@@ -89,7 +89,7 @@ public class TaskServiceTests
     [Fact]
     public async Task CreateTaskAsync_SetsLastModifiedBy()
     {
-        var request = new CreateTaskRequest("Task", null, null, Area.Personal, TaskPriority.Low,
+        var request = new CreateTaskRequest("Task", null, 1, Area.Personal, TaskPriority.Low,
             TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
 
         _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
@@ -217,7 +217,7 @@ public class TaskServiceTests
     [Fact]
     public async Task CreateTaskAsync_WritesCreatedActivityLog()
     {
-        var request = new CreateTaskRequest("Go to the gym", null, null, Area.Personal, TaskPriority.Medium,
+        var request = new CreateTaskRequest("Go to the gym", null, 1, Area.Personal, TaskPriority.Medium,
             TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
 
         _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
@@ -342,7 +342,7 @@ public class TaskServiceTests
         _taskRepoMock.Setup(r => r.Update(task));
         _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
 
-        var request = new UpdateTaskRequest("New Title", null, null, Area.Personal, TaskPriority.Medium,
+        var request = new UpdateTaskRequest("New Title", null, 1, Area.Personal, TaskPriority.Medium,
             TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
 
         await _service.UpdateTaskAsync(task.Id, request, "user1", "user:test@example.com");
@@ -356,7 +356,7 @@ public class TaskServiceTests
     [Fact]
     public async Task CreateTaskAsync_WithArea_PersistsAreaOnTask()
     {
-        var request = new CreateTaskRequest("Work Task", null, null, Area.Work, TaskPriority.Medium,
+        var request = new CreateTaskRequest("Work Task", null, 1, Area.Work, TaskPriority.Medium,
             TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
 
         _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
@@ -397,7 +397,7 @@ public class TaskServiceTests
     public async Task CreateTaskAsync_DefaultArea_IsPersonal()
     {
         // Area.Personal is the default (0) — verify the service stores it
-        var request = new CreateTaskRequest("Personal Task", null, null, Area.Personal, TaskPriority.Medium,
+        var request = new CreateTaskRequest("Personal Task", null, 1, Area.Personal, TaskPriority.Medium,
             TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
 
         _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
@@ -425,7 +425,7 @@ public class TaskServiceTests
             .ReturnsAsync([]);
         _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
 
-        var request = new UpdateTaskRequest(task.Title, null, null, Area.Work, TaskPriority.Medium,
+        var request = new UpdateTaskRequest(task.Title, null, 1, Area.Work, TaskPriority.Medium,
             TaskStatus.NotStarted, TargetDateType.ThisWeek, null, false, null, null);
 
         var result = await _service.UpdateTaskAsync(task.Id, request, "user1", "user:test@example.com");

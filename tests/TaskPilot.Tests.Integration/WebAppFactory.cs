@@ -137,10 +137,20 @@ public class TaskPilotWebAppFactory : WebApplicationFactory<Program>, IAsyncLife
                 b.HasKey(t => t.Id);
                 b.Property(t => t.Id).ValueGeneratedOnAdd();
                 b.Property(t => t.Name).IsRequired().HasMaxLength(50);
+                b.Property(t => t.SortOrder);
+                b.Property(t => t.IsActive).HasDefaultValue(true);
                 b.HasMany(t => t.Tasks)
                     .WithOne(ti => ti.TaskType)
                     .HasForeignKey(ti => ti.TaskTypeId)
-                    .OnDelete(DeleteBehavior.SetNull);
+                    .OnDelete(DeleteBehavior.Restrict);
+                b.HasData(
+                    new TaskType { Id = 1, Name = "Task",    SortOrder = 1, IsActive = true },
+                    new TaskType { Id = 2, Name = "Goal",    SortOrder = 2, IsActive = true },
+                    new TaskType { Id = 3, Name = "Habit",   SortOrder = 3, IsActive = true },
+                    new TaskType { Id = 4, Name = "Meeting", SortOrder = 4, IsActive = true },
+                    new TaskType { Id = 5, Name = "Note",    SortOrder = 5, IsActive = true },
+                    new TaskType { Id = 6, Name = "Event",   SortOrder = 6, IsActive = true }
+                );
             });
 
             modelBuilder.Entity<TaskActivityLog>(b =>

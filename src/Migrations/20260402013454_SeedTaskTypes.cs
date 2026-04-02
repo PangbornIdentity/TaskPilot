@@ -1,11 +1,11 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace TaskPilot.Migrations
 {
     /// <inheritdoc />
-    public partial class AddTaskTypeAreaAndTagsUI : Migration
+    public partial class SeedTaskTypes : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -25,6 +25,20 @@ namespace TaskPilot.Migrations
                     table.PrimaryKey("PK_TaskTypes", x => x.Id);
                 });
 
+            // Seed TaskType lookup rows
+            migrationBuilder.InsertData(
+                table: "TaskTypes",
+                columns: new[] { "Id", "Name", "SortOrder", "IsActive" },
+                values: new object[,]
+                {
+                    { 1, "Task",    1, true },
+                    { 2, "Goal",    2, true },
+                    { 3, "Habit",   3, true },
+                    { 4, "Meeting", 4, true },
+                    { 5, "Note",    5, true },
+                    { 6, "Event",   6, true }
+                });
+
             migrationBuilder.AddColumn<int>(
                 name: "Area",
                 table: "Tasks",
@@ -36,7 +50,8 @@ namespace TaskPilot.Migrations
                 name: "TaskTypeId",
                 table: "Tasks",
                 type: "int",
-                nullable: true);
+                nullable: false,
+                defaultValue: 1);
 
             migrationBuilder.DropColumn(
                 name: "Type",
@@ -53,31 +68,12 @@ namespace TaskPilot.Migrations
                 column: "TaskTypeId",
                 principalTable: "TaskTypes",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.SetNull);
-
-            // Seed TaskType lookup rows
-            migrationBuilder.InsertData(
-                table: "TaskTypes",
-                columns: new[] { "Id", "Name", "SortOrder", "IsActive" },
-                values: new object[,]
-                {
-                    { 1, "Task",    1, true },
-                    { 2, "Goal",    2, true },
-                    { 3, "Habit",   3, true },
-                    { 4, "Meeting", 4, true },
-                    { 5, "Note",    5, true },
-                    { 6, "Event",   6, true }
-                });
+                onDelete: ReferentialAction.Restrict);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DeleteData(
-                table: "TaskTypes",
-                keyColumn: "Id",
-                keyValues: new object[] { 1, 2, 3, 4, 5, 6 });
-
             migrationBuilder.DropForeignKey(
                 name: "FK_Tasks_TaskTypes_TaskTypeId",
                 table: "Tasks");
@@ -93,6 +89,11 @@ namespace TaskPilot.Migrations
             migrationBuilder.DropColumn(
                 name: "TaskTypeId",
                 table: "Tasks");
+
+            migrationBuilder.DeleteData(
+                table: "TaskTypes",
+                keyColumn: "Id",
+                keyValues: new object[] { 1, 2, 3, 4, 5, 6 });
 
             migrationBuilder.DropTable(
                 name: "TaskTypes");

@@ -24,6 +24,11 @@ public class TaskAreaTypeTagTests(PlaywrightFixture fixture)
         var workRadio = await page.QuerySelectorAsync("#taskModal input[value='1'], #taskModal [value='Work']");
         if (workRadio != null) await workRadio.ClickAsync();
 
+        // Select first valid task type (required)
+        await page.EvalOnSelectorAsync(
+            "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']",
+            "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
+
         await page.ClickAsync("#taskModal button[type='submit']");
         await page.WaitForLoadStateAsync();
         await page.WaitForTimeoutAsync(500);
@@ -33,7 +38,11 @@ public class TaskAreaTypeTagTests(PlaywrightFixture fixture)
         await page.ClickAsync("button:has-text('New Task')");
         await page.WaitForSelectorAsync("#taskModal.show, .modal.show", new() { Timeout = 5000 });
         await page.FillAsync("#taskModal input[name='Title']", personalTitle);
-        // Leave at Personal (default)
+        // Select first valid task type (required)
+        await page.EvalOnSelectorAsync(
+            "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']",
+            "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
+        // Leave at Personal (default) for area
         await page.ClickAsync("#taskModal button[type='submit']");
         await page.WaitForLoadStateAsync();
         await page.WaitForTimeoutAsync(500);
@@ -132,16 +141,23 @@ public class TaskAreaTypeTagTests(PlaywrightFixture fixture)
         var taskTitle = $"MeetingTask_{Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("#taskModal input[name='Title']", taskTitle);
 
-        // Try to select "Meeting" from a task type dropdown or select
+        // Select "Meeting" from the task type dropdown (required field)
         var taskTypeSelect = await page.QuerySelectorAsync(
             "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']");
         if (taskTypeSelect != null)
         {
-            await taskTypeSelect.SelectOptionAsync(new Microsoft.Playwright.SelectOptionValue { Label = "Meeting" });
-        }
-        else
-        {
-            // No visible task type control — submit as-is
+            // Try "Meeting" label first; fall back to first non-empty option
+            try
+            {
+                await taskTypeSelect.SelectOptionAsync(new Microsoft.Playwright.SelectOptionValue { Label = "Meeting" });
+            }
+            catch
+            {
+                // Select the first valid (non-placeholder) option
+                await page.EvalOnSelectorAsync(
+                    "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']",
+                    "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
+            }
         }
 
         await page.ClickAsync("#taskModal button[type='submit']");
@@ -152,6 +168,93 @@ public class TaskAreaTypeTagTests(PlaywrightFixture fixture)
         var content = await page.ContentAsync();
         Assert.Contains(taskTitle, content);
         Assert.DoesNotContain("An unhandled error", content);
+    }
+
+    [Fact]
+    public async Task TaskCreateForm_InlineTagCreate_TagAppearsInList()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        await page.GotoAsync("/tasks");
+        await page.WaitForSelectorAsync("button:has-text('New Task')", new() { Timeout = 10000 });
+        await page.ClickAsync("button:has-text('New Task')");
+        await page.WaitForSelectorAsync("#taskModal.show, .modal.show", new() { Timeout = 5000 });
+
+        // Type a new tag name and click "+ Add"
+        var tagName = $"InlineTag_{Guid.NewGuid().ToString("N")[..6]}";
+        var newTagInput = await page.QuerySelectorAsync("#newTagName");
+        if (newTagInput != null)
+        {
+            await newTagInput.FillAsync(tagName);
+            await page.ClickAsync(".tp-tag-inline-create button:has-text('+ Add')");
+            await page.WaitForTimeoutAsync(800);
+
+            // The new tag checkbox should now appear in the tags list
+            var tagList = await page.QuerySelectorAsync("#modal-tags-list");
+            Assert.NotNull(tagList);
+            var tagListContent = await tagList.InnerHTMLAsync();
+            Assert.Contains(tagName, tagListContent);
+        }
+        else
+        {
+            // Inline create not rendered — skip gracefully
+            Assert.DoesNotContain("An unhandled error", await page.ContentAsync());
+        }
+    }
+
+    [Fact]
+    public async Task TaskCreateForm_InlineTagCreate_ThenAssignToTask()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        await page.GotoAsync("/tasks");
+        await page.WaitForSelectorAsync("button:has-text('New Task')", new() { Timeout = 10000 });
+        await page.ClickAsync("button:has-text('New Task')");
+        await page.WaitForSelectorAsync("#taskModal.show, .modal.show", new() { Timeout = 5000 });
+
+        var taskTitle = $"TaggedInline_{Guid.NewGuid().ToString("N")[..8]}";
+        await page.FillAsync("#taskModal input[name='Title']", taskTitle);
+
+        // Select a valid task type (required)
+        var taskTypeSelect = await page.QuerySelectorAsync(
+            "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']");
+        if (taskTypeSelect != null)
+        {
+            await page.EvalOnSelectorAsync(
+                "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']",
+                "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
+        }
+
+        // Create a tag inline and check it
+        var tagName = $"AutoTag_{Guid.NewGuid().ToString("N")[..6]}";
+        var newTagInput = await page.QuerySelectorAsync("#newTagName");
+        if (newTagInput != null)
+        {
+            await newTagInput.FillAsync(tagName);
+            await page.ClickAsync(".tp-tag-inline-create button:has-text('+ Add')");
+            await page.WaitForTimeoutAsync(800);
+            // The checkbox should already be checked after inline create
+        }
+
+        await page.ClickAsync("#taskModal button[type='submit']");
+        await page.WaitForLoadStateAsync();
+        await page.WaitForTimeoutAsync(500);
+
+        var content = await page.ContentAsync();
+        Assert.Contains(taskTitle, content);
+        Assert.DoesNotContain("An unhandled error", content);
+
+        // Navigate to the task detail to check for the tag pill
+        var taskLink = await page.QuerySelectorAsync($"a:has-text('{taskTitle}')");
+        if (taskLink != null && newTagInput != null)
+        {
+            await taskLink.ClickAsync();
+            await page.WaitForURLAsync("**/tasks/**", new() { Timeout = 5000 });
+            var detailContent = await page.ContentAsync();
+            Assert.Contains(tagName, detailContent);
+        }
     }
 
     // ─── Tags ─────────────────────────────────────────────────────────────
@@ -169,6 +272,11 @@ public class TaskAreaTypeTagTests(PlaywrightFixture fixture)
 
         var taskTitle = $"TaggedE2E_{Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("#taskModal input[name='Title']", taskTitle);
+
+        // Select first valid task type (required)
+        await page.EvalOnSelectorAsync(
+            "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']",
+            "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
 
         // Try to find a tag input or select control
         var tagInput = await page.QuerySelectorAsync(

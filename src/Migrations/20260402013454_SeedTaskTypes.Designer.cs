@@ -12,8 +12,8 @@ using TaskPilot.Data;
 namespace TaskPilot.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260401132821_AddTaskTypeAreaAndTagsUI")]
-    partial class AddTaskTypeAreaAndTagsUI
+    [Migration("20260402013454_SeedTaskTypes")]
+    partial class SeedTaskTypes
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -405,6 +405,11 @@ namespace TaskPilot.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("Area")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTime?>("CompletedDate")
                         .HasColumnType("datetime2");
 
@@ -451,15 +456,13 @@ namespace TaskPilot.Migrations
                     b.Property<int>("TargetDateType")
                         .HasColumnType("int");
 
+                    b.Property<int>("TaskTypeId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -474,6 +477,8 @@ namespace TaskPilot.Migrations
                     b.HasIndex("Status");
 
                     b.HasIndex("TargetDate");
+
+                    b.HasIndex("TaskTypeId");
 
                     b.HasIndex("UserId");
 
@@ -497,6 +502,76 @@ namespace TaskPilot.Migrations
                     b.HasIndex("TagId");
 
                     b.ToTable("TaskTags");
+                });
+
+            modelBuilder.Entity("TaskPilot.Entities.TaskType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            IsActive = true,
+                            Name = "Task",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            IsActive = true,
+                            Name = "Goal",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            IsActive = true,
+                            Name = "Habit",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 4,
+                            IsActive = true,
+                            Name = "Meeting",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 5,
+                            IsActive = true,
+                            Name = "Note",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = 6,
+                            IsActive = true,
+                            Name = "Event",
+                            SortOrder = 6
+                        });
+
+                    b.ToTable("TaskTypes", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -572,6 +647,17 @@ namespace TaskPilot.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("TaskPilot.Entities.TaskItem", b =>
+                {
+                    b.HasOne("TaskPilot.Entities.TaskType", "TaskType")
+                        .WithMany("Tasks")
+                        .HasForeignKey("TaskTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("TaskType");
+                });
+
             modelBuilder.Entity("TaskPilot.Entities.TaskTag", b =>
                 {
                     b.HasOne("TaskPilot.Entities.Tag", "Tag")
@@ -606,6 +692,11 @@ namespace TaskPilot.Migrations
                     b.Navigation("ActivityLogs");
 
                     b.Navigation("TaskTags");
+                });
+
+            modelBuilder.Entity("TaskPilot.Entities.TaskType", b =>
+                {
+                    b.Navigation("Tasks");
                 });
 #pragma warning restore 612, 618
         }

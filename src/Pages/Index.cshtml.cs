@@ -35,7 +35,7 @@ public class IndexModel(ITaskService taskService, IStatsService statsService) : 
         await taskService.CreateTaskAsync(new CreateTaskRequest(
             Title: title.Trim(),
             Description: null,
-            TaskTypeId: null,
+            TaskTypeId: 1,
             Area: Area.Personal,
             Priority: TaskPriority.Medium,
             Status: TaskStatus.NotStarted,

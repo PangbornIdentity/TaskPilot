@@ -12,7 +12,7 @@ public class CreateTaskRequestValidatorTests
     private static CreateTaskRequest ValidRequest() => new(
         Title: "Valid Task",
         Description: null,
-        TaskTypeId: null,
+        TaskTypeId: 1,
         Area: Area.Personal,
         Priority: TaskPriority.Medium,
         Status: TaskStatus.NotStarted,
@@ -28,6 +28,24 @@ public class CreateTaskRequestValidatorTests
     {
         var result = _validator.Validate(ValidRequest());
         Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void Validate_TaskTypeIdZero_HasError()
+    {
+        var request = ValidRequest() with { TaskTypeId = 0 };
+        var result = _validator.Validate(request);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.PropertyName == "TaskTypeId");
+    }
+
+    [Fact]
+    public void Validate_TaskTypeIdNegative_HasError()
+    {
+        var request = ValidRequest() with { TaskTypeId = -1 };
+        var result = _validator.Validate(request);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.PropertyName == "TaskTypeId");
     }
 
     [Fact]

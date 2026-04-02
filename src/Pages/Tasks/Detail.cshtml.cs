@@ -35,7 +35,7 @@ public class TaskDetailModel(
     }
 
     public async Task<IActionResult> OnPostUpdateAsync(
-        Guid id, string title, string? description, int? taskTypeId, Area area,
+        Guid id, string title, string? description, int taskTypeId, Area area,
         TaskPriority priority, TaskStatus status,
         TargetDateType targetDateType, DateTime? targetDate,
         List<Guid>? tagIds)

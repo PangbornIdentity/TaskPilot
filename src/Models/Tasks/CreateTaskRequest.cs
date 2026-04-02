@@ -5,7 +5,7 @@ namespace TaskPilot.Models.Tasks;
 public record CreateTaskRequest(
     string Title,
     string? Description,
-    int? TaskTypeId,
+    int TaskTypeId,
     Area Area,
     TaskPriority Priority,
     Enums.TaskStatus Status,

@@ -70,14 +70,15 @@
                             <textarea class="form-control" name="Description" rows="3">@Model.Task.Description</textarea>
                         </div>
                         <div class="col-sm-4">
-                            <label class="form-label">Type</label>
-                            <select class="form-select" name="taskTypeId">
-                                <option value="">-- None --</option>
+                            <label class="form-label">Type *</label>
+                            <select class="form-select" name="taskTypeId" required>
+                                <option value="">-- Select Type --</option>
                                 @foreach (var t in Model.TaskTypes)
                                 {
                                     <option value="@t.Id" selected="@(Model.Task.TaskTypeId == t.Id)">@t.Name</option>
                                 }
                             </select>
+                            <div class="invalid-feedback">Type is required.</div>
                         </div>
                         <div class="col-sm-4">
                             <label class="form-label">Priority *</label>
@@ -118,26 +119,44 @@
                                 <textarea class="form-control" name="ResultAnalysis" rows="2">@Model.Task.ResultAnalysis</textarea>
                             </div>
                         }
-                        @if (Model.AllTags.Count > 0)
-                        {
-                            <div class="col-12">
-                                <label class="form-label">Tags</label>
-                                <div class="d-flex flex-wrap gap-2">
-                                    @foreach (var tag in Model.AllTags)
-                                    {
-                                        var isChecked = Model.Task.Tags.Any(t => t.Id == tag.Id);
-                                        <div class="form-check form-check-inline">
-                                            <input class="form-check-input" type="checkbox" name="tagIds" value="@tag.Id"
-                                                   id="detail-tag-@tag.Id" @(isChecked ? "checked" : "") />
-                                            <label class="form-check-label" for="detail-tag-@tag.Id">
-                                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:@tag.Color;margin-right:3px"></span>
-                                                @tag.Name
-                                            </label>
-                                        </div>
-                                    }
-                                </div>
+                        <div class="col-12">
+                            <label class="form-label">Tags</label>
+                            <div id="detail-tags-list" class="d-flex flex-wrap gap-2 mb-1">
+                                @if (Model.AllTags.Count == 0)
+                                {
+                                    <p class="text-muted small mb-2">No tags yet — create one below.</p>
+                                }
+                                @foreach (var tag in Model.AllTags)
+                                {
+                                    var isChecked = Model.Task.Tags.Any(t => t.Id == tag.Id);
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox" name="TagIds" value="@tag.Id"
+                                               id="detail-tag-@tag.Id" @(isChecked ? "checked" : "") />
+                                        <label class="form-check-label" for="detail-tag-@tag.Id">
+                                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:@tag.Color;margin-right:3px"></span>
+                                            @tag.Name
+                                        </label>
+                                    </div>
+                                }
                             </div>
-                        }
+                            <div class="tp-tag-inline-create mt-2">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" id="detailNewTagName" class="form-control" placeholder="New tag name..." maxlength="50" />
+                                    <select id="detailNewTagColor" class="form-select" style="max-width:80px;">
+                                        <option value="#7C3AED">●</option>
+                                        <option value="#2563EB">●</option>
+                                        <option value="#0D9488">●</option>
+                                        <option value="#16A34A">●</option>
+                                        <option value="#D97706">●</option>
+                                        <option value="#EA580C">●</option>
+                                        <option value="#E11D48">●</option>
+                                        <option value="#64748B">●</option>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="createTagInlineDetail(this)">+ Add</button>
+                                </div>
+                                <div id="detail-tag-inline-error" class="text-danger small mt-1" style="display:none"></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="mt-3">
                         <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -195,6 +214,75 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+async function createTagInlineDetail(btn) {
+    const nameInput = document.getElementById('detailNewTagName');
+    const colorSelect = document.getElementById('detailNewTagColor');
+    const errorDiv = document.getElementById('detail-tag-inline-error');
+    const name = nameInput.value.trim();
+    const color = colorSelect.value;
+
+    errorDiv.style.display = 'none';
+    errorDiv.textContent = '';
+
+    if (!name) {
+        errorDiv.textContent = 'Tag name is required.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/api/v1/tags', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'RequestVerificationToken': token } : {})
+            },
+            body: JSON.stringify({ name, color })
+        });
+
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            errorDiv.textContent = data?.error?.message || `Error: ${response.status}`;
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        const data = await response.json();
+        const tag = data.data ?? data;
+        const tagId = tag.id;
+        const tagName = tag.name;
+        const tagColor = tag.color;
+
+        const tagList = document.getElementById('detail-tags-list');
+        const noTagsMsg = tagList.querySelector('p.text-muted');
+        if (noTagsMsg) noTagsMsg.remove();
+
+        const div = document.createElement('div');
+        div.className = 'form-check form-check-inline';
+        div.innerHTML = `
+            <input class="form-check-input" type="checkbox" name="TagIds" value="${tagId}" id="detail-tag-${tagId}" checked />
+            <label class="form-check-label" for="detail-tag-${tagId}">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${tagColor};margin-right:3px"></span>
+                ${tagName}
+            </label>`;
+        tagList.appendChild(div);
+
+        nameInput.value = '';
+    } catch (err) {
+        errorDiv.textContent = 'Failed to create tag. Please try again.';
+        errorDiv.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+    }
+}
+</script>
+}
 
 @if (Model.ActivityLogs.Count > 0)
 {

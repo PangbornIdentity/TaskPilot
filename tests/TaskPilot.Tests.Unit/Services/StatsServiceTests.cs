@@ -23,7 +23,7 @@ public class StatsServiceTests : IDisposable
     private TaskItem MakeTask(string userId, TaskStatus status,
         TaskPriority priority = TaskPriority.Medium, DateTime? targetDate = null,
         DateTime? completedDate = null, DateTime? createdDate = null,
-        Area area = Area.Personal, int? taskTypeId = null)
+        Area area = Area.Personal, int taskTypeId = 1)
     {
         var task = new TaskItem
         {

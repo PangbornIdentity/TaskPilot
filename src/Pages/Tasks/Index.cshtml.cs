@@ -77,7 +77,7 @@ public class TasksIndexModel(ITaskService taskService, ITaskTypeService taskType
     }
 
     public async Task<IActionResult> OnPostCreateAsync(
-        string title, string? description, int? taskTypeId, Area area,
+        string title, string? description, int taskTypeId, Area area,
         TaskPriority priority, TaskStatus status,
         TargetDateType targetDateType, DateTime? targetDate,
         List<Guid>? tagIds)

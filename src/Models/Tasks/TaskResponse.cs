@@ -7,7 +7,7 @@ public record TaskResponse(
     Guid Id,
     string Title,
     string? Description,
-    int? TaskTypeId,
+    int TaskTypeId,
     string? TaskTypeName,
     Area Area,
     string AreaName,

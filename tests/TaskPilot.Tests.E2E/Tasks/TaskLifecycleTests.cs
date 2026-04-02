@@ -30,6 +30,12 @@ public class TaskLifecycleTests(PlaywrightFixture fixture)
 
         var taskTitle = $"E2E Task {Guid.NewGuid().ToString("N")[..8]}";
         await page.FillAsync("#taskModal input[name='Title']", taskTitle);
+
+        // Select first valid task type (required)
+        await page.EvalOnSelectorAsync(
+            "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']",
+            "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
+
         await page.ClickAsync("#taskModal button[type='submit']");
 
         // After form submit, wait for page reload and task to appear
@@ -109,6 +115,9 @@ public class TaskLifecycleTests(PlaywrightFixture fixture)
 
         var taskTitle = $"Detail Test {Guid.NewGuid().ToString("N")[..6]}";
         await page.FillAsync("#taskModal input[name='Title']", taskTitle);
+        await page.EvalOnSelectorAsync(
+            "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']",
+            "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
         await page.ClickAsync("#taskModal button[type='submit']");
         await page.WaitForLoadStateAsync();
         await page.WaitForTimeoutAsync(500);
@@ -140,6 +149,9 @@ public class TaskLifecycleTests(PlaywrightFixture fixture)
 
         var taskTitle = $"History Test {Guid.NewGuid().ToString("N")[..6]}";
         await page.FillAsync("#taskModal input[name='Title']", taskTitle);
+        await page.EvalOnSelectorAsync(
+            "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']",
+            "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
         await page.ClickAsync("#taskModal button[type='submit']");
         await page.WaitForLoadStateAsync();
         await page.WaitForTimeoutAsync(500);
@@ -177,6 +189,9 @@ public class TaskLifecycleTests(PlaywrightFixture fixture)
 
         var taskTitle = $"Delete Me {Guid.NewGuid().ToString("N")[..6]}";
         await page.FillAsync("#taskModal input[name='Title']", taskTitle);
+        await page.EvalOnSelectorAsync(
+            "#taskModal select[name='TaskTypeId'], #taskModal select[name='taskTypeId']",
+            "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
         await page.ClickAsync("#taskModal button[type='submit']");
         await page.WaitForLoadStateAsync();
         await page.WaitForTimeoutAsync(500);
