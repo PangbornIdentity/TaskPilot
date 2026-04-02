@@ -47,9 +47,9 @@ dotnet run --project src
 The app will:
 - Create `taskpilot.db` (SQLite) on first run
 - Apply the schema automatically (`EnsureCreated`)
-- Serve the app at `http://localhost:5062`
-- Serve the API at `http://localhost:5062/api/v1/`
-- Serve Swagger UI at `http://localhost:5062/swagger` (development only)
+- Serve the app at `http://localhost:5125`
+- Serve the API at `http://localhost:5125/api/v1/`
+- Serve Swagger UI at `http://localhost:5125/swagger` (development only)
 
 ### 4. First use
 
