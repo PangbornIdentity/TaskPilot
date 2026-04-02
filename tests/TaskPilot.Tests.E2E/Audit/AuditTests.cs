@@ -77,6 +77,10 @@ public class AuditTests(PlaywrightFixture fixture)
 
         var taskTitle = $"Audit Log Test {Guid.NewGuid().ToString("N")[..6]}";
         await page.FillAsync("#taskModal input[name='Title']", taskTitle);
+        // Select a valid task type (required field)
+        await page.EvalOnSelectorAsync(
+            "#taskModal select[name='taskTypeId']",
+            "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
         await page.ClickAsync("#taskModal button[type='submit']");
         await page.WaitForLoadStateAsync();
         await page.WaitForTimeoutAsync(500);

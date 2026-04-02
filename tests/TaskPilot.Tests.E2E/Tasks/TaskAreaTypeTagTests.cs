@@ -20,9 +20,9 @@ public class TaskAreaTypeTagTests(PlaywrightFixture fixture)
         await page.WaitForSelectorAsync("#taskModal.show, .modal.show", new() { Timeout = 5000 });
         await page.FillAsync("#taskModal input[name='Title']", workTitle);
 
-        // Select Work area if there's an area toggle in the modal
-        var workRadio = await page.QuerySelectorAsync("#taskModal input[value='1'], #taskModal [value='Work']");
-        if (workRadio != null) await workRadio.ClickAsync();
+        // Select Work area — click the label (Bootstrap btn-check hides the radio input)
+        var workLabel = await page.QuerySelectorAsync("#taskModal label[for='areaWork']");
+        if (workLabel != null) await workLabel.ClickAsync();
 
         // Select first valid task type (required)
         await page.EvalOnSelectorAsync(

@@ -140,18 +140,19 @@
                                 }
                             </div>
                             <div class="tp-tag-inline-create mt-2">
-                                <div class="input-group input-group-sm">
-                                    <input type="text" id="detailNewTagName" class="form-control" placeholder="New tag name..." maxlength="50" />
-                                    <select id="detailNewTagColor" class="form-select" style="max-width:80px;">
-                                        <option value="#7C3AED">●</option>
-                                        <option value="#2563EB">●</option>
-                                        <option value="#0D9488">●</option>
-                                        <option value="#16A34A">●</option>
-                                        <option value="#D97706">●</option>
-                                        <option value="#EA580C">●</option>
-                                        <option value="#E11D48">●</option>
-                                        <option value="#64748B">●</option>
-                                    </select>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <input type="text" id="detailNewTagName" class="form-control form-control-sm" style="max-width:160px" placeholder="New tag name..." maxlength="50" />
+                                    <input type="hidden" id="detailNewTagColor" value="#7C3AED" />
+                                    <div class="d-flex gap-1" id="detailNewTagColorSwatches">
+                                        <span class="tp-color-swatch selected" data-color="#7C3AED" style="background:#7C3AED" title="Purple" onclick="selectDetailTagColor(this)"></span>
+                                        <span class="tp-color-swatch" data-color="#2563EB" style="background:#2563EB" title="Blue" onclick="selectDetailTagColor(this)"></span>
+                                        <span class="tp-color-swatch" data-color="#0D9488" style="background:#0D9488" title="Teal" onclick="selectDetailTagColor(this)"></span>
+                                        <span class="tp-color-swatch" data-color="#16A34A" style="background:#16A34A" title="Green" onclick="selectDetailTagColor(this)"></span>
+                                        <span class="tp-color-swatch" data-color="#D97706" style="background:#D97706" title="Amber" onclick="selectDetailTagColor(this)"></span>
+                                        <span class="tp-color-swatch" data-color="#EA580C" style="background:#EA580C" title="Orange" onclick="selectDetailTagColor(this)"></span>
+                                        <span class="tp-color-swatch" data-color="#E11D48" style="background:#E11D48" title="Red" onclick="selectDetailTagColor(this)"></span>
+                                        <span class="tp-color-swatch" data-color="#64748B" style="background:#64748B" title="Slate" onclick="selectDetailTagColor(this)"></span>
+                                    </div>
                                     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="createTagInlineDetail(this)">+ Add</button>
                                 </div>
                                 <div id="detail-tag-inline-error" class="text-danger small mt-1" style="display:none"></div>
@@ -217,6 +218,12 @@
 
 @section Scripts {
 <script>
+function selectDetailTagColor(swatch) {
+    document.querySelectorAll('#detailNewTagColorSwatches .tp-color-swatch').forEach(s => s.classList.remove('selected'));
+    swatch.classList.add('selected');
+    document.getElementById('detailNewTagColor').value = swatch.dataset.color;
+}
+
 async function createTagInlineDetail(btn) {
     const nameInput = document.getElementById('detailNewTagName');
     const colorSelect = document.getElementById('detailNewTagColor');
