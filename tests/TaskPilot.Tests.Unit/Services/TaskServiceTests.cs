@@ -394,6 +394,46 @@ public class TaskServiceTests
     }
 
     [Fact]
+    public async Task CreateTaskAsync_WithCompletedStatus_SetsCompletedDate()
+    {
+        var request = new CreateTaskRequest("Done Task", null, 1, Area.Personal, TaskPriority.Medium,
+            TaskStatus.Completed, TargetDateType.ThisWeek, null, false, null, null);
+
+        _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
+        _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        TaskItem? capturedTask = null;
+        _taskRepoMock.Setup(r => r.AddAsync(It.IsAny<TaskItem>(), default))
+            .Callback<TaskItem, CancellationToken>((t, _) => capturedTask = t)
+            .Returns(Task.CompletedTask);
+
+        await _service.CreateTaskAsync(request, "user1", "user:test@example.com");
+
+        Assert.NotNull(capturedTask);
+        Assert.NotNull(capturedTask.CompletedDate);
+    }
+
+    [Fact]
+    public async Task CreateTaskAsync_WithNonCompletedStatus_CompletedDateIsNull()
+    {
+        var request = new CreateTaskRequest("Active Task", null, 1, Area.Personal, TaskPriority.Medium,
+            TaskStatus.InProgress, TargetDateType.ThisWeek, null, false, null, null);
+
+        _taskRepoMock.Setup(r => r.GetMaxSortOrderAsync("user1", default)).ReturnsAsync(0);
+        _taskRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        TaskItem? capturedTask = null;
+        _taskRepoMock.Setup(r => r.AddAsync(It.IsAny<TaskItem>(), default))
+            .Callback<TaskItem, CancellationToken>((t, _) => capturedTask = t)
+            .Returns(Task.CompletedTask);
+
+        await _service.CreateTaskAsync(request, "user1", "user:test@example.com");
+
+        Assert.NotNull(capturedTask);
+        Assert.Null(capturedTask.CompletedDate);
+    }
+
+    [Fact]
     public async Task CreateTaskAsync_DefaultArea_IsPersonal()
     {
         // Area.Personal is the default (0) — verify the service stores it

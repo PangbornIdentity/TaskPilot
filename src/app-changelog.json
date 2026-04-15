@@ -1,6 +1,45 @@
 {
   "versions": [
     {
+      "version": "1.7",
+      "releaseDate": "2026-04-12",
+      "versionType": "minor",
+      "summary": "Mobile-responsive layout",
+      "changes": [
+        { "type": "Feature", "description": "Mobile layout (≤640px): fixed top bar with hamburger, slide-in sidebar overlay, backdrop dismiss" },
+        { "type": "Feature", "description": "Tablet layout (641–1024px): icon-only sidebar rail (60px), full sidebar collapses to icons with tooltips" },
+        { "type": "Improvement", "description": "Content padding reduced to 16px on mobile, 24px on tablet" },
+        { "type": "Improvement", "description": "Stats grid: 2-column on mobile, charts stack to single column on mobile/tablet" },
+        { "type": "Improvement", "description": "Kanban board collapses to single column on mobile" },
+        { "type": "Improvement", "description": "All tables (Dashboard, Tasks, Audit, Integrations) wrapped with horizontal scroll for mobile" },
+        { "type": "Improvement", "description": "Filters bar: search box no longer has fixed min-width, quick-add stacks vertically on mobile" },
+        { "type": "Improvement", "description": "Touch targets increased to 44px minimum for nav links and buttons on mobile" },
+        { "type": "Improvement", "description": "Color swatches enlarged to 28px on mobile" }
+      ]
+    },
+    {
+      "version": "1.6",
+      "releaseDate": "2026-04-05",
+      "versionType": "minor",
+      "summary": "MCP Server — connect Claude Desktop directly",
+      "changes": [
+        { "type": "Feature", "description": "Native MCP server live at /mcp — connect Claude Desktop, Claude.ai Projects, or any MCP-compatible agent directly to TaskPilot using your existing API key" },
+        { "type": "Feature", "description": "9 MCP tools: list_tasks, get_task, create_task, update_task, complete_task, delete_task, get_stats, list_tags, list_task_types" },
+        { "type": "Improvement", "description": "Integrations page MCP section updated from 'Coming Soon' to live — includes Claude Desktop config block with copy button" },
+        { "type": "Fix", "description": "REST API Reference on the Integrations page corrected: stats endpoint is /api/v1/tasks/stats, not /api/v1/stats" }
+      ]
+    },
+    {
+      "version": "1.5",
+      "releaseDate": "2026-04-03",
+      "versionType": "patch",
+      "summary": "Dashboard completed-today fix",
+      "changes": [
+        { "type": "Fix", "description": "Creating a task with Completed status now correctly sets CompletedDate — it was previously null, so the task did not appear in the dashboard's 'Completed Today' count" },
+        { "type": "Fix", "description": "Editing a task's status to Completed via the edit form or API PATCH/PUT also now sets CompletedDate if it was not already set" }
+      ]
+    },
+    {
       "version": "1.4",
       "releaseDate": "2026-04-01",
       "versionType": "minor",

@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
+using TaskPilot.Constants;
 using TaskPilot.Data;
 using TaskPilot.Extensions;
 using TaskPilot.Middleware;
@@ -44,13 +45,19 @@ try
 
     // Authentication (cookie + API key)
     builder.Services.AddTaskPilotAuthentication();
-    builder.Services.AddAuthorization();
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("McpApiKey", policy =>
+            policy.AddAuthenticationSchemes(AuthConstants.ApiKeyScheme)
+                  .RequireAuthenticatedUser());
+    });
 
     // Repositories & Services
     builder.Services.AddTaskPilotRepositories();
     builder.Services.AddTaskPilotServices();
     builder.Services.AddTaskPilotChangelog(builder.Environment);
     builder.Services.AddTaskPilotValidators();
+    builder.Services.AddTaskPilotMcp();
 
     // Controllers + Razor Pages
     builder.Services.AddControllers();
@@ -113,6 +120,7 @@ try
 
     app.MapControllers();
     app.MapRazorPages();
+    app.MapMcp("/mcp").RequireAuthorization("McpApiKey");
 
     await app.RunAsync();
 }

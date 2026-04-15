@@ -7,6 +7,63 @@
 
 ---
 
+## 2026-04-12 — Mobile-responsive layout
+
+### Feature | Responsive sidebar, media queries, table scroll wrappers
+
+- **Sidebar — tablet (641–1024px)** (`src/wwwroot/css/app.css`): collapses to 60px icon-only rail; nav text, user email, version pill, API docs label all hidden; icons centered with 44px touch targets
+- **Sidebar — mobile (≤640px)** (`src/wwwroot/css/app.css`): becomes `position: fixed`, slides in from left via `.open` class; starts below the 56px top bar (`top: 56px; height: calc(100% - 56px)`)
+- **Mobile top bar** (`src/Pages/Shared/_Layout.cshtml`, `src/wwwroot/css/app.css`): 56px fixed header with hamburger button (≤640px only) — `tp-mobile-header`, `tp-hamburger`, `tp-mobile-brand`
+- **Sidebar backdrop** (`src/Pages/Shared/_Layout.cshtml`, `src/wwwroot/css/app.css`): semi-transparent overlay closes sidebar on tap; JS `toggleSidebar()` / `closeSidebar()` functions added, nav links auto-close sidebar on mobile tap
+- **Content padding** (`src/wwwroot/css/app.css`): reduced to 24px on tablet, 16px on mobile
+- **Stats/charts grids** (`src/wwwroot/css/app.css`): stats → 2-col on mobile; charts/kanban → 1-col on mobile and tablet
+- **Table scroll wrappers** (`src/Pages/Index.cshtml`, `src/Pages/Tasks/Index.cshtml`, `src/Pages/Audit/Index.cshtml`, `src/Pages/Integrations/Index.cshtml`): all `tp-table` elements wrapped in `tp-table-scroll` (overflow-x: auto); Integrations MCP tools table wrapped in Bootstrap `table-responsive`
+- **Filters/search** (`src/wwwroot/css/app.css`): `.tp-search` min-width removed on mobile, quick-add stacks to full-width on mobile
+- **Touch targets** (`src/wwwroot/css/app.css`): nav links, logout button, changelog link all min-height 44px on mobile
+- **Changelog** (`src/app-changelog.json`): v1.7 added
+- **Mobile E2E tests** (`tests/TaskPilot.Tests.E2E/Mobile/MobileLayoutTests.cs`): 10 new Playwright tests (MOB-001 to MOB-010) covering hamburger visibility, sidebar open/close, backdrop dismiss, tablet icon rail, and changelog v1.7 presence
+- **TEST-CASES.md**: Section 16 added with mobile test case table
+- Files affected: `src/wwwroot/css/app.css`, `src/Pages/Shared/_Layout.cshtml`, `src/Pages/Index.cshtml`, `src/Pages/Tasks/Index.cshtml`, `src/Pages/Audit/Index.cshtml`, `src/Pages/Integrations/Index.cshtml`, `src/app-changelog.json`, `tests/TaskPilot.Tests.E2E/Mobile/MobileLayoutTests.cs`, `TEST-CASES.md`
+
+---
+
+## 2026-04-05 — MCP Server (Model Context Protocol)
+
+### Feature | Remote MCP server at /mcp with 9 tools, API key auth
+
+- **NuGet packages** (`src/TaskPilot.csproj`): `ModelContextProtocol` 1.2.0 + `ModelContextProtocol.AspNetCore` 1.2.0
+- **MCP tools** (`src/Mcp/TaskPilotMcpTools.cs`): new class with 9 tools — `list_tasks`, `get_task`, `create_task`, `update_task`, `complete_task`, `delete_task`, `get_stats`, `list_tags`, `list_task_types` — calls existing services directly
+- **Auth policy** (`src/Program.cs`): added `"McpApiKey"` named policy (ApiKeyScheme only); `MapMcp("/mcp").RequireAuthorization("McpApiKey")`
+- **Service registration** (`src/Extensions/ServiceCollectionExtensions.cs`): `AddTaskPilotMcp()` extension method — registers `AddHttpContextAccessor`, `AddMcpServer().WithHttpTransport().WithTools<TaskPilotMcpTools>()`
+- **Integrations page** (`src/Pages/Integrations/Index.cshtml`): MCP section updated from "Coming Soon" to live — shows endpoint URL, Claude Desktop config block with copy button, tools table, transport note
+- **Unit tests** (`tests/TaskPilot.Tests.Unit/Mcp/TaskPilotMcpToolsTests.cs`): 14 new tests (MCP-001 to MCP-014)
+- Files affected: `src/TaskPilot.csproj`, `src/Program.cs`, `src/Extensions/ServiceCollectionExtensions.cs`, `src/Mcp/TaskPilotMcpTools.cs`, `src/Pages/Integrations/Index.cshtml`, `tests/TaskPilot.Tests.Unit/Mcp/TaskPilotMcpToolsTests.cs`
+
+---
+
+## 2026-04-05 — Fix incorrect stats endpoint path in Integrations page docs
+
+### Fix | Integrations page listed /api/v1/stats — correct path is /api/v1/tasks/stats
+
+- **Bug**: The REST API Reference table on `/integrations` showed `GET /api/v1/stats`, which is a 404. The actual endpoint is `GET /api/v1/tasks/stats` (nested under the tasks controller).
+- **Fix** (`src/Pages/Integrations/Index.cshtml`): corrected the path in the endpoint table.
+- Files affected: `src/Pages/Integrations/Index.cshtml`
+
+---
+
+## 2026-04-03 — Dashboard Completed-Today Fix
+
+### Fix | CreateTaskAsync and UpdateTaskAsync now set CompletedDate when status is Completed
+
+- **Bug**: Creating a task with Status = Completed left `CompletedDate` null. The dashboard "Completed Today" card queries `CompletedDate`, so these tasks never appeared in the count.
+- **Root cause**: `CreateTaskAsync`, `UpdateTaskAsync` (PUT), and `PatchTaskAsync` (PATCH) only set `CompletedDate` via `CompleteTaskAsync`. Setting status = Completed by any other path left it null.
+- **Fix** (`src/Services/TaskService.cs`): all three methods now set `CompletedDate = DateTime.UtcNow` when status transitions to Completed and `CompletedDate` is not already set.
+- **Unit tests** (`tests/TaskPilot.Tests.Unit/Services/TaskServiceTests.cs`): 2 new tests — `CreateTaskAsync_WithCompletedStatus_SetsCompletedDate` and `CreateTaskAsync_WithNonCompletedStatus_CompletedDateIsNull`
+- **In-app changelog** (`src/app-changelog.json`): v1.5 entry added
+- Files affected: `src/Services/TaskService.cs`, `tests/TaskPilot.Tests.Unit/Services/TaskServiceTests.cs`, `src/app-changelog.json`
+
+---
+
 ## 2026-04-01 — LLM Integrations Page and Swagger UI Link
 
 ### Feature | Integrations page, API Docs link, and MCP coming-soon placeholder

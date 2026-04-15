@@ -12,6 +12,15 @@
 </head>
 <body class="tp-app">
 
+<div class="tp-mobile-header">
+    <button class="tp-hamburger" onclick="toggleSidebar()" aria-label="Toggle navigation">
+        <i class="bi bi-list"></i>
+    </button>
+    <span class="tp-mobile-brand">
+        <i class="bi bi-check2-square me-1" style="color:var(--tp-purple)"></i>TaskPilot
+    </span>
+</div>
+
 <nav class="tp-sidebar d-flex flex-column">
     <div class="tp-sidebar-brand">
         <span class="tp-logo">
@@ -125,8 +134,29 @@
     </div>
 }
 
+<div class="tp-sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"></script>
+<script>
+function toggleSidebar() {
+    var s = document.querySelector('.tp-sidebar');
+    var b = document.getElementById('sidebarBackdrop');
+    var open = s.classList.toggle('open');
+    b.classList.toggle('active', open);
+}
+function closeSidebar() {
+    document.querySelector('.tp-sidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('active');
+}
+// Close sidebar on nav link tap (mobile)
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.tp-nav-link, .tp-changelog-nav-link, .tp-swagger-nav-link').forEach(function (link) {
+        link.addEventListener('click', function () {
+            if (window.innerWidth <= 640) closeSidebar();
+        });
+    });
+});
+</script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

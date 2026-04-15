@@ -84,7 +84,7 @@
                     <tr><td><span class="badge bg-primary">GET</span></td><td><code>/api/v1/tags</code></td><td>List all tags</td></tr>
                     <tr><td><span class="badge bg-success">POST</span></td><td><code>/api/v1/tags</code></td><td>Create a tag</td></tr>
                     <tr><td><span class="badge bg-primary">GET</span></td><td><code>/api/v1/task-types</code></td><td>List task types (Task, Goal, Habit…)</td></tr>
-                    <tr><td><span class="badge bg-primary">GET</span></td><td><code>/api/v1/stats</code></td><td>Get task statistics summary</td></tr>
+                    <tr><td><span class="badge bg-primary">GET</span></td><td><code>/api/v1/tasks/stats</code></td><td>Get task statistics summary</td></tr>
                     <tr><td><span class="badge bg-primary">GET</span></td><td><code>/api/v1/activity-logs</code></td><td>Get activity log entries</td></tr>
                 </tbody>
             </table>
@@ -249,27 +249,91 @@
     </div>
 </div>
 
-<!-- Section E: MCP Coming Soon -->
+<!-- Section E: MCP -->
 <div class="tp-settings-section" id="mcp">
     <h2 class="tp-settings-section-title">
         <i class="bi bi-diagram-3"></i> MCP (Model Context Protocol)
-        <span class="badge bg-secondary ms-2" style="font-size:11px;vertical-align:middle">Coming Soon</span>
+        <span class="badge bg-success ms-2" style="font-size:11px;vertical-align:middle">Live</span>
     </h2>
     <div class="tp-settings-body">
-        <div class="p-3 rounded d-flex gap-3 align-items-start" style="background:#f8f9fa;border:1px dashed #ced4da">
-            <i class="bi bi-clock-history fs-4 text-muted mt-1"></i>
-            <div>
-                <div class="fw-semibold mb-1">Native MCP server — coming in a future release</div>
-                <p class="text-muted small mb-2">
-                    MCP (Model Context Protocol) is an open standard that lets AI agents like Claude Desktop
-                    connect directly to external tools without writing any integration code.
-                </p>
-                <p class="text-muted small mb-0">
-                    When available, you will be able to point Claude Desktop at TaskPilot's MCP endpoint
-                    and give Claude direct, structured access to your tasks, tags, and stats — no curl commands required.
-                    Until then, use the REST API + tool definitions above.
-                </p>
+        <p class="text-muted small mb-3">
+            Connect Claude Desktop, Claude.ai Projects, or any MCP-compatible agent directly to TaskPilot.
+            The MCP server exposes 9 tools — read and write tasks, tags, and stats without writing any integration code.
+        </p>
+
+        <!-- Quick Connect Steps -->
+        <div class="mb-4">
+            <div class="d-flex align-items-start gap-3 mb-3">
+                <span class="tp-step-number">1</span>
+                <div>
+                    <div class="fw-semibold">Create an API key</div>
+                    <div class="text-muted small">Go to <a href="/settings#api-keys">Settings → API Keys</a>, generate a key and copy it — it's shown once.</div>
+                </div>
             </div>
+            <div class="d-flex align-items-start gap-3 mb-3">
+                <span class="tp-step-number">2</span>
+                <div>
+                    <div class="fw-semibold">Note your MCP endpoint</div>
+                    <div class="text-muted small">The endpoint uses SSE (HTTP) transport — compatible with Claude Desktop 0.10+ and Claude.ai Projects.</div>
+                    <code class="d-block mt-1 px-2 py-1 rounded" style="background:#f1f3f5;font-size:13px">https://taskpilot.azurewebsites.net/mcp</code>
+                </div>
+            </div>
+            <div class="d-flex align-items-start gap-3">
+                <span class="tp-step-number">3</span>
+                <div>
+                    <div class="fw-semibold">Add TaskPilot to your MCP client</div>
+                    <div class="text-muted small mb-2">Use the config block below — paste it into <code>claude_desktop_config.json</code> or your client's MCP server settings.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Claude Desktop Config -->
+        <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-semibold small">Claude Desktop — <code>claude_desktop_config.json</code></span>
+                <button class="btn btn-sm btn-outline-secondary tp-copy-btn" data-target="mcp-claude-config">
+                    <i class="bi bi-clipboard me-1"></i>Copy
+                </button>
+            </div>
+            <pre class="tp-code-block" id="mcp-claude-config">{
+  "mcpServers": {
+    "taskpilot": {
+      "type": "sse",
+      "url": "https://taskpilot.azurewebsites.net/mcp",
+      "headers": {
+        "X-Api-Key": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <!-- Available Tools Table -->
+        <div class="mb-3">
+            <div class="fw-semibold small mb-2">Available tools (9)</div>
+            <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0" style="font-size:13px">
+                <thead class="table-light">
+                    <tr><th>Tool</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>list_tasks</code></td><td>List tasks with optional filters (status, area, priority, search)</td></tr>
+                    <tr><td><code>get_task</code></td><td>Get a single task by GUID</td></tr>
+                    <tr><td><code>create_task</code></td><td>Create a new task</td></tr>
+                    <tr><td><code>update_task</code></td><td>Partially update a task (any field)</td></tr>
+                    <tr><td><code>complete_task</code></td><td>Mark a task complete with optional result analysis</td></tr>
+                    <tr><td><code>delete_task</code></td><td>Soft-delete a task (recoverable in web UI)</td></tr>
+                    <tr><td><code>get_stats</code></td><td>Get aggregated stats (active, overdue, completed today…)</td></tr>
+                    <tr><td><code>list_tags</code></td><td>List all tags</td></tr>
+                    <tr><td><code>list_task_types</code></td><td>List task types (Task, Goal, Habit, Meeting, Note, Event)</td></tr>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div class="alert alert-info py-2 px-3 small mb-0" style="font-size:12px">
+            <i class="bi bi-info-circle me-1"></i>
+            The MCP server uses <strong>SSE (HTTP) transport</strong>, not stdio. Authentication uses the same <code>X-Api-Key</code> header as the REST API.
         </div>
     </div>
 </div>

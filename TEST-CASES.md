@@ -590,6 +590,26 @@ pwsh tests/TaskPilot.Tests.E2E/bin/Debug/net10.0/playwright.ps1 install
 
 ---
 
+### 16. Mobile Layout Tests
+
+**File:** `TaskPilot.Tests.E2E/Mobile/MobileLayoutTests.cs`
+**Viewports:** Mobile = 390×844 (iPhone 12 Pro), Tablet = 768×1024 (iPad)
+
+| # | Test Name | Type | Steps | Expected |
+|---|-----------|------|-------|----------|
+| MOB-001 | `MobileViewport_ShowsMobileHeader` | E2E | Authenticate at 390px | `.tp-mobile-header` is visible |
+| MOB-002 | `MobileViewport_HamburgerButtonVisible` | E2E | Authenticate at 390px | `.tp-hamburger` button is visible |
+| MOB-003 | `MobileViewport_SidebarHiddenByDefault` | E2E | Authenticate at 390px | Sidebar bounding box is off-screen (right edge ≤ 0) |
+| MOB-004 | `MobileViewport_HamburgerOpensSidebar` | E2E | Click hamburger; wait 400ms | `.tp-sidebar` has class `open` |
+| MOB-005 | `MobileViewport_BackdropVisibleWhenSidebarOpen` | E2E | Click hamburger; wait 400ms | `.tp-sidebar-backdrop` has class `active` |
+| MOB-006 | `MobileViewport_BackdropClickClosesSidebar` | E2E | Click hamburger; click backdrop area (x=310,y=400); wait 400ms | `.tp-sidebar` does NOT have class `open` |
+| MOB-007 | `MobileViewport_CanNavigateViaSidebar` | E2E | Click hamburger; click Tasks nav link | Browser navigates to `/tasks` |
+| MOB-008 | `TabletViewport_SidebarIconRailVisible` | E2E | Authenticate at 768px | Sidebar visible; `.tp-brand-text` hidden (icon-only rail) |
+| MOB-009 | `TabletViewport_NoHamburgerButton` | E2E | Authenticate at 768px | `.tp-mobile-header` is hidden |
+| MOB-010 | `MobileViewport_ChangelogShowsV17` | E2E | Authenticate at 390px; open sidebar; click What's new | Changelog page contains "1.7" |
+
+---
+
 ## Coverage Targets
 
 | Layer | Target | How to measure |

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TaskPilot.Extensions;
 using TaskPilot.Constants;
 using TaskPilot.Data;
+using TaskPilot.Mcp;
 using TaskPilot.Repositories;
 using TaskPilot.Repositories.Interfaces;
 using TaskPilot.Services;
@@ -106,6 +107,15 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddTaskPilotValidators(this IServiceCollection services)
     {
         services.AddValidatorsFromAssemblyContaining<CreateTaskRequestValidator>();
+        return services;
+    }
+
+    public static IServiceCollection AddTaskPilotMcp(this IServiceCollection services)
+    {
+        services.AddHttpContextAccessor();
+        services.AddMcpServer()
+                .WithHttpTransport()
+                .WithTools<TaskPilotMcpTools>();
         return services;
     }
 }

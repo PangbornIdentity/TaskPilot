@@ -42,6 +42,7 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
             TargetDate = request.TargetDate,
             IsRecurring = request.IsRecurring,
             RecurrencePattern = request.RecurrencePattern,
+            CompletedDate = request.Status == TaskStatus.Completed ? DateTime.UtcNow : null,
             SortOrder = sortOrder,
             UserId = userId,
             LastModifiedBy = modifiedBy
@@ -85,6 +86,7 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         task.TargetDate = request.TargetDate;
         task.IsRecurring = request.IsRecurring;
         task.RecurrencePattern = request.RecurrencePattern;
+        if (request.Status == TaskStatus.Completed && task.CompletedDate is null) task.CompletedDate = DateTime.UtcNow;
         task.LastModifiedBy = modifiedBy;
 
         task.TaskTags.Clear();
@@ -119,7 +121,7 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         if (request.TaskTypeId.HasValue) { PatchLog(nameof(task.TaskTypeId), task.TaskTypeId.ToString(), request.TaskTypeId.Value.ToString()); task.TaskTypeId = request.TaskTypeId.Value; }
         if (request.Area.HasValue) { PatchLog(nameof(task.Area), task.Area.ToString(), request.Area.Value.ToString()); task.Area = request.Area.Value; }
         if (request.Priority.HasValue) { PatchLog(nameof(task.Priority), task.Priority.ToString(), request.Priority.Value.ToString()); task.Priority = request.Priority.Value; }
-        if (request.Status.HasValue) { PatchLog(nameof(task.Status), task.Status.ToString(), request.Status.Value.ToString()); task.Status = request.Status.Value; }
+        if (request.Status.HasValue) { PatchLog(nameof(task.Status), task.Status.ToString(), request.Status.Value.ToString()); task.Status = request.Status.Value; if (request.Status.Value == TaskStatus.Completed && task.CompletedDate is null) task.CompletedDate = DateTime.UtcNow; }
         if (request.TargetDateType.HasValue) { PatchLog(nameof(task.TargetDateType), task.TargetDateType.ToString(), request.TargetDateType.Value.ToString()); task.TargetDateType = request.TargetDateType.Value; }
         if (request.TargetDate.HasValue) { PatchLog(nameof(task.TargetDate), task.TargetDate?.ToString("O"), request.TargetDate.Value.ToString("O")); task.TargetDate = request.TargetDate.Value; }
         if (request.IsRecurring.HasValue) { PatchLog(nameof(task.IsRecurring), task.IsRecurring.ToString(), request.IsRecurring.Value.ToString()); task.IsRecurring = request.IsRecurring.Value; }
