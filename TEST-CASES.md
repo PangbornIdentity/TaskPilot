@@ -22,6 +22,9 @@
 12. [Playwright E2E Tests](#12-playwright-e2e-tests)
 13. [Security Validation Tests](#13-security-validation-tests)
 14. [Tags, Task Type, and Area Tests](#14-tags-task-type-and-area-tests)
+15. [Integrations Page and Swagger Link](#15-integrations-page-and-swagger-link)
+16. [Mobile Layout Tests](#16-mobile-layout-tests)
+17. [Health & Diagnostics Tests](#17-health--diagnostics-tests)
 
 **Naming convention:** `MethodName_Scenario_ExpectedResult`
 **Pattern:** Arrange–Act–Assert, one logical assertion per test
@@ -607,6 +610,95 @@ pwsh tests/TaskPilot.Tests.E2E/bin/Debug/net10.0/playwright.ps1 install
 | MOB-008 | `TabletViewport_SidebarIconRailVisible` | E2E | Authenticate at 768px | Sidebar visible; `.tp-brand-text` hidden (icon-only rail) |
 | MOB-009 | `TabletViewport_NoHamburgerButton` | E2E | Authenticate at 768px | `.tp-mobile-header` is hidden |
 | MOB-010 | `MobileViewport_ChangelogShowsV17` | E2E | Authenticate at 390px; open sidebar; click What's new | Changelog page contains "1.7" |
+
+---
+
+## 17. Health & Diagnostics Tests
+
+Test plan for the Health subsystem (ARCHITECTURE.md §12). All test IDs prefixed `HLTH-`.
+
+### 17.1 Unit Tests — BuildInfo & Health Components
+
+**File:** `tests/TaskPilot.Tests.Unit/Diagnostics/BuildInfoTests.cs`
+
+| # | Test Name | Type | Steps | Expected |
+|---|-----------|------|-------|----------|
+| HLTH-001 | `BuildInfo_Version_ReadsFromAssembly` | Unit | Read `BuildInfo.Version` | Returns non-empty SemVer string matching `<Version>` in csproj |
+| HLTH-002 | `BuildInfo_GitCommit_ReadsFromAssemblyMetadata` | Unit | Read `BuildInfo.GitCommit` | Returns 40-char hex string OR `"unknown"` (never null/empty) |
+| HLTH-003 | `BuildInfo_GitCommitShort_IsSevenChars` | Unit | Read `BuildInfo.GitCommitShort` | Returns 7-char string OR `"unknown"` |
+| HLTH-004 | `BuildInfo_BuildTimestampUtc_IsParseable` | Unit | Read `BuildInfo.BuildTimestampUtc` | Returns DateTime in UTC, within last 365 days |
+| HLTH-005 | `BuildInfo_FallsBackGracefully_WhenMetadataMissing` | Unit | Reflection-mock missing AssemblyMetadata | Returns `"unknown"` instead of throwing |
+
+**File:** `tests/TaskPilot.Tests.Unit/Diagnostics/HealthCheckTests.cs`
+
+| # | Test Name | Type | Steps | Expected |
+|---|-----------|------|-------|----------|
+| HLTH-010 | `DatabaseCheck_Healthy_WhenCanConnect` | Unit | Mock `DbContext.Database.CanConnectAsync()` → true | Status = healthy, Duration > 0 |
+| HLTH-011 | `DatabaseCheck_Unhealthy_WhenConnectionFails` | Unit | Mock `CanConnectAsync` throws | Status = unhealthy, Message contains exception type |
+| HLTH-012 | `DatabaseCheck_Unhealthy_WhenTimesOut` | Unit | Mock `CanConnectAsync` delays > 2s | Status = unhealthy, Message contains "timeout" |
+| HLTH-013 | `MigrationsCheck_Healthy_WhenNoPending` | Unit | Mock `GetPendingMigrationsAsync` → empty | Status = healthy, Data["pendingMigrations"] = "0" |
+| HLTH-014 | `MigrationsCheck_Unhealthy_WhenPendingExist` | Unit | Mock returns 2 pending | Status = unhealthy, Data["pendingMigrations"] = "2" |
+| HLTH-015 | `ConfigCheck_Unhealthy_WhenRequiredKeyMissing` | Unit | IConfiguration without `ApiKey:HmacSigningKey` | Status = unhealthy, Message names missing key |
+| HLTH-016 | `AuthHandlersCheck_Healthy_WhenBothSchemesRegistered` | Unit | Mock `IAuthenticationSchemeProvider` with Identity + ApiKeyScheme | Status = healthy |
+| HLTH-017 | `AuthHandlersCheck_Unhealthy_WhenApiKeySchemeMissing` | Unit | Provider lacks ApiKeyScheme | Status = unhealthy |
+| HLTH-018 | `McpCheck_Healthy_WhenEndpointRegistered` | Unit | Mock `EndpointDataSource` containing `/mcp` | Status = healthy, IsRequired = false |
+| HLTH-019 | `McpCheck_Unhealthy_WhenEndpointMissing` | Unit | EndpointDataSource without `/mcp` | Status = unhealthy, IsRequired = false (degraded only) |
+| HLTH-020 | `TempWritableCheck_Healthy_WhenCanWriteAndDelete` | Unit | Real Path.GetTempPath() | Status = healthy, leaves no file behind |
+| HLTH-021 | `AssemblyMetadataCheck_Unhealthy_WhenCommitUnknown` | Unit | BuildInfo.GitCommit = "unknown" | Status = unhealthy, IsRequired = false |
+| HLTH-022 | `HealthService_Aggregates_HealthyWhenAllHealthy` | Unit | All checks healthy | Overall status = healthy, HTTP would be 200 |
+| HLTH-023 | `HealthService_Aggregates_503WhenRequiredFails` | Unit | One required check unhealthy, optional healthy | Overall status = unhealthy, HTTP = 503 |
+| HLTH-024 | `HealthService_Aggregates_DegradedWhenOnlyOptionalFails` | Unit | All required healthy, one optional unhealthy | Overall status = degraded, HTTP = 200 |
+
+### 17.2 Integration Tests — Health Endpoints
+
+**File:** `tests/TaskPilot.Tests.Integration/Health/HealthEndpointTests.cs` (uses WebApplicationFactory)
+
+| # | Test Name | Type | Steps | Expected |
+|---|-----------|------|-------|----------|
+| HLTH-030 | `Version_Returns200_AndEnvelope` | Integration | GET `/api/v1/health/version` (no auth) | 200, body matches `ApiResponse<VersionResponse>`, `meta.requestId` is a GUID |
+| HLTH-031 | `Version_BodyMatchesBuildInfo` | Integration | Compare response to `BuildInfo` static | Version, GitCommit, GitCommitShort all equal |
+| HLTH-032 | `Version_HasNoCacheHeaders` | Integration | Inspect response headers | `Cache-Control` contains `no-store`, `Pragma: no-cache`, `Expires: 0` |
+| HLTH-033 | `Version_HasCustomVersionHeaders` | Integration | Inspect response headers | `X-TaskPilot-Version` and `X-TaskPilot-Commit` present and equal to body |
+| HLTH-034 | `Live_Returns200_Always` | Integration | GET `/api/v1/health/live` | 200, `data.status = "alive"` |
+| HLTH-035 | `Ready_Returns200_WhenAllRequiredHealthy` | Integration | GET `/api/v1/health/ready` against in-memory healthy DB | 200, status = healthy |
+| HLTH-036 | `Ready_Returns503_WhenDatabaseDown` | Integration | Replace DbContext with one whose connection string is invalid | 503, envelope still well-formed, status = unhealthy |
+| HLTH-037 | `Full_Returns200_AndIncludesAllChecks` | Integration | GET `/api/v1/health/full` | 200, `data.checks` contains all 7 named checks |
+| HLTH-038 | `Full_PerCheckHasDuration` | Integration | GET `/api/v1/health/full` | Every check has `duration > 0` |
+| HLTH-039 | `Full_Returns200WhenOnlyOptionalDegraded` | Integration | Disable MCP registration | 200, overall = degraded, mcp check = unhealthy |
+| HLTH-040 | `Full_Returns503_WhenMigrationsPending` | Integration | Spin up DB without applying migrations | 503, migrations check = unhealthy |
+| HLTH-041 | `Assets_Returns200_WithManifest` | Integration | GET `/api/v1/health/assets` | 200, `data.assets` non-empty, every value matches `^sha256-` |
+| HLTH-042 | `Assets_HashStable_OnRepeatedCalls` | Integration | Call twice | Identical hash dictionary |
+| HLTH-043 | `HealthEndpoints_NotInAuditLog` | Integration | Hit each endpoint, then GET `/api/v1/audit` | Zero entries with path starting `/api/v1/health` |
+| HLTH-044 | `HealthEndpoints_AnonymousAccess` | Integration | Hit each without cookie or API key | All return non-401 |
+| HLTH-045 | `Ready_RespondsWithin500ms` | Integration | Time the call against healthy DB | Duration < 500ms |
+
+### 17.3 E2E Tests — Public Health Page
+
+**File:** `tests/TaskPilot.Tests.E2E/Health/HealthPageTests.cs`
+
+| # | Test Name | Type | Steps | Expected |
+|---|-----------|------|-------|----------|
+| HLTH-050 | `HealthPage_LoadsAnonymously` | E2E | Navigate to `/health` without login | Page renders, no redirect to login |
+| HLTH-051 | `HealthPage_ShowsHealthyBadge` | E2E | Navigate to `/health` against healthy app | `.tp-health-status` text = "HEALTHY", green |
+| HLTH-052 | `HealthPage_VersionMatchesApi` | E2E | Read version pill text on page; GET `/api/v1/health/version` | Page version equals `data.version` |
+| HLTH-053 | `HealthPage_CommitMatchesApi` | E2E | Read commit on page; GET `/api/v1/health/version` | Page short commit equals `data.gitCommitShort` |
+| HLTH-054 | `HealthPage_PerCheckRowsRendered` | E2E | Count rows in checks table | At least 7 rows, each with name + status + duration |
+| HLTH-055 | `HealthPage_RawJsonLink_GoesToFullEndpoint` | E2E | Click "Raw JSON" link | Browser navigates to `/api/v1/health/full` |
+| HLTH-056 | `SidebarVersionPill_LinksToHealthPage` | E2E | Authenticate, click version pill in sidebar | Browser navigates to `/health` |
+| HLTH-057 | `SidebarVersionPill_TextMatchesApiVersion` | E2E | Read pill text; GET `/api/v1/health/version` | Pill text contains `data.version` and `data.gitCommitShort` |
+
+### 17.4 Deployment Smoke Test
+
+**File:** `scripts/smoke.ps1` and mirrored xUnit `tests/TaskPilot.Tests.Integration/Smoke/DeploymentSmokeTests.cs` (parameterized by env var `SMOKE_BASE_URL`, default `http://localhost:5125`)
+
+| # | Test Name | Type | Steps | Expected |
+|---|-----------|------|-------|----------|
+| HLTH-060 | `Smoke_VersionEndpointReachable` | Smoke | GET `{BaseUrl}/api/v1/health/version` | 200, parseable VersionResponse |
+| HLTH-061 | `Smoke_DeployedCommitMatchesExpected` | Smoke | Compare `data.gitCommitShort` to env `EXPECTED_COMMIT` | Equal (case-insensitive) |
+| HLTH-062 | `Smoke_FullHealthGreen` | Smoke | GET `{BaseUrl}/api/v1/health/full` | 200, status = healthy |
+| HLTH-063 | `Smoke_NoCdnCachingDetected` | Smoke | GET `/api/v1/health/version` twice with cache-buster query | Both return same Version+Commit; no `Age` header on response |
+| HLTH-064 | `Smoke_AssetManifestMatchesServedAssets` | Smoke | For each asset in manifest, GET it and SHA256 the body | Every hash equals manifest entry |
+| HLTH-065 | `Smoke_RunsAgainstLocalAndAzure` | Smoke | Run twice with `SMOKE_BASE_URL=http://localhost:5125` then `=https://taskpilot.azurewebsites.net` | Both pass |
 
 ---
 

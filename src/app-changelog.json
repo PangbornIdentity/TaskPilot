@@ -1,6 +1,22 @@
 {
   "versions": [
     {
+      "version": "1.8",
+      "releaseDate": "2026-04-15",
+      "versionType": "minor",
+      "summary": "Health & Diagnostics — self-describing binary, post-deploy smoke tests",
+      "changes": [
+        { "type": "Feature", "description": "New /health page: anonymous public dashboard showing overall status (HEALTHY/DEGRADED/UNHEALTHY), per-check results, version, git commit, build timestamp, and uptime — auto-refreshes every 30s" },
+        { "type": "Feature", "description": "REST health endpoints: /api/v1/health/version, /live, /ready, /full, /assets — all anonymous, all return standard ApiResponse envelope" },
+        { "type": "Feature", "description": "Build-time git stamping: version, commit SHA, and build timestamp baked into the assembly at compile time — the binary is now the authoritative source of version truth" },
+        { "type": "Feature", "description": "7 health check components: database, migrations, config, auth-handlers, mcp, temp-writable, assembly-metadata — required failures return 503; optional failures return 200 degraded" },
+        { "type": "Feature", "description": "Static asset fingerprint manifest at /api/v1/health/assets — returns SHA-256 hashes for all tracked CSS/JS files, enabling smoke tests to verify CDN serves the correct assets" },
+        { "type": "Feature", "description": "Post-deploy smoke script (scripts/smoke.ps1) verifies correct version is deployed, full health is green, no CDN caching, and asset manifest matches served assets" },
+        { "type": "Improvement", "description": "Sidebar version pill now shows v{Version} · {GitCommitShort} from the assembly (not app-changelog.json) and links to /health" },
+        { "type": "Improvement", "description": "Health endpoints excluded from API audit log to prevent Azure App Service health probe noise" }
+      ]
+    },
+    {
       "version": "1.7",
       "releaseDate": "2026-04-12",
       "versionType": "minor",

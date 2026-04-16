@@ -1,0 +1,146 @@
+@page "/health"
+@model TaskPilot.Pages.Health.IndexModel
+@{
+    Layout = null;
+    var health = Model.HealthResult;
+    var status = health?.Status ?? "unknown";
+    var badgeClass = status switch {
+        "healthy"   => "tp-health-badge--healthy",
+        "degraded"  => "tp-health-badge--degraded",
+        _           => "tp-health-badge--unhealthy"
+    };
+    var version = health?.Version;
+    var gitHubUrl = Model.GitHubRepoUrl;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="30" />
+    <title>TaskPilot — Health</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <style>
+        body { background: var(--tp-bg, #f8f9fa); padding: 2rem; }
+        .tp-health-badge {
+            display: inline-block;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: .05em;
+            padding: .5rem 2rem;
+            border-radius: .5rem;
+            margin-bottom: 1.5rem;
+        }
+        .tp-health-badge--healthy   { background: #d1fae5; color: #065f46; border: 2px solid #6ee7b7; }
+        .tp-health-badge--degraded  { background: #fef3c7; color: #92400e; border: 2px solid #fcd34d; }
+        .tp-health-badge--unhealthy { background: #fee2e2; color: #991b1b; border: 2px solid #fca5a5; }
+        .tp-check-healthy   { color: #059669; }
+        .tp-check-degraded  { color: #d97706; }
+        .tp-check-unhealthy { color: #dc2626; }
+        .tp-check-dot { font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 900px;">
+        <div class="d-flex align-items-center mb-3">
+            <i class="bi bi-check2-square me-2" style="font-size:2rem;color:#7c3aed"></i>
+            <h1 class="h3 mb-0 fw-bold">TaskPilot Health</h1>
+        </div>
+
+        <div>
+            <span class="tp-health-badge @badgeClass tp-health-status">@(status.ToUpperInvariant())</span>
+        </div>
+
+        @if (version is not null)
+        {
+            <div class="card mb-4">
+                <div class="card-header fw-semibold"><i class="bi bi-info-circle me-1"></i>Version</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Version</dt>
+                        <dd class="col-sm-9 tp-health-version">@version.Version</dd>
+
+                        <dt class="col-sm-3">Commit</dt>
+                        <dd class="col-sm-9">
+                            @if (!string.IsNullOrEmpty(gitHubUrl) && version.GitCommit != "unknown")
+                            {
+                                <a href="@(gitHubUrl)/commit/@version.GitCommit"
+                                   target="_blank" rel="noopener" class="tp-health-commit">@version.GitCommitShort</a>
+                            }
+                            else
+                            {
+                                <span class="tp-health-commit">@version.GitCommitShort</span>
+                            }
+                        </dd>
+
+                        <dt class="col-sm-3">Built</dt>
+                        <dd class="col-sm-9">@(version.BuildTimestampUtc == DateTime.MinValue ? "unknown" : version.BuildTimestampUtc.ToString("o"))</dd>
+
+                        <dt class="col-sm-3">Environment</dt>
+                        <dd class="col-sm-9">@version.Environment</dd>
+
+                        <dt class="col-sm-3">Host</dt>
+                        <dd class="col-sm-9">@version.MachineName</dd>
+
+                        <dt class="col-sm-3">Uptime</dt>
+                        <dd class="col-sm-9">@version.Uptime.ToString(@"d\d\ hh\:mm\:ss")</dd>
+                    </dl>
+                </div>
+            </div>
+        }
+
+        @if (health?.Checks is { Count: > 0 })
+        {
+            <div class="card mb-4">
+                <div class="card-header fw-semibold"><i class="bi bi-clipboard-check me-1"></i>Checks</div>
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Duration</th>
+                            <th>Required</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var check in health.Checks)
+                        {
+                            var dotClass = check.Status switch {
+                                "healthy"   => "tp-check-healthy",
+                                "degraded"  => "tp-check-degraded",
+                                _           => "tp-check-unhealthy"
+                            };
+                            <tr>
+                                <td class="fw-semibold">@check.Name</td>
+                                <td>
+                                    <span class="tp-check-dot @dotClass">
+                                        <i class="bi bi-circle-fill"></i>
+                                    </span>
+                                    @check.Status
+                                </td>
+                                <td>@check.Duration.TotalMilliseconds.ToString("F1") ms</td>
+                                <td>@(check.IsRequired ? "yes" : "no")</td>
+                                <td><small class="text-muted">@check.Message</small></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (health is null)
+        {
+            <div class="alert alert-danger">Health checks failed to execute.</div>
+        }
+
+        <div class="text-muted small d-flex justify-content-between align-items-center">
+            <span>Last checked: @Model.PageRenderedAt.ToString("o") (auto-refreshes every 30s)</span>
+            <a href="/api/v1/health/full" class="btn btn-sm btn-outline-secondary tp-raw-json-link">
+                <i class="bi bi-code-slash me-1"></i>Raw JSON
+            </a>
+        </div>
+    </div>
+</body>
+</html>

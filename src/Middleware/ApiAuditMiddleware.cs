@@ -12,8 +12,10 @@ public class ApiAuditMiddleware(RequestDelegate next, ILogger<ApiAuditMiddleware
 {
     public async Task InvokeAsync(HttpContext context, IAuditLogRepository auditLogRepository)
     {
-        // Only audit /api/v1/ requests authenticated via API key
+        // Only audit /api/v1/ requests authenticated via API key.
+        // Health endpoints are explicitly excluded to prevent Azure health probe noise in the audit log.
         if (!context.Request.Path.StartsWithSegments("/api/v1") ||
+            context.Request.Path.StartsWithSegments("/api/v1/health") ||
             context.User.FindFirstValue(ClaimTypes.AuthenticationMethod) != AuthConstants.ApiKeyScheme)
         {
             await next(context);

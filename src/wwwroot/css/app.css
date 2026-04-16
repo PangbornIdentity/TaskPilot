@@ -909,3 +909,18 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     .tp-logout-btn { min-height: 44px; }
     .tp-changelog-nav-link { min-height: 44px; }
 }
+
+/* ===== VERSION PILL (sidebar) ===== */
+.tp-version-pill-container {
+    padding: 4px 12px 10px;
+    text-align: center;
+}
+.tp-version-pill-link {
+    text-decoration: none;
+}
+.tp-version-pill-link:hover .tp-version-pill {
+    opacity: .85;
+}
+@media (max-width: 640px) {
+    .tp-version-pill-container { display: none; }
+}

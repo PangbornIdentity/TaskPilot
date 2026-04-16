@@ -58,6 +58,7 @@ try
     builder.Services.AddTaskPilotChangelog(builder.Environment);
     builder.Services.AddTaskPilotValidators();
     builder.Services.AddTaskPilotMcp();
+    builder.Services.AddTaskPilotHealth();
 
     // Controllers + Razor Pages
     builder.Services.AddControllers();
@@ -67,6 +68,7 @@ try
         options.Conventions.AllowAnonymousToPage("/Auth/Login");
         options.Conventions.AllowAnonymousToPage("/Auth/Register");
         options.Conventions.AllowAnonymousToPage("/Error");
+        options.Conventions.AllowAnonymousToPage("/Health/Index");
     });
 
     // CORS (for Blazor WASM in dev)

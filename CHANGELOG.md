@@ -7,6 +7,50 @@
 
 ---
 
+## 2026-04-15 — Health & Diagnostics subsystem v1.8 (implementation)
+
+### Feature | Health endpoints, build stamping, public health page, smoke script
+
+- **Assembly version** (`src/TaskPilot.csproj`): `<Version>1.8.0</Version>`; MSBuild `StampGitMetadata` target runs `git rev-parse HEAD/--short HEAD` at build time and emits `AssemblyMetadataAttribute` for `GitCommit`, `GitCommitShort`, `BuildTimestampUtc` — falls back to `"unknown"` when git unavailable; no `Microsoft.SourceLink.GitHub` package added
+- **BuildInfo** (`src/Diagnostics/BuildInfo.cs`): static class reading assembly metadata once; `Version`, `GitCommit`, `GitCommitShort`, `BuildTimestampUtc`
+- **ProcessUptime** (`src/Diagnostics/ProcessUptime.cs`): captures `DateTime.UtcNow` at static init for uptime calculation
+- **Health DTOs** (`src/Models/Health/`): `VersionResponse`, `LivenessResponse`, `HealthResponse`, `HealthCheckResult`, `AssetsResponse` records
+- **Health interface + 7 checks** (`src/Services/Health/`): `IHealthCheckComponent`, `HealthStatuses` constants; implementations: `DatabaseHealthCheck` (required, 2s timeout), `MigrationsHealthCheck` (required), `ConfigHealthCheck` (required), `AuthHandlersHealthCheck` (required), `McpHealthCheck` (optional), `TempWritableHealthCheck` (optional), `AssemblyMetadataHealthCheck` (optional)
+- **HealthService** (`src/Services/Health/HealthService.cs`): `RunReadinessAsync` (required checks only), `RunFullAsync` (all checks); aggregation: unhealthy if any required fails → 503, degraded if only optional fail → 200
+- **AssetsService** (`src/Services/Health/AssetsService.cs`): computes SHA-256 fingerprints for tracked static assets; cached singleton
+- **HealthController** (`src/Controllers/HealthController.cs`): endpoints `/api/v1/health/{version,live,ready,full,assets}`; all anonymous; all set `Cache-Control: no-store`, `Pragma: no-cache`, `Expires: 0`, `X-TaskPilot-Version`, `X-TaskPilot-Commit`
+- **Public /health page** (`src/Pages/Health/Index.cshtml(.cs)`): anonymous; renders full check result; green/red/amber badge; version block with GitHub commit deep-link; checks table; auto-refreshes every 30s; `.tp-health-status`, `.tp-health-version`, `.tp-health-commit`, `.tp-raw-json-link` CSS class hooks
+- **Sidebar version pill** (`src/Pages/Shared/_Layout.cshtml`): rebound from `_changelogService.GetLatest()` to `BuildInfo.Version + BuildInfo.GitCommitShort`; pill now links to `/health`; `app-changelog.json` remains for What's New release notes only
+- **Audit exclusion** (`src/Middleware/ApiAuditMiddleware.cs`): `/api/v1/health/*` excluded from audit log writes to prevent Azure health probe noise
+- **DI registration** (`src/Extensions/ServiceCollectionExtensions.cs`): `AddTaskPilotHealth()` registers all 7 checks + `IHealthService` + `AssetsService`
+- **Program.cs** (`src/Program.cs`): calls `AddTaskPilotHealth()`; adds `AllowAnonymousToPage("/Health/Index")`
+- **appsettings.json** (`src/appsettings.json`): `Diagnostics:GitHubRepoUrl` = `https://github.com/PangbornIdentity/TaskPilot`
+- **ApiRoutes.cs** (`src/Constants/ApiRoutes.cs`): `ApiRoutes.Health` constants added
+- **CSS** (`src/wwwroot/css/app.css`): `.tp-version-pill-container` and `.tp-version-pill-link` styles
+- **smoke.ps1** (`scripts/smoke.ps1`): parameterized by `-BaseUrl` and `-ExpectedCommit`; covers HLTH-060 through HLTH-065; same script runs against `localhost:5125` and Azure
+- **Unit tests** (`tests/TaskPilot.Tests.Unit/Diagnostics/`): `BuildInfoTests.cs` (HLTH-001–005), `HealthCheckTests.cs` (HLTH-010–024) — 21 new unit tests
+- **Integration tests** (`tests/TaskPilot.Tests.Integration/Health/HealthEndpointTests.cs`): HLTH-030–045 — 16 new integration tests
+- **Smoke integration tests** (`tests/TaskPilot.Tests.Integration/Smoke/DeploymentSmokeTests.cs`): HLTH-060–065 — 6 smoke tests (skipped when server not running; run with `SMOKE_BASE_URL` env var)
+- **E2E tests** (`tests/TaskPilot.Tests.E2E/Health/HealthPageTests.cs`): HLTH-050–057 — 8 E2E tests
+- Files affected: `src/TaskPilot.csproj`, `src/Diagnostics/BuildInfo.cs`, `src/Diagnostics/ProcessUptime.cs`, `src/Models/Health/*.cs` (5 files), `src/Services/Health/*.cs` + `Checks/*.cs` (10 files), `src/Controllers/HealthController.cs`, `src/Pages/Health/Index.cshtml(.cs)`, `src/Pages/Shared/_Layout.cshtml`, `src/Middleware/ApiAuditMiddleware.cs`, `src/Extensions/ServiceCollectionExtensions.cs`, `src/Program.cs`, `src/appsettings.json`, `src/Constants/ApiRoutes.cs`, `src/wwwroot/css/app.css`, `src/app-changelog.json`, `scripts/smoke.ps1`, `tests/TaskPilot.Tests.Unit/Diagnostics/BuildInfoTests.cs`, `tests/TaskPilot.Tests.Unit/Diagnostics/HealthCheckTests.cs`, `tests/TaskPilot.Tests.Integration/Health/HealthEndpointTests.cs`, `tests/TaskPilot.Tests.Integration/Smoke/DeploymentSmokeTests.cs`, `tests/TaskPilot.Tests.E2E/Health/HealthPageTests.cs`
+
+---
+
+## 2026-04-15 — Health & Diagnostics subsystem (design only)
+
+### Architecture | Health endpoints, build-time version stamping, public /health page
+
+- **ARCHITECTURE.md**: new Section 12 "Health & Diagnostics" — endpoint map, build-time version injection via MSBuild Exec target stamping `AssemblyMetadataAttribute`, response shapes (`VersionResponse`, `LivenessResponse`, `HealthResponse`, `HealthCheckResult`, `AssetsResponse`), seven `IHealthCheckComponent` implementations (database, migrations, config, auth-handlers, mcp, temp-writable, assembly-metadata), no-cache header policy, CDN/Front Door verification steps, hybrid static-asset fingerprinting (`asp-append-version` + `/health/assets` manifest), public `/health` Razor Page spec, Azure App Service / Application Insights integration table, post-deploy `smoke.ps1` script, local-dev parity statement
+- **ARCHITECTURE.md §3.4b**: new endpoint table for `/api/v1/health/{version,live,ready,full,assets}` and `/health` page; TOC updated to include Sections 11 and 12
+- **REQUIREMENTS.md §4.9**: new feature entry — sidebar version pill rebinds to `BuildInfo` (not `app-changelog.json`), public `/health` page spec, authoritativeness rule (binary is source of truth, JSON is release notes only)
+- **REQUIREMENTS.md §5.3a**: new REST API endpoint table for health endpoints; documents anonymous access, no-cache headers, audit-log exclusion
+- **TEST-CASES.md §17**: 36 new test cases (HLTH-001 through HLTH-065) covering BuildInfo unit tests, per-component health check unit tests, WebApplicationFactory integration tests for all four endpoints (envelope shape, 503 semantics, no-cache headers, audit exclusion), Playwright E2E for the public `/health` page and sidebar version pill parity, and parameterized deployment smoke tests for local + Azure
+- **Open decisions flagged**: (1) hand-roll `IHealthCheckComponent` vs. `Microsoft.Extensions.Diagnostics.HealthChecks` package — recommend hand-roll; (2) `Microsoft.SourceLink.GitHub` vs. plain MSBuild Exec — recommend Exec; (3) GitHub repo URL config key for commit deep-links; (4) confirm `/api/v1/health/*` exclusion from `ApiKeyAuditMiddleware`
+- **No code changes** — implementation is deferred to `fullstack-dev` agent in next phase
+- Files affected: `ARCHITECTURE.md`, `REQUIREMENTS.md`, `TEST-CASES.md`
+
+---
+
 ## 2026-04-12 — Mobile-responsive layout
 
 ### Feature | Responsive sidebar, media queries, table scroll wrappers

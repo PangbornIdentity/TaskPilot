@@ -16,6 +16,8 @@
 8. [Iteration 2 Backlog](#8-iteration-2-backlog)
 9. [Package Decisions](#9-package-decisions)
 10. [Configuration Guide](#10-configuration-guide)
+11. [LLM Integration](#11-llm-integration)
+12. [Health & Diagnostics](#12-health--diagnostics)
 
 ---
 
@@ -555,6 +557,19 @@ public record TagTaskCountData(string TagName, int TaskCount);
 - `page` / `pageSize` (int, defaults: 1/50)
 
 > Activity logs are read-only. They are written automatically whenever a task field is mutated.
+
+### 3.4b Health & Diagnostics Endpoints
+
+| Method | Endpoint | Auth | Request | Success Response | Error Codes |
+|--------|----------|------|---------|-----------------|-------------|
+| GET | /api/v1/health/version | Anonymous | — | 200 `ApiResponse<VersionResponse>` | — |
+| GET | /api/v1/health/live | Anonymous | — | 200 `ApiResponse<LivenessResponse>` | — |
+| GET | /api/v1/health/ready | Anonymous | — | 200 `ApiResponse<HealthResponse>` | 503 |
+| GET | /api/v1/health/full | Anonymous | — | 200 `ApiResponse<HealthResponse>` | 503 |
+| GET | /api/v1/health/assets | Anonymous | — | 200 `ApiResponse<AssetsResponse>` | — |
+| GET | /health | Anonymous | — | 200 HTML (Razor Page) | — |
+
+All `/api/v1/health/*` responses include headers: `Cache-Control: no-store, no-cache, must-revalidate`, `Pragma: no-cache`, `Expires: 0`. Full design: see [§12 Health & Diagnostics](#12-health--diagnostics).
 
 ### 3.5 Response Envelope Types
 
@@ -1233,6 +1248,205 @@ A static Razor Page that documents how to connect any LLM or automation tool to 
 ### 11.3 MCP (Planned — Iteration 2)
 
 MCP (Model Context Protocol) is planned for a future release. When implemented it will expose a `/mcp` endpoint using the `ModelContextProtocol` NuGet package, protected by the existing API key authentication handler. Planned tools: `list_tasks`, `get_task`, `create_task`, `update_task`, `complete_task`, `delete_task`, `get_stats`, `list_tags`, `list_task_types`.
+
+---
+
+## 12. Health & Diagnostics
+
+This subsystem makes the deployed binary self-describing and post-deploy verification trivial. It eliminates the v1.6-vs-v1.7 ambiguity caused by `app-changelog.json` drifting from the deployed assembly.
+
+### 12.1 Endpoint Map
+
+| Endpoint | Purpose | Auth | Status semantics |
+|----------|---------|------|------------------|
+| `GET /api/v1/health/version` | Version, commit SHA, build timestamp, environment | Anonymous | Always 200 if process responds |
+| `GET /api/v1/health/live` | Liveness — process is up | Anonymous | Always 200 if process responds |
+| `GET /api/v1/health/ready` | Readiness — DB reachable, migrations applied, config loaded | Anonymous | 200 healthy / 503 unhealthy |
+| `GET /api/v1/health/full` | Deep check — per-component status with durations | Anonymous | 200 healthy / 503 if any required check unhealthy |
+| `GET /api/v1/health/assets` | Static-asset fingerprint manifest (filename → SHA256) | Anonymous | Always 200 |
+| `GET /health` | Public Razor Page rendering `/full` as a human dashboard | Anonymous | Always 200 (page renders even when checks fail; checks colored red) |
+
+All endpoints conform to §3.5 response envelope. None require API key or cookie. None appear in the `ApiAuditLog` (excluded by path prefix in `ApiKeyAuditMiddleware` to avoid noise from Azure App Service health probes).
+
+### 12.2 Build-Time Version Injection
+
+**Source of truth = the assembly itself, not `app-changelog.json`.** Three values are baked in at build time and read at runtime via reflection from a single static `BuildInfo` class.
+
+**Mechanism:** MSBuild target in `TaskPilot.csproj` runs `git rev-parse HEAD` and `git rev-parse --short HEAD` and emits `[assembly: AssemblyMetadata("GitCommit", "...")]`, `[assembly: AssemblyMetadata("GitCommitShort", "...")]`, and `[assembly: AssemblyMetadata("BuildTimestamp", "<UTC ISO 8601>")]`. Version itself comes from `<Version>` in the csproj (already PackageVersion-aligned). The `Microsoft.SourceLink.GitHub` package is **not** required — a plain MSBuild `Exec` target is sufficient and works on Azure DevOps / GitHub Actions / local `dotnet build` identically.
+
+```xml
+<!-- TaskPilot.csproj — sketch only -->
+<Target Name="StampGitMetadata" BeforeTargets="GetAssemblyAttributes">
+  <Exec Command="git rev-parse HEAD" ConsoleToMsBuild="true" ContinueOnError="true">
+    <Output TaskParameter="ConsoleOutput" PropertyName="GitCommitFull" />
+  </Exec>
+  <Exec Command="git rev-parse --short HEAD" ConsoleToMsBuild="true" ContinueOnError="true">
+    <Output TaskParameter="ConsoleOutput" PropertyName="GitCommitShort" />
+  </Exec>
+  <PropertyGroup>
+    <BuildTimestampUtc>$([System.DateTime]::UtcNow.ToString("o"))</BuildTimestampUtc>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="GitCommit" Value="$(GitCommitFull)" />
+    <AssemblyMetadata Include="GitCommitShort" Value="$(GitCommitShort)" />
+    <AssemblyMetadata Include="BuildTimestampUtc" Value="$(BuildTimestampUtc)" />
+  </ItemGroup>
+</Target>
+```
+
+**Runtime accessor:** `src/Diagnostics/BuildInfo.cs` — static class that reads `AssemblyMetadataAttribute` once on first access and caches results. Fallback values when git is unavailable (e.g., source-only build): `GitCommit = "unknown"`, `GitCommitShort = "unknown"`. Build never fails; missing metadata simply surfaces as "unknown" in `/version`.
+
+**Sidebar version pill parity:** `_Layout.cshtml` injects `BuildInfo.Version` and `BuildInfo.GitCommitShort` server-side. The pill renders `v{Version} · {GitCommitShort}` and links to `/health`. The pill value is the **same** runtime object that `/api/v1/health/version` serializes — UI and API can never disagree because there is one source.
+
+**`app-changelog.json` continues to exist** for human-readable release notes on the Changelog page, but is no longer authoritative for "what version is deployed". The version pill no longer reads it.
+
+### 12.3 Response Shapes
+
+```csharp
+// src/Models/Health/VersionResponse.cs (in TaskPilot.Shared)
+public record VersionResponse
+{
+    public required string Version { get; init; }            // "1.7.0"
+    public required string GitCommit { get; init; }          // full 40-char SHA
+    public required string GitCommitShort { get; init; }     // 7-char SHA
+    public required DateTime BuildTimestampUtc { get; init; }
+    public required string Environment { get; init; }        // "Development" | "Production" | etc.
+    public required string MachineName { get; init; }        // hostname / Azure instance ID
+    public required TimeSpan Uptime { get; init; }           // process uptime
+}
+
+public record LivenessResponse
+{
+    public required string Status { get; init; }             // always "alive"
+    public required DateTime TimestampUtc { get; init; }
+}
+
+public record HealthResponse
+{
+    public required string Status { get; init; }             // "healthy" | "degraded" | "unhealthy"
+    public required TimeSpan TotalDuration { get; init; }
+    public required VersionResponse Version { get; init; }
+    public required List<HealthCheckResult> Checks { get; init; }
+}
+
+public record HealthCheckResult
+{
+    public required string Name { get; init; }               // "database", "migrations", "mcp", "auth-handlers", "temp-writable", ...
+    public required string Status { get; init; }             // "healthy" | "degraded" | "unhealthy"
+    public required TimeSpan Duration { get; init; }
+    public string? Message { get; init; }                    // optional human description
+    public Dictionary<string, string>? Data { get; init; }   // e.g. { "pendingMigrations": "0" }
+    public required bool IsRequired { get; init; }           // false = degraded contributes only "degraded", not 503
+}
+
+public record AssetsResponse
+{
+    public required string Version { get; init; }
+    public required Dictionary<string, string> Assets { get; init; } // "/css/app.css" -> "sha256-..."
+}
+```
+
+Aggregation rule: overall `Status = unhealthy` if any `IsRequired=true` check is unhealthy → HTTP **503**. `Status = degraded` if only optional checks fail → HTTP **200**. `Status = healthy` otherwise → HTTP **200**.
+
+### 12.4 Health Check Components
+
+Implemented as a set of `IHealthCheckComponent` classes (custom interface, not `Microsoft.Extensions.Diagnostics.HealthChecks` — see §12.10 decision flag). Each check is invoked by `HealthService.RunFullAsync()` with a per-check `Stopwatch` and a 5-second `CancellationToken`.
+
+| Check name | Required | What it verifies | Used by |
+|------------|----------|------------------|---------|
+| `database` | yes | `dbContext.Database.CanConnectAsync()` succeeds within 2s | ready, full |
+| `migrations` | yes | `dbContext.Database.GetPendingMigrationsAsync()` returns 0 | ready, full |
+| `config` | yes | Required config keys present (`ConnectionStrings:Default`, `ApiKey:HmacSigningKey`) | ready, full |
+| `auth-handlers` | yes | `IAuthenticationSchemeProvider` lists both `Identity.Application` and `ApiKeyScheme` | full |
+| `mcp` | no | MCP endpoint registered (`EndpointDataSource` contains `/mcp`) | full |
+| `temp-writable` | no | Write + delete a 1-byte file in `Path.GetTempPath()` | full |
+| `assembly-metadata` | no | `BuildInfo.GitCommit != "unknown"` (catches builds where git stamping failed) | full |
+
+External dependency checks (Azure SQL, Key Vault, App Insights ingestion) are added in iteration 2 as additional `IHealthCheckComponent` implementations — no architectural change.
+
+### 12.5 Header Policy & CDN Verification
+
+All responses from `/api/v1/health/*` and `/health` set:
+
+```
+Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+Pragma: no-cache
+Expires: 0
+X-TaskPilot-Version: 1.7.0
+X-TaskPilot-Commit: a1b2c3d
+```
+
+The `X-TaskPilot-*` headers let a smoke test verify the deployed version **without parsing the body** — useful for HEAD requests and for diagnosing CDN caching.
+
+**Verifying through Azure Front Door / CDN:**
+1. Hit the public hostname: `curl -i https://taskpilot.example.com/api/v1/health/version`
+2. Confirm `X-Cache: MISS` (Front Door) or absence of `Age:` header — health endpoints must never be cached.
+3. If Front Door is in front of App Service, configure a **route override** for path pattern `/health*` and `/api/v1/health/*` with caching disabled.
+4. Repeat with `?_=$(date +%s)` cache-buster — both responses should report the **same** `Version` and `GitCommit`. If they differ, a CDN tier is caching despite headers.
+
+### 12.6 Static-Asset Fingerprinting
+
+**Decision: hybrid approach.**
+
+1. **Built-in fingerprinting** — `_Layout.cshtml` references CSS/JS via the ASP.NET Core `asp-append-version="true"` tag helper, which appends `?v={SHA256}` automatically. This gives browser cache-busting for free with no build step.
+2. **`/api/v1/health/assets` endpoint** — returns a manifest mapping each tracked static asset path (currently `/css/app.css`, `/js/site.js`, `/_framework/blazor.web.js` if present) to the SHA256 hash the server is currently serving. Computed lazily on first request, cached in memory, invalidated on `IFileProvider` change token.
+
+Smoke test pseudocode:
+```
+expected = GET /api/v1/health/assets        # what server thinks it has
+actual   = GET /css/app.css | sha256sum     # what CDN actually returned
+assert expected.Assets["/css/app.css"] == actual
+```
+
+This catches the "user is loading old CSS via CDN cache" failure mode without requiring a full content-hashed filename build pipeline (which would conflict with the current Razor Pages layout).
+
+### 12.7 Public `/health` Razor Page
+
+`src/Pages/Health/Index.cshtml` — **anonymous** (excluded from auth via `[AllowAnonymous]` and `Program.cs` route convention). Server-side renders the result of `HealthService.RunFullAsync()` as:
+
+- Header: large green/red badge "HEALTHY" / "DEGRADED" / "UNHEALTHY"
+- Version block: `Version`, `GitCommitShort` (linked to GitHub commit URL if `GitHubRepoUrl` config set), `BuildTimestampUtc`, `Environment`, `MachineName`, `Uptime`
+- Checks table: name | status (colored dot) | duration | message
+- Footer: "Last checked: {timestamp}" + auto-refresh meta tag (30s)
+- Footer link: "Raw JSON" → `/api/v1/health/full`
+
+The page renders successfully even if checks fail (does not throw). It is safe for Azure "Always On" pings and uptime monitors.
+
+### 12.8 Azure Integration
+
+| Azure surface | URL to configure | Notes |
+|--------------|------------------|-------|
+| App Service Health Check blade | `/api/v1/health/ready` | App Service treats non-2xx as unhealthy and removes instance from rotation. Use `ready` not `full` — `full` includes optional checks that should not pull instances offline. |
+| App Service "Always On" | (implicit) | Set Always On = true; App Service warm-pings the root path, but `/health` is also acceptable. |
+| Application Insights — Standard availability test | `https://taskpilot.example.com/api/v1/health/live` | URL ping test, 5-min cadence, 5 regions. Liveness only; cheap. |
+| Application Insights — Multi-step web test | `/api/v1/health/full` + assert `X-TaskPilot-Version` matches expected | More expensive, run every 15 min from one region. |
+| Front Door / CDN route | `/health*`, `/api/v1/health/*` | Disable caching as in §12.5. |
+
+**Post-deploy smoke test (`scripts/smoke.ps1`, parameterized by `-BaseUrl` and `-ExpectedCommit`):**
+
+```pwsh
+param([string]$BaseUrl, [string]$ExpectedCommit)
+$v = Invoke-RestMethod "$BaseUrl/api/v1/health/version"
+if ($v.data.gitCommitShort -ne $ExpectedCommit.Substring(0,7)) {
+    throw "Version mismatch: deployed $($v.data.gitCommitShort), expected $ExpectedCommit"
+}
+$h = Invoke-WebRequest "$BaseUrl/api/v1/health/full" -SkipHttpErrorCheck
+if ($h.StatusCode -ne 200) { throw "Health = $($h.StatusCode)" }
+Write-Host "OK: $($v.data.version) @ $($v.data.gitCommitShort)"
+```
+
+This script is the canonical "did the deploy take effect" answer. Same script runs against `http://localhost:5125` and `https://taskpilot.azurewebsites.net`.
+
+### 12.9 Local-Dev Parity
+
+Every endpoint above works identically under `dotnet run` against SQLite. There are no Azure-only code paths. The `database` check uses `CanConnectAsync()` which works against SQLite, Azure SQL, and PostgreSQL. The `migrations` check uses provider-agnostic EF Core APIs. The `temp-writable` check uses `Path.GetTempPath()` which resolves to `%TEMP%` on Windows and `/tmp` on Linux App Service.
+
+### 12.10 Decisions Requiring Sign-Off
+
+1. **`Microsoft.Extensions.Diagnostics.HealthChecks` vs. hand-rolled.** Recommendation: **hand-roll** the `IHealthCheckComponent` abstraction. Reasons: (a) the built-in framework returns plain text by default and forcing it into our `ApiResponse<T>` envelope requires a custom `ResponseWriter` that effectively duplicates what we'd write anyway; (b) we want per-check `Data` dictionaries and `IsRequired` semantics that don't map cleanly onto `HealthStatus` (Healthy/Degraded/Unhealthy); (c) avoids pulling in `AspNetCore.HealthChecks.UI` and the database it wants. **Flag:** confirm before implementation. If you prefer the standard package, the only change is the registration layer — endpoint shapes stay the same.
+2. **`Microsoft.SourceLink.GitHub` vs. MSBuild Exec.** Recommendation: **plain Exec target** (no extra package). Flag if you want SourceLink for debugger symbol resolution as well.
+3. **GitHub commit-link URL.** The `/health` page can deep-link the commit SHA to `https://github.com/<owner>/<repo>/commit/<sha>`. Need the canonical repo URL stored in config (`Diagnostics:GitHubRepoUrl`). Flag: confirm repo URL.
+4. **Audit-log exclusion path prefix.** Recommendation: exclude `/api/v1/health/*` and `/health` from `ApiKeyAuditMiddleware` and from `ApiAuditLog` writes to prevent App Service / Front Door probes from flooding the log. Flag: confirm.
 
 ---
 

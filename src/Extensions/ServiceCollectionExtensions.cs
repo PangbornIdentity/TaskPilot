@@ -8,6 +8,8 @@ using TaskPilot.Mcp;
 using TaskPilot.Repositories;
 using TaskPilot.Repositories.Interfaces;
 using TaskPilot.Services;
+using TaskPilot.Services.Health;
+using TaskPilot.Services.Health.Checks;
 using TaskPilot.Services.Interfaces;
 using TaskPilot.Models.Validators;
 
@@ -116,6 +118,24 @@ public static class ServiceCollectionExtensions
         services.AddMcpServer()
                 .WithHttpTransport()
                 .WithTools<TaskPilotMcpTools>();
+        return services;
+    }
+
+    public static IServiceCollection AddTaskPilotHealth(this IServiceCollection services)
+    {
+        // Required checks (used by /ready and /full)
+        services.AddScoped<IHealthCheckComponent, DatabaseHealthCheck>();
+        services.AddScoped<IHealthCheckComponent, MigrationsHealthCheck>();
+        services.AddScoped<IHealthCheckComponent, ConfigHealthCheck>();
+
+        // Optional checks (used by /full only)
+        services.AddScoped<IHealthCheckComponent, AuthHandlersHealthCheck>();
+        services.AddScoped<IHealthCheckComponent, McpHealthCheck>();
+        services.AddScoped<IHealthCheckComponent, TempWritableHealthCheck>();
+        services.AddScoped<IHealthCheckComponent, AssemblyMetadataHealthCheck>();
+
+        services.AddScoped<IHealthService, HealthService>();
+        services.AddSingleton<AssetsService>();
         return services;
     }
 }

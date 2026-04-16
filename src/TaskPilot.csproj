@@ -5,7 +5,33 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>ee82c2a5-cc72-4723-bab8-db7ca8bc4248</UserSecretsId>
+    <Version>1.8.0</Version>
+    <AssemblyVersion>1.8.0.0</AssemblyVersion>
+    <FileVersion>1.8.0.0</FileVersion>
   </PropertyGroup>
+
+  <!-- Stamp git metadata into assembly attributes at build time -->
+  <Target Name="StampGitMetadata" BeforeTargets="GetAssemblyAttributes">
+    <Exec Command="git rev-parse HEAD" ConsoleToMsBuild="true" ContinueOnError="true" WorkingDirectory="$(MSBuildProjectDirectory)">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitCommitFull" />
+    </Exec>
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMsBuild="true" ContinueOnError="true" WorkingDirectory="$(MSBuildProjectDirectory)">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitCommitShort" />
+    </Exec>
+    <!-- Trim any trailing whitespace/newlines from git output -->
+    <PropertyGroup>
+      <GitCommitFull>$(GitCommitFull.Trim())</GitCommitFull>
+      <GitCommitShort>$(GitCommitShort.Trim())</GitCommitShort>
+      <GitCommitFull Condition="'$(GitCommitFull)' == ''">unknown</GitCommitFull>
+      <GitCommitShort Condition="'$(GitCommitShort)' == ''">unknown</GitCommitShort>
+      <BuildTimestampUtc>$([System.DateTime]::UtcNow.ToString("o"))</BuildTimestampUtc>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyMetadata Include="GitCommit" Value="$(GitCommitFull)" />
+      <AssemblyMetadata Include="GitCommitShort" Value="$(GitCommitShort)" />
+      <AssemblyMetadata Include="BuildTimestampUtc" Value="$(BuildTimestampUtc)" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <Content Update="app-changelog.json" CopyToOutputDirectory="PreserveNewest" />

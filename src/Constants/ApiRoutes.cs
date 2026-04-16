@@ -31,4 +31,13 @@ public static class ApiRoutes
         public const string Root = $"{Base}/audit";
         public const string Summary = $"{Base}/audit/summary";
     }
+
+    public static class Health
+    {
+        public const string Live = $"{Base}/health/live";
+        public const string Ready = $"{Base}/health/ready";
+        public const string Full = $"{Base}/health/full";
+        public const string Version = $"{Base}/health/version";
+        public const string Assets = $"{Base}/health/assets";
+    }
 }

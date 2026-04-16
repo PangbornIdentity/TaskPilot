@@ -1,5 +1,6 @@
 @inject TaskPilot.Services.Interfaces.IChangelogService _changelogService
 @inject IWebHostEnvironment _env
+@using TaskPilot.Diagnostics
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -83,13 +84,12 @@
            href="/changelog">
             <i class="bi bi-journal-text"></i>
             <span>What's new</span>
-            @{
-                var _latest = _changelogService.GetLatest();
-                if (_latest is not null)
-                {
-                    <span class="tp-version-pill">v@(_latest.Version)</span>
-                }
-            }
+        </a>
+    </div>
+
+    <div class="tp-version-pill-container">
+        <a href="/health" class="tp-version-pill-link" title="Health &amp; Diagnostics">
+            <span class="tp-version-pill">v@(BuildInfo.Version) &middot; @(BuildInfo.GitCommitShort)</span>
         </a>
     </div>
 

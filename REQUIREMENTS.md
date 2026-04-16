@@ -313,6 +313,27 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 
 ---
 
+### 4.9 Health & Version Surface
+
+A self-describing diagnostic surface so that any deployed instance can be inspected without authentication and without ambiguity.
+
+**Sidebar version pill** (existing, behavior changes):
+- Renders `v{Version} · {GitCommitShort}` instead of just the version
+- Value comes from a build-time-stamped assembly attribute (`AssemblyMetadataAttribute`) — **not** from `app-changelog.json`
+- Pill is a link to `/health`
+
+**Public `/health` page** (new, anonymous):
+- Server-rendered Razor Page
+- Shows: large status badge (HEALTHY/DEGRADED/UNHEALTHY), version, git commit SHA (deep-linked to GitHub if configured), build timestamp UTC, environment name, machine name, process uptime
+- Per-check table: name, colored status dot, duration, message
+- Auto-refreshes every 30 seconds
+- Renders successfully even when checks fail (does not throw)
+- Safe target for Azure Always On and uptime monitors
+
+**Authoritativeness rule:** the binary is the source of truth for "what version is deployed". `app-changelog.json` is for human-readable release notes only and may drift; the version pill and `/health` must never read from it.
+
+---
+
 ## 5. REST API Features
 
 **Base path:** `/api/v1/`
@@ -348,6 +369,22 @@ Read-only in iteration 1. No create/update/delete endpoints.
 | GET | /api/v1/tags | List all tags |
 | POST | /api/v1/tags | Create tag |
 | DELETE | /api/v1/tags/{id} | Delete tag (removes from all tasks) |
+
+### 5.3a Health & Diagnostics Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | /api/v1/health/version | Anonymous | Version, full + short git commit SHA, build timestamp UTC, environment, machine name, uptime |
+| GET | /api/v1/health/live | Anonymous | Liveness — process is up. Always 200 if host responds. |
+| GET | /api/v1/health/ready | Anonymous | Readiness — DB reachable, migrations applied, required config loaded. 503 if any required check fails. Use for Azure App Service Health Check blade. |
+| GET | /api/v1/health/full | Anonymous | Deep check — per-component status with durations. Includes optional checks (MCP, temp-writable, assembly-metadata). 503 only if a required check fails. |
+| GET | /api/v1/health/assets | Anonymous | Static-asset SHA256 manifest for stale-bundle detection |
+
+**Response headers (all health endpoints):** `Cache-Control: no-store, no-cache, must-revalidate`, `Pragma: no-cache`, `Expires: 0`, plus `X-TaskPilot-Version` and `X-TaskPilot-Commit` for body-less verification.
+
+**Excluded from `ApiAuditLog`** so that Azure / Front Door probes do not flood the audit table.
+
+Full design: see [ARCHITECTURE.md §12](./ARCHITECTURE.md#12-health--diagnostics).
 
 ### 5.4 Response Envelope
 
