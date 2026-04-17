@@ -22,9 +22,15 @@
 - **Fix**: Changed to `Process.GetCurrentProcess().StartTime.ToUniversalTime()` for OS-level accuracy
 - **File changed**: `src/Diagnostics/ProcessUptime.cs`
 
+### Fix | Startup migration retry for Azure SQL serverless autopause
+
+- Azure SQL serverless (GP_S_Gen5) autopause causes "Connection reset by peer" on first connection after idle
+- App startup `MigrateAsync` now retries up to 5 times with exponential backoff (5s, 10s, 15s, 20s, 25s)
+- **File changed**: `src/Program.cs`
+
 ### Config | .gitignore update
 
-- Added `publish-linux/` to `.gitignore` to exclude Azure deployment build artifacts
+- Added `publish-linux*/` to `.gitignore` to exclude Azure deployment build artifacts
 
 ---
 

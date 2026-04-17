@@ -97,9 +97,26 @@ try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         if (app.Environment.IsDevelopment())
+        {
             await db.Database.EnsureCreatedAsync();
+        }
         else
-            await db.Database.MigrateAsync();
+        {
+            // Retry migration up to 5 times — Azure SQL serverless may be waking from autopause
+            for (int attempt = 1; attempt <= 5; attempt++)
+            {
+                try
+                {
+                    await db.Database.MigrateAsync();
+                    break;
+                }
+                catch (Exception ex) when (attempt < 5)
+                {
+                    Log.Warning(ex, "Database migration attempt {Attempt}/5 failed, retrying in {Delay}s", attempt, attempt * 5);
+                    await Task.Delay(TimeSpan.FromSeconds(attempt * 5));
+                }
+            }
+        }
     }
 
     if (app.Environment.IsDevelopment())
