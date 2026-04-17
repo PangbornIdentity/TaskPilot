@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-04-17 — Bundle CDN assets locally, fix uptime bug (v1.9)
+
+### Fix | CDN assets bundled locally to avoid Tracking Prevention breakage
+
+- **Root cause**: Edge/Brave Tracking Prevention blocks `cdn.jsdelivr.net` as a third-party tracker, breaking Bootstrap CSS/JS, Bootstrap Icons, htmx, and ApexCharts on Azure
+- **Fix**: Downloaded all CDN assets to `src/wwwroot/lib/` and updated all layout/page references to use local paths
+- **Files added**: `lib/bootstrap/css/bootstrap.min.css`, `lib/bootstrap/js/bootstrap.bundle.min.js`, `lib/bootstrap-icons/font/bootstrap-icons.css`, `lib/bootstrap-icons/font/fonts/bootstrap-icons.woff2`, `lib/bootstrap-icons/font/fonts/bootstrap-icons.woff`, `lib/htmx/htmx.min.js`, `lib/apexcharts/apexcharts.min.js`
+- **Files changed**: `src/Pages/Shared/_Layout.cshtml`, `src/Pages/Shared/_LoginLayout.cshtml`, `src/Pages/Health/Index.cshtml`, `src/Pages/Index.cshtml`
+
+### Fix | Negative uptime in health endpoint
+
+- **Root cause**: `ProcessUptime.cs` used `DateTime.UtcNow` in a static field initializer, which could race with the first health check call
+- **Fix**: Changed to `Process.GetCurrentProcess().StartTime.ToUniversalTime()` for OS-level accuracy
+- **File changed**: `src/Diagnostics/ProcessUptime.cs`
+
+### Config | .gitignore update
+
+- Added `publish-linux/` to `.gitignore` to exclude Azure deployment build artifacts
+
+---
+
 ## 2026-04-15 — Health & Diagnostics subsystem v1.8 (implementation)
 
 ### Feature | Health endpoints, build stamping, public health page, smoke script

@@ -176,7 +176,7 @@
 }
 
 @section Scripts {
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
+<script src="/lib/apexcharts/apexcharts.min.js"></script>
 <script>
 (function() {
     var weeklyData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats?.CompletedPerWeek?.Select(w => w.Count).ToList() ?? new List<int>()));

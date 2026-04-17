@@ -68,6 +68,7 @@ logs/
 
 ## Azure deployment artifacts
 *.zip
+publish-linux/
 
 ## Claude Code local settings
 .claude/settings.local.json
