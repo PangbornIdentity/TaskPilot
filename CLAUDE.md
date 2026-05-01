@@ -15,7 +15,7 @@
 | [DESIGN-SYSTEM.md](./DESIGN-SYSTEM.md) | Colors, typography, spacing, components, iconography, accessibility | `ux-designer` agent |
 | [WIREFRAMES.md](./WIREFRAMES.md) | Page layouts at all 3 breakpoints (Desktop/Tablet/Mobile) | `ux-designer` agent |
 | [USER-FLOWS.md](./USER-FLOWS.md) | Step-by-step user journeys and interaction pattern specs | `ux-designer` agent |
-| [TEST-CASES.md](./TEST-CASES.md) | All test cases: unit, integration, bUnit, Playwright E2E | `qa-engineer` agent |
+| [TEST-CASES.md](./TEST-CASES.md) | All test cases: unit, integration, Playwright E2E | `qa-engineer` agent |
 | [CHANGELOG.md](./CHANGELOG.md) | Chronological log of all changes, decisions, and deviations | All agents, every change |
 | [SECURITY-VALIDATION.md](./SECURITY-VALIDATION.md) | Security checklist results (produced in Phase 5) | `qa-engineer` agent |
 | [README.md](./README.md) | Setup, run, test, and deploy instructions (produced in Phase 6) | `architect` agent |
@@ -50,21 +50,20 @@
 
 ## Project Overview
 
-**TaskPilot** is a personal productivity web app on .NET 10 (Blazor WebAssembly hosted).
+**TaskPilot** is a personal productivity web app on .NET 10 (ASP.NET Core Razor Pages, server-rendered).
 
 | Attribute | Value |
 |-----------|-------|
-| Working directory | `C:\projects\TaskPilot` (Windows) |
+| Working directory | `C:\projects\TaskPilot` (Windows). **Launch Claude from this directory** so the project-scoped agents in `.claude/agents/` (architect, fullstack-dev, qa-engineer, ux-designer) are discovered. |
 | Current iteration | **1** — Local dev, SQLite, dotnet user-secrets, dotnet run |
 | Iteration 2 target | Azure App Service, Azure SQL/PostgreSQL, Key Vault, App Insights, GitHub Actions |
 | Runtime | .NET 10, C# 13 |
-| Frontend | Blazor WebAssembly (hosted, 3-project structure) |
-| Backend | ASP.NET Core 10 Web API |
+| Frontend | ASP.NET Core Razor Pages + htmx + Bootstrap 5 + ApexCharts (server-rendered, no SPA build pipeline) |
+| Backend | ASP.NET Core 10 Web API (controllers under `/api/v1/`) |
 | Database | SQLite (iter 1), Azure SQL / PostgreSQL (iter 2) |
 | Auth | ASP.NET Core Identity (cookie) + custom API key handler |
-| UI Library | MudBlazor |
-| Charts | ApexCharts.Blazor |
-| Testing | xUnit + bUnit + Playwright for .NET |
+| Charts | ApexCharts (vanilla JS, loaded from `/lib/apexcharts/`) |
+| Testing | xUnit (unit + integration via WebApplicationFactory) + Playwright for .NET (E2E) |
 
 ---
 
@@ -72,14 +71,19 @@
 
 ```
 TaskPilot/
-├── src/
-│   ├── TaskPilot.Server/       ASP.NET Core Web API host
-│   ├── TaskPilot.Client/       Blazor WebAssembly
-│   └── TaskPilot.Shared/       DTOs, enums, validators (shared by Server + Client)
+├── src/                              Single ASP.NET Core project (flat layout, NOT split server/client/shared)
+│   ├── Pages/                        Razor Pages (.cshtml + .cshtml.cs page models)
+│   ├── Controllers/                  /api/v1 REST controllers (Tasks, Tags, ApiKeys, Audit, Health, ActivityLog)
+│   ├── Services/, Repositories/      Business logic + EF Core data access
+│   ├── Entities/, Models/            EF entities + request/response DTOs + validators
+│   ├── Mcp/                          MCP server tooling (LLM-callable)
+│   ├── Data/                         ApplicationDbContext + per-entity Configurations
+│   ├── Middleware/, Auth/            Audit middleware + API-key auth handler
+│   └── wwwroot/                      Static assets (Bootstrap, htmx, ApexCharts, favicon, css/app.css)
 └── tests/
-    ├── TaskPilot.Tests.Unit/        xUnit + bUnit
-    ├── TaskPilot.Tests.Integration/ xUnit + WebApplicationFactory
-    └── TaskPilot.Tests.E2E/         Playwright for .NET
+    ├── TaskPilot.Tests.Unit/        xUnit + Moq + in-memory EF
+    ├── TaskPilot.Tests.Integration/ xUnit + WebApplicationFactory + SQLite
+    └── TaskPilot.Tests.E2E/         Playwright for .NET (runs against http://localhost:5125)
 ```
 
 Full annotated directory tree: see [ARCHITECTURE.md §1](./ARCHITECTURE.md#1-solution-structure)
@@ -96,7 +100,7 @@ Full rules in [REQUIREMENTS.md](./REQUIREMENTS.md#constraints). Key rules:
 4. **No secrets in code** — `IConfiguration` only. `dotnet user-secrets` locally, Key Vault in prod.
 5. **All API endpoints under `/api/v1/`**.
 6. **Standard response envelope on all API responses** — no bare JSON.
-7. **DTOs and enums in `TaskPilot.Shared`** — never in Server or Client.
+7. **DTOs and enums in `src/Models/`** — namespaced under `TaskPilot.Models.*`.
 8. **No rate limiting in iteration 1** — document insertion point only.
 9. **`net10.0`** in all `.csproj` files.
 10. **`LastModifiedBy`**: `"user:{username}"` (web UI) or `"api:{apiKeyName}"` (API).
