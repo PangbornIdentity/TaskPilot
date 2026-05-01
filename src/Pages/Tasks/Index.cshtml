@@ -6,6 +6,22 @@
     var isBoard = Model.View == "board";
     var isIncomplete = Model.View == "incomplete";
     var nowUtc = DateTime.UtcNow;
+
+    // Build a route-values dict that preserves every active filter, plus any per-link overrides.
+    // Url.Page emits properly URL-encoded query strings AND collapses null values, so we don't
+    // have to special-case empty filters.
+    object FilterRoute(string? viewOverride = null, Area? areaOverride = null, bool keepArea = true)
+        => new
+        {
+            view = viewOverride ?? Model.View,
+            search = Model.Search,
+            status = Model.StatusFilter,
+            priority = Model.PriorityFilter,
+            area = keepArea ? (areaOverride ?? Model.AreaFilter) : areaOverride,
+            taskTypeId = Model.TaskTypeIdFilter,
+            tagIds = Model.TagIdFilter,
+            overdue = Model.OverdueFilter ? (bool?)true : null
+        };
 }
 
 <div class="tp-page-header">
@@ -20,11 +36,11 @@
 
 <!-- Area filter -->
 <div class="tp-area-filter btn-group mb-3" role="group">
-    <a href="@Url.Page("/Tasks/Index", new { view = Model.View, search = Model.Search, status = Model.StatusFilter, priority = Model.PriorityFilter, taskTypeId = Model.TaskTypeIdFilter })"
+    <a href="@Url.Page("/Tasks/Index", FilterRoute(areaOverride: null, keepArea: false))"
        class="btn btn-sm @(Model.AreaFilter == null ? "btn-primary" : "btn-outline-secondary")">All</a>
-    <a href="@Url.Page("/Tasks/Index", new { view = Model.View, search = Model.Search, status = Model.StatusFilter, priority = Model.PriorityFilter, taskTypeId = Model.TaskTypeIdFilter, area = Area.Personal })"
+    <a href="@Url.Page("/Tasks/Index", FilterRoute(areaOverride: Area.Personal, keepArea: false))"
        class="btn btn-sm @(Model.AreaFilter == Area.Personal ? "btn-primary" : "btn-outline-secondary")">Personal</a>
-    <a href="@Url.Page("/Tasks/Index", new { view = Model.View, search = Model.Search, status = Model.StatusFilter, priority = Model.PriorityFilter, taskTypeId = Model.TaskTypeIdFilter, area = Area.Work })"
+    <a href="@Url.Page("/Tasks/Index", FilterRoute(areaOverride: Area.Work, keepArea: false))"
        class="btn btn-sm @(Model.AreaFilter == Area.Work ? "btn-primary" : "btn-outline-secondary")">Work</a>
 </div>
 
@@ -115,15 +131,15 @@
     </form>
 
     <div class="tp-view-toggle btn-group ms-auto" role="group">
-        <a href="?view=list&search=@Model.Search&priority=@Model.PriorityFilter@(Model.OverdueFilter ? "&overdue=true" : "")"
+        <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "list"))"
            class="btn btn-sm @(!isBoard && !isIncomplete ? "btn-secondary" : "btn-outline-secondary")" title="List view">
             <i class="bi bi-list-ul"></i>
         </a>
-        <a href="?view=board&search=@Model.Search&priority=@Model.PriorityFilter@(Model.OverdueFilter ? "&overdue=true" : "")"
+        <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "board"))"
            class="btn btn-sm @(isBoard ? "btn-secondary" : "btn-outline-secondary")" title="Board view">
             <i class="bi bi-kanban"></i>
         </a>
-        <a href="?view=incomplete&search=@Model.Search&priority=@Model.PriorityFilter@(Model.OverdueFilter ? "&overdue=true" : "")"
+        <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "incomplete"))"
            class="btn btn-sm @(isIncomplete ? "btn-secondary" : "btn-outline-secondary")" title="Incomplete only">
             <i class="bi bi-check2-square"></i>
         </a>

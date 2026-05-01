@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -12,6 +13,8 @@ public class SettingsIndexModel(
     IApiKeyService apiKeyService,
     ITagService tagService,
     UserManager<IdentityUser> userManager,
+    IValidator<CreateTagRequest> createTagValidator,
+    IValidator<UpdateTagRequest> updateTagValidator,
     IWebHostEnvironment env) : PageModel
 {
     public List<ApiKeyResponse> ApiKeys { get; private set; } = [];
@@ -21,6 +24,7 @@ public class SettingsIndexModel(
     public bool IsDevelopment { get; private set; }
     public Guid? EditingTagId { get; private set; }
     public string? TagEditError { get; private set; }
+    public string? TagCreateError { get; private set; }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
     private string ModifiedBy => $"user:{User.Identity?.Name}";
@@ -90,20 +94,26 @@ public class SettingsIndexModel(
 
     public async Task<IActionResult> OnPostCreateTagAsync(string tagName, string tagColor)
     {
-        if (string.IsNullOrWhiteSpace(tagName)) return RedirectToPage();
         if (string.IsNullOrWhiteSpace(tagColor)) tagColor = "#64748B";
+
+        var request = new CreateTagRequest(tagName?.Trim() ?? string.Empty, tagColor);
+        var validation = await createTagValidator.ValidateAsync(request);
+        if (!validation.IsValid)
+        {
+            return await RenderPageWithCreateErrorAsync(
+                string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+        }
 
         try
         {
-            await tagService.CreateTagAsync(new CreateTagRequest(tagName.Trim(), tagColor), UserId, ModifiedBy);
-            TempData["Toast"] = $"Tag \"{tagName.Trim()}\" created.";
+            await tagService.CreateTagAsync(request, UserId, ModifiedBy);
+            TempData["Toast"] = $"Tag \"{request.Name}\" created.";
+            return RedirectToPage();
         }
         catch (InvalidOperationException ex)
         {
-            TempData["Error"] = ex.Message;
+            return await RenderPageWithCreateErrorAsync(ex.Message);
         }
-
-        return RedirectToPage();
     }
 
     public async Task<IActionResult> OnPostDeleteTagAsync(Guid tagId)
@@ -117,15 +127,17 @@ public class SettingsIndexModel(
     {
         if (string.IsNullOrWhiteSpace(tagColor)) tagColor = "#64748B";
 
-        if (string.IsNullOrWhiteSpace(tagName))
+        var request = new UpdateTagRequest(tagName?.Trim() ?? string.Empty, tagColor);
+        var validation = await updateTagValidator.ValidateAsync(request);
+        if (!validation.IsValid)
         {
-            return await RenderPageWithEditErrorAsync(tagId, "Tag name is required.");
+            return await RenderPageWithEditErrorAsync(tagId,
+                string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
         try
         {
-            var updated = await tagService.UpdateTagAsync(tagId,
-                new UpdateTagRequest(tagName.Trim(), tagColor), UserId, ModifiedBy);
+            var updated = await tagService.UpdateTagAsync(tagId, request, UserId, ModifiedBy);
 
             if (updated is null)
             {
@@ -147,11 +159,23 @@ public class SettingsIndexModel(
     // and inline error visible in a single response, no cross-request state.
     private async Task<IActionResult> RenderPageWithEditErrorAsync(Guid tagId, string error)
     {
-        IsDevelopment = env.IsDevelopment();
-        ApiKeys = (await apiKeyService.GetAllKeysAsync(UserId)).ToList();
-        Tags = (await tagService.GetAllTagsAsync(UserId)).ToList();
+        await LoadPageDataAsync();
         EditingTagId = Tags.Any(t => t.Id == tagId) ? tagId : null;
         TagEditError = error;
         return Page();
+    }
+
+    private async Task<IActionResult> RenderPageWithCreateErrorAsync(string error)
+    {
+        await LoadPageDataAsync();
+        TagCreateError = error;
+        return Page();
+    }
+
+    private async Task LoadPageDataAsync()
+    {
+        IsDevelopment = env.IsDevelopment();
+        ApiKeys = (await apiKeyService.GetAllKeysAsync(UserId)).ToList();
+        Tags = (await tagService.GetAllTagsAsync(UserId)).ToList();
     }
 }

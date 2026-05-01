@@ -150,6 +150,28 @@ public class TaskRepositoryFilterTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPagedAsync_WithOverdueOnly_ExcludesCompletedAndCancelled()
+    {
+        // Even with a past target date, Completed and Cancelled tasks are not
+        // "overdue" — the spec defines overdue as past-and-incomplete.
+        var yesterday = DateTime.UtcNow.AddDays(-1);
+        _context.Tasks.AddRange(
+            MakeTask("u1", TaskStatus.NotStarted, targetDate: yesterday),  // matches
+            MakeTask("u1", TaskStatus.InProgress, targetDate: yesterday),  // matches
+            MakeTask("u1", TaskStatus.Blocked,    targetDate: yesterday),  // matches
+            MakeTask("u1", TaskStatus.Completed,  targetDate: yesterday),  // EXCLUDED
+            MakeTask("u1", TaskStatus.Cancelled,  targetDate: yesterday)); // EXCLUDED
+        await _context.SaveChangesAsync();
+
+        var (items, total) = await _repo.GetPagedAsync(
+            new TaskQueryParams(OverdueOnly: true), "u1");
+
+        Assert.Equal(3, total);
+        Assert.All(items, t => Assert.NotEqual(TaskStatus.Completed, t.Status));
+        Assert.All(items, t => Assert.NotEqual(TaskStatus.Cancelled, t.Status));
+    }
+
+    [Fact]
     public async Task GetPagedAsync_WithIncompleteAndOverdue_Composes()
     {
         var yesterday = DateTime.UtcNow.AddDays(-1);

@@ -103,6 +103,11 @@
             }
         }
 
+        @if (!string.IsNullOrEmpty(Model.TagCreateError))
+        {
+            <div class="alert alert-danger py-2 small mb-2" id="tag-create-error">@Model.TagCreateError</div>
+        }
+
         <!-- Create tag form -->
         <form method="post" asp-page-handler="CreateTag" class="d-flex gap-2 align-items-end flex-wrap">
             <div>

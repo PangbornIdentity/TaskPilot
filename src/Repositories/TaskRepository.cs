@@ -62,8 +62,16 @@ public class TaskRepository(ApplicationDbContext context) : GenericRepository<Ta
 
         if (queryParams.OverdueOnly)
         {
+            // "Overdue" is defined in REQUIREMENTS.md §4.2 as
+            //   incomplete AND TargetDate < UtcNow AND TargetDate IS NOT NULL.
+            // Stats and the row-level Overdue pill apply the incomplete-status
+            // predicate too — the repo filter must match so the chip, the
+            // dashboard count, and the row badge agree.
             var nowUtc = DateTime.UtcNow;
-            query = query.Where(t => t.TargetDate != null && t.TargetDate < nowUtc);
+            query = query.Where(t => t.TargetDate != null
+                                  && t.TargetDate < nowUtc
+                                  && t.Status != TaskStatus.Completed
+                                  && t.Status != TaskStatus.Cancelled);
         }
 
         // Default sort for the Incomplete view: priority desc, then targetDate asc nulls-last,

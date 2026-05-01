@@ -561,15 +561,18 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
     }
 
     [Fact]
-    public async Task GetTasks_WithOverdueOnly_ReturnsOnlyOverdueWithDate()
+    public async Task GetTasks_WithOverdueOnly_ReturnsOnlyOverdueWithDateAndIncompleteStatus()
     {
         var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
         var yesterday = DateTime.UtcNow.AddDays(-1);
         var tomorrow = DateTime.UtcNow.AddDays(1);
 
-        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("overdue",      targetDate: yesterday));
-        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("future",       targetDate: tomorrow));
-        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("no-date"));
+        // Status enum: NotStarted=0, InProgress=1, Blocked=2, Completed=3, Cancelled=4
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("overdue",            status: 0, targetDate: yesterday));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("future",             status: 0, targetDate: tomorrow));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("no-date",            status: 0));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("completed-overdue", status: 3, targetDate: yesterday));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("cancelled-overdue", status: 4, targetDate: yesterday));
 
         var response = await client.GetAsync("/api/v1/tasks?overdueOnly=true&pageSize=50");
 
