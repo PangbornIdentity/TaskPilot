@@ -14,6 +14,15 @@
       ]
     },
     {
+      "version": "1.10.1",
+      "releaseDate": "2026-05-01",
+      "versionType": "patch",
+      "summary": "Changelog page now sorts versions numerically (1.10 above 1.8)",
+      "changes": [
+        { "type": "Fix", "description": "What's New / Changelog page sorts releases by version number, not alphabetically. Previously v1.10 appeared below v1.8 because '1.10' is lexicographically less than '1.8' — fixed by parsing each version into a (major, minor, patch) tuple and sorting numerically." }
+      ]
+    },
+    {
       "version": "1.10",
       "releaseDate": "2026-05-01",
       "versionType": "minor",
