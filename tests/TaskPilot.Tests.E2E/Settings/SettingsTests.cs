@@ -106,21 +106,35 @@ public class SettingsTests(PlaywrightFixture fixture)
         await page.GotoAsync("/settings");
         await page.WaitForSelectorAsync("input[name='tagName']", new() { Timeout = 10000 });
 
-        var nameA = $"alpha{Guid.NewGuid():N}".Substring(0, 12);
-        var nameB = $"beta{Guid.NewGuid():N}".Substring(0, 12);
+        // Use predictable, distinct, short names — avoids any locale/length quirks.
+        var suffix = Guid.NewGuid().ToString("N").Substring(0, 6);
+        var nameA = $"a{suffix}";   // 7 chars
+        var nameB = $"b{suffix}";   // 7 chars
+
         await page.FillAsync("input[name='tagName']", nameA);
         await page.ClickAsync("button:has-text('Create Tag')");
-        await page.WaitForLoadStateAsync();
+        await page.WaitForURLAsync("**/settings", new() { Timeout = 10000 });
+        await page.WaitForSelectorAsync($"text={nameA}", new() { Timeout = 10000 });
+
         await page.FillAsync("input[name='tagName']", nameB);
         await page.ClickAsync("button:has-text('Create Tag')");
-        await page.WaitForLoadStateAsync();
+        await page.WaitForURLAsync("**/settings", new() { Timeout = 10000 });
         await page.WaitForSelectorAsync($"text={nameB}", new() { Timeout = 10000 });
 
         await page.ClickAsync($"a[aria-label='Edit tag {nameB}']");
         await page.WaitForSelectorAsync("#tag-edit-row", new() { Timeout = 10000 });
+
+        // Defensive: explicitly clear the input before fill, then verify the value
+        // before submit. Some Playwright browser bindings can leave residual chars
+        // in autofocus inputs.
+        await page.Locator("#edit-tag-name").ClearAsync();
         await page.FillAsync("#edit-tag-name", nameA);
+        var actualValue = await page.InputValueAsync("#edit-tag-name");
+        Assert.Equal(nameA, actualValue);
+
         await page.ClickAsync("#tag-edit-row button:has-text('Save changes')");
-        await page.WaitForLoadStateAsync();
+        // Error path re-renders in place (no redirect). Wait for the alert to appear.
+        await page.WaitForSelectorAsync("#tag-edit-row .alert-danger", new() { Timeout = 10000 });
 
         var content = await page.ContentAsync();
         Assert.Contains("already exists", content);

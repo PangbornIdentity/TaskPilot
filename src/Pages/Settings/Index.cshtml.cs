@@ -33,8 +33,6 @@ public class SettingsIndexModel(
         EditingTagId = editTagId.HasValue && Tags.Any(t => t.Id == editTagId.Value)
             ? editTagId
             : null;
-        if (TempData["TagEditError"] is string err) TagEditError = err;
-        if (TempData["EditingTagId"] is string id && Guid.TryParse(id, out var g)) EditingTagId = g;
     }
 
     public async Task<IActionResult> OnPostGenerateAsync(string keyName)
@@ -117,14 +115,12 @@ public class SettingsIndexModel(
 
     public async Task<IActionResult> OnPostUpdateTagAsync(Guid tagId, string tagName, string tagColor)
     {
+        if (string.IsNullOrWhiteSpace(tagColor)) tagColor = "#64748B";
+
         if (string.IsNullOrWhiteSpace(tagName))
         {
-            TempData["TagEditError"] = "Tag name is required.";
-            TempData["EditingTagId"] = tagId.ToString();
-            return RedirectToPage();
+            return await RenderPageWithEditErrorAsync(tagId, "Tag name is required.");
         }
-
-        if (string.IsNullOrWhiteSpace(tagColor)) tagColor = "#64748B";
 
         try
         {
@@ -142,9 +138,20 @@ public class SettingsIndexModel(
         }
         catch (InvalidOperationException ex)
         {
-            TempData["TagEditError"] = ex.Message;
-            TempData["EditingTagId"] = tagId.ToString();
-            return RedirectToPage();
+            return await RenderPageWithEditErrorAsync(tagId, ex.Message);
         }
+    }
+
+    // Validation/conflict on tag edit re-renders the page directly instead of doing
+    // a PRG redirect with TempData. Keeps the edit row open with the failing input
+    // and inline error visible in a single response, no cross-request state.
+    private async Task<IActionResult> RenderPageWithEditErrorAsync(Guid tagId, string error)
+    {
+        IsDevelopment = env.IsDevelopment();
+        ApiKeys = (await apiKeyService.GetAllKeysAsync(UserId)).ToList();
+        Tags = (await tagService.GetAllTagsAsync(UserId)).ToList();
+        EditingTagId = Tags.Any(t => t.Id == tagId) ? tagId : null;
+        TagEditError = error;
+        return Page();
     }
 }

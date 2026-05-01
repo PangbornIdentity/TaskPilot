@@ -72,15 +72,10 @@ public class DashboardTests(PlaywrightFixture fixture)
         var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
         await using var _ = context;
 
-        await page.WaitForSelectorAsync(".tp-incomplete-card", new() { Timeout = 10000 });
-
-        // Empty-state path: the card may show the "caught up" message for a fresh user.
-        // In that case the sub-tiles aren't rendered. Add a task first to force a count.
-        await page.GotoAsync("/tasks");
-        await page.FillAsync("input[name='Title']", "needs doing"); // open the new-task modal first
-        // (Quick-add on the dashboard is simpler — restart and use it instead)
-        await page.GotoAsync("/");
-        await page.FillAsync("input[name='title']", "blocked-thing");
+        // The card shows the empty-state copy for a fresh user. Quick-add a task so the
+        // sub-tiles render with a count.
+        await page.WaitForSelectorAsync("form.tp-quick-add input[name='title']", new() { Timeout = 10000 });
+        await page.FillAsync("form.tp-quick-add input[name='title']", "needs doing");
         await page.ClickAsync("form.tp-quick-add button[type='submit']");
         await page.WaitForURLAsync("**/", new() { Timeout = 10000 });
 
