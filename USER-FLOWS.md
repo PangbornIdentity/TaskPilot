@@ -1,10 +1,16 @@
 # TaskPilot User Flows
 
 > Step-by-step interaction flows for every user journey. Each flow includes trigger, steps, system responses, and edge cases.
+>
+> **Status legend:**
+> - **(no marker)** — implemented in `src/`; covered (or coverable) by E2E tests
+> - **🚧 ASPIRATIONAL** — described here as the intended UX, but not yet implemented in production code. Do **not** write tests against an aspirational flow until the feature ships. When implementation lands, remove the marker in the same PR.
 
 ---
 
 ## Flow 1: First-Time Registration and Onboarding
+
+> **Partially 🚧 ASPIRATIONAL.** Steps 1–5 (registration form, validation, redirect) are implemented. Steps 7–12 (3 sample tasks seeded on first login, dismissible welcome banner with 3 callouts, `localStorage` persistence of dismissed state) are **not yet implemented in `src/`** and should not be tested until they ship.
 
 **Trigger:** User visits the app for the first time (no session).
 
@@ -164,7 +170,9 @@
 
 ---
 
-## Flow 7: Bulk Actions on Tasks
+## Flow 7: Bulk Actions on Tasks 🚧 ASPIRATIONAL
+
+> **Not yet implemented in `src/`.** No bulk-select toolbar, "Select All", or bulk priority/complete/delete UI exists today. Do not write tests against this flow until the feature ships.
 
 **Trigger:** User wants to act on multiple tasks at once.
 
@@ -195,7 +203,9 @@
 
 ---
 
-## Flow 8: Switch Theme and Verify Persistence
+## Flow 8: Switch Theme and Verify Persistence 🚧 ASPIRATIONAL
+
+> **Not yet implemented in `src/`.** The Settings page has an "Appearance" section that says "Dark mode and theme preferences coming soon." No theme toggle, no `data-theme` attribute, no `localStorage` persistence. Do not write tests against this flow until the feature ships.
 
 **Trigger:** User prefers dark mode for evening work.
 
@@ -219,7 +229,9 @@
 
 ---
 
-## Flow 9: Export Tasks as CSV
+## Flow 9: Export Tasks as CSV 🚧 ASPIRATIONAL
+
+> **Not yet implemented in `src/`.** No `/api/v1/tasks/export` endpoint, no Settings export button. Do not write tests against this flow until the feature ships.
 
 **Trigger:** User wants to backup or analyze tasks in a spreadsheet.
 
@@ -238,7 +250,9 @@
 
 ---
 
-## Flow 10: Drag-and-Drop to Reorder Tasks
+## Flow 10: Drag-and-Drop to Reorder Tasks 🚧 ASPIRATIONAL
+
+> **Not yet implemented in `src/`.** No drag handle markup, no `SortOrder`-via-PATCH wiring, no keyboard alternative (Space/arrow). The `SortOrder` field exists on the entity for future use. Do not write tests against this flow until the feature ships.
 
 **Trigger:** User wants to manually prioritize tasks within a status group.
 
@@ -267,7 +281,9 @@
 
 ---
 
-## Flow 11: Undo a Deleted Task
+## Flow 11: Undo a Deleted Task 🚧 ASPIRATIONAL
+
+> **Partially aspirational.** Soft-delete on the backend works (`IsDeleted` + `DeletedAt`, query-filtered out of lists). The user-facing **undo toast** with a 30-second window, progress bar, and click-to-restore is **not yet implemented in `src/`**. Do not write tests against the undo affordance until it ships.
 
 **Trigger:** User accidentally deletes a task.
 
