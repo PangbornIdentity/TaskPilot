@@ -231,4 +231,120 @@ public class TaskRepositoryFilterTests : IDisposable
         Assert.Equal(3, total);
         Assert.Equal(3, items.Count);
     }
+
+    // ───────── Sortable column headers (PR B v1.11) ─────────
+
+    private TaskItem MakeTaskWithTitle(string userId, string title)
+    {
+        var t = MakeTask(userId, TaskStatus.NotStarted);
+        t.Title = title;
+        return t;
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortByTitleAsc_OrdersAlphabetically()
+    {
+        _context.Tasks.AddRange(
+            MakeTaskWithTitle("u1", "charlie"),
+            MakeTaskWithTitle("u1", "alpha"),
+            MakeTaskWithTitle("u1", "bravo"));
+        await _context.SaveChangesAsync();
+
+        var (items, _) = await _repo.GetPagedAsync(
+            new TaskQueryParams(SortBy: "title", SortDir: "asc"), "u1");
+
+        Assert.Equal(new[] { "alpha", "bravo", "charlie" }, items.Select(t => t.Title).ToArray());
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortByTitleDesc_ReversesOrder()
+    {
+        _context.Tasks.AddRange(
+            MakeTaskWithTitle("u1", "alpha"),
+            MakeTaskWithTitle("u1", "charlie"),
+            MakeTaskWithTitle("u1", "bravo"));
+        await _context.SaveChangesAsync();
+
+        var (items, _) = await _repo.GetPagedAsync(
+            new TaskQueryParams(SortBy: "title", SortDir: "desc"), "u1");
+
+        Assert.Equal(new[] { "charlie", "bravo", "alpha" }, items.Select(t => t.Title).ToArray());
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortByStatusAsc_OrdersByEnumValue()
+    {
+        // Status enum: NotStarted=0, InProgress=1, Blocked=2, Completed=3, Cancelled=4.
+        _context.Tasks.AddRange(
+            MakeTask("u1", TaskStatus.Cancelled),
+            MakeTask("u1", TaskStatus.NotStarted),
+            MakeTask("u1", TaskStatus.Blocked),
+            MakeTask("u1", TaskStatus.InProgress),
+            MakeTask("u1", TaskStatus.Completed));
+        await _context.SaveChangesAsync();
+
+        var (items, _) = await _repo.GetPagedAsync(
+            new TaskQueryParams(SortBy: "status", SortDir: "asc"), "u1");
+
+        Assert.Equal(
+            new[] { TaskStatus.NotStarted, TaskStatus.InProgress, TaskStatus.Blocked, TaskStatus.Completed, TaskStatus.Cancelled },
+            items.Select(t => t.Status).ToArray());
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortByAreaAsc_OrdersByEnumValue()
+    {
+        var work = MakeTask("u1", TaskStatus.NotStarted); work.Area = Area.Work;
+        var personal = MakeTask("u1", TaskStatus.NotStarted); personal.Area = Area.Personal;
+        _context.Tasks.AddRange(work, personal);
+        await _context.SaveChangesAsync();
+
+        var (items, _) = await _repo.GetPagedAsync(
+            new TaskQueryParams(SortBy: "area", SortDir: "asc"), "u1");
+
+        Assert.Equal(new[] { Area.Personal, Area.Work }, items.Select(t => t.Area).ToArray());
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortByTypeAsc_OrdersByTaskTypeName()
+    {
+        var goal  = new TaskType { Id = 201, Name = "Goal",  SortOrder = 1, IsActive = true };
+        var habit = new TaskType { Id = 202, Name = "Habit", SortOrder = 2, IsActive = true };
+        var task  = new TaskType { Id = 203, Name = "Task",  SortOrder = 3, IsActive = true };
+        _context.TaskTypes.AddRange(goal, habit, task);
+
+        var t1 = MakeTask("u1", TaskStatus.NotStarted); t1.TaskTypeId = task.Id;
+        var t2 = MakeTask("u1", TaskStatus.NotStarted); t2.TaskTypeId = goal.Id;
+        var t3 = MakeTask("u1", TaskStatus.NotStarted); t3.TaskTypeId = habit.Id;
+        _context.Tasks.AddRange(t1, t2, t3);
+        await _context.SaveChangesAsync();
+
+        var (items, _) = await _repo.GetPagedAsync(
+            new TaskQueryParams(SortBy: "type", SortDir: "asc"), "u1");
+
+        Assert.Equal(new[] { goal.Id, habit.Id, task.Id }, items.Select(t => t.TaskTypeId).ToArray());
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_SortByTargetDate_NullsAlwaysLast()
+    {
+        // Spec: when sorting by targetdate, null values must sort LAST regardless of direction —
+        // a task with no due date is "least urgent" at both ends of the list.
+        var future = MakeTask("u1", TaskStatus.NotStarted, targetDate: DateTime.UtcNow.AddDays(7));
+        var past   = MakeTask("u1", TaskStatus.NotStarted, targetDate: DateTime.UtcNow.AddDays(-7));
+        var noDate = MakeTask("u1", TaskStatus.NotStarted, targetDate: null);
+        _context.Tasks.AddRange(future, past, noDate);
+        await _context.SaveChangesAsync();
+
+        var (asc, _)  = await _repo.GetPagedAsync(new TaskQueryParams(SortBy: "targetdate", SortDir: "asc"),  "u1");
+        var (desc, _) = await _repo.GetPagedAsync(new TaskQueryParams(SortBy: "targetdate", SortDir: "desc"), "u1");
+
+        Assert.Equal(past.Id,   asc[0].Id);
+        Assert.Equal(future.Id, asc[1].Id);
+        Assert.Null(asc[2].TargetDate);
+
+        Assert.Equal(future.Id, desc[0].Id);
+        Assert.Equal(past.Id,   desc[1].Id);
+        Assert.Null(desc[2].TargetDate);
+    }
 }

@@ -83,8 +83,8 @@ public class DashboardTests(PlaywrightFixture fixture)
             new() { Timeout = 10000 });
         Assert.NotNull(tile);
         await tile!.ClickAsync();
-        await page.WaitForURLAsync("**/tasks?view=incomplete&status=NotStarted", new() { Timeout = 10000 });
-        Assert.Contains("view=incomplete", page.Url);
+        await page.WaitForURLAsync("**/tasks?incomplete=true&status=NotStarted", new() { Timeout = 10000 });
+        Assert.Contains("incomplete=true", page.Url);
         Assert.Contains("status=NotStarted", page.Url);
     }
 
@@ -96,8 +96,8 @@ public class DashboardTests(PlaywrightFixture fixture)
 
         await page.WaitForSelectorAsync(".tp-stat-card-link", new() { Timeout = 10000 });
         await page.ClickAsync(".tp-stat-card-link");
-        await page.WaitForURLAsync("**/tasks?view=incomplete&overdue=true", new() { Timeout = 10000 });
-        Assert.Contains("view=incomplete", page.Url);
+        await page.WaitForURLAsync("**/tasks?incomplete=true&overdue=true", new() { Timeout = 10000 });
+        Assert.Contains("incomplete=true", page.Url);
         Assert.Contains("overdue=true", page.Url);
     }
 }

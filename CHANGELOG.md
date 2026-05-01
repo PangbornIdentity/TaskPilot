@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-05-01 — Tasks page polish: view/filter separation + sortable column headers (v1.11)
+
+### Design | Decoupled display mode from incomplete filter; specified sortable column header component
+
+- **WIREFRAMES.md**: Page 3 view toggle reverts to `List | Board`; Incomplete moves into the filter row alongside Overdue. New "Sortable column headers" section covers anatomy, three states (asc / desc / none), iconography (`bi-chevron-up` / `bi-chevron-down` / `bi-chevron-expand`), aria-sort, focus ring, tap-target size, and per-breakpoint behaviour. Mobile (≤640px) drops to a `Sort▼` bottom-sheet since the row renders as a card stack, not a table. Page 4 (Board) gains a "Composition with the Incomplete chip" paragraph: when chip is on, the kanban renders only `Not Started` / `In Progress` / `Blocked` columns; Completed and Cancelled are hidden entirely.
+- **USER-FLOWS.md**: Flows 15 + 16 URLs migrate from `view=incomplete` to `incomplete=true`. New Flow 18 walks through the column-header click cycle (asc → desc → none) including keyboard, screen-reader, and mobile fallback.
+- **DESIGN-SYSTEM.md** §9.6 (new): Sortable Column Header component spec — anatomy, state matrix, tokens used (none new — composes existing text + primary-300 focus tokens), full a11y rules.
+- Files affected: `WIREFRAMES.md`, `USER-FLOWS.md`, `DESIGN-SYSTEM.md`
+
+### Feature | Incomplete chip + sortable column headers
+
+- **`Pages/Tasks/Index.cshtml.cs`**: `OnGetAsync` accepts new params `bool incomplete`, `string? sortBy`, `string? sortDir`. `View` is now display-mode only (`list` or `board`) — never `incomplete`. `SortBy`/`SortDir` are nullable on the model so the page can distinguish "URL set this column explicitly" (header is lit, click cycles) from "no sortBy in URL" (default sort active, no header is lit). When the Incomplete chip is on AND the view is `board`, the kanban map drops the `Completed`/`Cancelled` columns entirely.
+- **`Pages/Tasks/Index.cshtml`**: View toggle is two segments (`List | Board`). New Incomplete chip in the filter row (info palette) sits alongside the Overdue chip (error palette); both are toggle buttons with `aria-pressed` and submit the form to flip their boolean URL param. New `SortableHeader` helper renders each sortable `<th>` with a chevron icon (`bi-chevron-expand` inactive @ 60% opacity / `bi-chevron-up` active asc / `bi-chevron-down` active desc), proper `aria-sort` value, and an `<a>` whose href cycles asc → desc → none (none clears `sortBy`/`sortDir` from the URL entirely). The `FilterRoute` helper grew a tri-state `sortOverride` parameter (`null` = preserve, `("col","dir")` = set, `("","")` = clear) and now emits `incomplete=true`/`overdue=true` as lowercase string literals so URLs stay tidy regardless of `Url.Page`'s default Boolean serialization (TitleCase).
+- **`Pages/Index.cshtml`**: dashboard drill-through URLs migrated from `view=incomplete&...` to `incomplete=true&...` (Incomplete-by-Status sub-tiles, Overdue card click-through).
+- **`Repositories/TaskRepository.cs`**: `GetPagedAsync` sort switch extended with `title`, `area`, `type` (via `TaskType.Name`), and `status` cases. Each new branch adds `ThenBy(SortOrder)` for stable pagination. The `targetdate` branch now sorts nulls-last in BOTH directions (previous code put nulls first on desc); a unit test guards this. Fall-through branch (no explicit `SortBy`) retains the prior priority-based default.
+- **CSS** (`wwwroot/css/app.css`): `.tp-chip-toggle` base class, `.tp-incomplete-chip-on` (info palette), `.tp-overdue-chip-on` (error palette, kept), `.tp-sortable-th` + `.tp-sortable-link` + `.tp-sortable-active` (anchor styling, chevron icon coloring, focus ring). All composed from existing `--tp-text` / `--tp-text-muted` tokens — no new design tokens.
+- **Back-compat note**: per the user's call, the legacy `?view=incomplete` URL is **not** preserved as a shim. Any external bookmarks pointing at it will land on a list view with no Incomplete filter applied — the user confirmed this is acceptable since no one had bookmarked these URLs.
+- Files affected: `src/Pages/Tasks/Index.cshtml(.cs)`, `src/Pages/Index.cshtml`, `src/Repositories/TaskRepository.cs`, `src/wwwroot/css/app.css`
+
+### Test | Unit + integration + E2E coverage
+
+- **Unit (`tests/TaskPilot.Tests.Unit/Services/TaskRepositoryFilterTests.cs`)**: 6 new tests (`U-TR-010..015`) — title asc, title desc, status by enum, area by enum, type by `TaskType.Name`, and the targetdate-nulls-always-last regression. The nulls-last test would have failed against the previous repo code; ships as a regression guard.
+- **Integration**: 91/91 non-smoke pass; no integration test changes were required (existing `?includeOnlyIncomplete=true` API tests still pass — the API surface name is unchanged; the `incomplete` query param is page-specific).
+- **E2E** (`tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs`, `Dashboard/DashboardTests.cs`): URL migrations in 3 existing tests (Dashboard sub-tile click, Overdue card click, `TasksPage_IncompleteView_FiltersOutCompletedAndCancelled`); 4 new tests covering `IncompleteChip` toggle, `BoardView+Incomplete` column hiding, column-header click cycle (`asc → desc → none`), and filter preservation across header clicks. The existing `TasksPage_IncompleteView_FiltersOutCompletedAndCancelled` had its assertion flipped from "Status select is hidden" to "Status select stays visible" matching the new design.
+- 83/83 E2E pass against a live `localhost:5125`.
+- Suite-wide: 172 unit + 91 integration + 83 E2E = **346 passing tests**, up from 330 in v1.10.
+
+### Docs | Release Checklist
+
+- `CHANGELOG.md` (this entry)
+- `src/app-changelog.json` — new top entry for v1.11 with user-language summaries (will sort above v1.10 once PR A's SemVer fix lands)
+- `src/TaskPilot.csproj` — `<Version>` bumped to `1.11.0` (minor — new user-visible behaviour)
+- `README.md` — query-params table for `GET /tasks` updated for new `sortBy` values (`title`, `area`, `type`, `status`)
+- `REQUIREMENTS.md` §4.2 — view toggle text updated, Incomplete reframed as a filter not a view, sort-on-header behaviour described
+- `ARCHITECTURE.md` §3.1 — query-param table refreshed
+
+---
+
 ## 2026-05-01 — Incomplete view (with Overdue) + Tag editing in Settings (v1.10)
 
 ### Design | Wireframes, flows, and design-system additions for the new surfaces

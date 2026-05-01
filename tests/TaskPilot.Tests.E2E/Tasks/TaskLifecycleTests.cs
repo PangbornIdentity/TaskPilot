@@ -221,20 +221,26 @@ public class TaskLifecycleTests(PlaywrightFixture fixture)
         var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
         await using var _ = context;
 
-        // Quick-add two tasks (both default to NotStarted) so the incomplete view has rows
+        // Quick-add a task (defaults to NotStarted) so the incomplete view has at least one row
         await page.GotoAsync("/");
         var aliveTitle = $"alive-{Guid.NewGuid():N}".Substring(0, 16);
         await page.FillAsync("input[name='title']", aliveTitle);
         await page.ClickAsync("form.tp-quick-add button[type='submit']");
         await page.WaitForURLAsync("**/", new() { Timeout = 10000 });
 
-        await page.GotoAsync("/tasks?view=incomplete");
+        await page.GotoAsync("/tasks?incomplete=true");
         await page.WaitForLoadStateAsync();
-        var content = await page.ContentAsync();
 
-        Assert.Contains(aliveTitle, content);
-        // The Status select must NOT render in incomplete mode (the view fixes the status set)
-        Assert.DoesNotContain("All Status", content);
+        // The not-started task is incomplete, so it appears
+        Assert.Contains(aliveTitle, await page.ContentAsync());
+
+        // The Incomplete chip is lit (aria-pressed="true")
+        Assert.Equal("true", await page.GetAttributeAsync("button[name='incomplete']", "aria-pressed"));
+
+        // Per the PR B design, the Status dropdown stays visible in every state — the user can
+        // narrow further on top of the chip filter. (The old "hide Status when incomplete" was a
+        // workaround for the conflated three-segment toggle and was removed in v1.11.)
+        Assert.Contains("All Status", await page.ContentAsync());
     }
 
     [Fact]
@@ -280,18 +286,133 @@ public class TaskLifecycleTests(PlaywrightFixture fixture)
         await using var _ = context;
 
         await page.GotoAsync("/tasks");
-        await page.WaitForSelectorAsync(".tp-overdue-chip", new() { Timeout = 10000 });
+        await page.WaitForSelectorAsync("button[name='overdue']", new() { Timeout = 10000 });
 
-        // Initially off
-        var initialAriaPressed = await page.GetAttributeAsync(".tp-overdue-chip", "aria-pressed");
-        Assert.Equal("false", initialAriaPressed);
+        Assert.Equal("false", await page.GetAttributeAsync("button[name='overdue']", "aria-pressed"));
 
-        // Click to turn on
-        await page.ClickAsync(".tp-overdue-chip");
+        await page.ClickAsync("button[name='overdue']");
         await page.WaitForURLAsync("**/tasks**overdue=true**", new() { Timeout = 10000 });
         Assert.Contains("overdue=true", page.Url);
+        Assert.Equal("true", await page.GetAttributeAsync("button[name='overdue']", "aria-pressed"));
+    }
 
-        var pressedAfter = await page.GetAttributeAsync(".tp-overdue-chip", "aria-pressed");
-        Assert.Equal("true", pressedAfter);
+    [Fact]
+    public async Task TasksPage_IncompleteChip_TogglesAndUpdatesUrl()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        await page.GotoAsync("/tasks");
+        await page.WaitForSelectorAsync("button[name='incomplete']", new() { Timeout = 10000 });
+
+        Assert.Equal("false", await page.GetAttributeAsync("button[name='incomplete']", "aria-pressed"));
+
+        await page.ClickAsync("button[name='incomplete']");
+        await page.WaitForURLAsync("**/tasks**incomplete=true**", new() { Timeout = 10000 });
+        Assert.Contains("incomplete=true", page.Url);
+        Assert.Equal("true", await page.GetAttributeAsync("button[name='incomplete']", "aria-pressed"));
+
+        // Click again to turn off — URL drops incomplete=true
+        await page.ClickAsync("button[name='incomplete']");
+        await page.WaitForLoadStateAsync();
+        Assert.DoesNotContain("incomplete=true", page.Url);
+        Assert.Equal("false", await page.GetAttributeAsync("button[name='incomplete']", "aria-pressed"));
+    }
+
+    [Fact]
+    public async Task TasksPage_BoardViewWithIncompleteChip_HidesCompletedAndCancelledColumns()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        // Plain board view: all four columns
+        await page.GotoAsync("/tasks?view=board");
+        await page.WaitForSelectorAsync(".tp-kanban-col", new() { Timeout = 10000 });
+        var plainCount = await page.Locator(".tp-kanban-col").CountAsync();
+        Assert.Equal(4, plainCount);
+
+        // Board + incomplete chip: only NotStarted/InProgress/Blocked render
+        await page.GotoAsync("/tasks?view=board&incomplete=true");
+        await page.WaitForSelectorAsync(".tp-kanban-col", new() { Timeout = 10000 });
+        var filteredCount = await page.Locator(".tp-kanban-col").CountAsync();
+        Assert.Equal(3, filteredCount);
+
+        var html = await page.ContentAsync();
+        Assert.Contains("Not Started", html);
+        Assert.Contains("In Progress", html);
+        Assert.Contains("Blocked", html);
+        Assert.DoesNotContain("Completed</span>", html);   // header span text — guards against false matches in body
+    }
+
+    [Fact]
+    public async Task TasksPage_ColumnHeader_Click_SortsAscThenDescThenOff()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        // The list-view table only renders when there's at least one task (zero-state path
+        // shows the tp-empty block instead). Seed a task via quick-add first.
+        await page.GotoAsync("/");
+        await page.FillAsync("input[name='title']", $"sort-{Guid.NewGuid():N}".Substring(0, 16));
+        await page.ClickAsync("form.tp-quick-add button[type='submit']");
+        await page.WaitForURLAsync("**/", new() { Timeout = 10000 });
+
+        await page.GotoAsync("/tasks");
+        await page.WaitForSelectorAsync(".tp-sortable-th", new() { Timeout = 10000 });
+
+        var titleHeader = page.Locator(".tp-sortable-th").Filter(new() { HasTextString = "Title" });
+        Assert.Equal("none", await titleHeader.GetAttributeAsync("aria-sort"));
+
+        // Click 1 — asc
+        await titleHeader.Locator("a.tp-sortable-link").ClickAsync();
+        await page.WaitForURLAsync("**sortBy=title**", new() { Timeout = 10000 });
+        Assert.Contains("sortBy=title", page.Url);
+        Assert.Contains("sortDir=asc", page.Url);
+        Assert.Equal("ascending",
+            await page.Locator(".tp-sortable-th").Filter(new() { HasTextString = "Title" }).GetAttributeAsync("aria-sort"));
+
+        // Click 2 — desc
+        await page.Locator(".tp-sortable-th").Filter(new() { HasTextString = "Title" })
+            .Locator("a.tp-sortable-link").ClickAsync();
+        await page.WaitForURLAsync("**sortDir=desc**", new() { Timeout = 10000 });
+        Assert.Contains("sortDir=desc", page.Url);
+        Assert.Equal("descending",
+            await page.Locator(".tp-sortable-th").Filter(new() { HasTextString = "Title" }).GetAttributeAsync("aria-sort"));
+
+        // Click 3 — cycle off, sortBy and sortDir drop from URL
+        await page.Locator(".tp-sortable-th").Filter(new() { HasTextString = "Title" })
+            .Locator("a.tp-sortable-link").ClickAsync();
+        await page.WaitForLoadStateAsync();
+        Assert.DoesNotContain("sortBy=title", page.Url);
+        Assert.DoesNotContain("sortDir=", page.Url);
+        Assert.Equal("none",
+            await page.Locator(".tp-sortable-th").Filter(new() { HasTextString = "Title" }).GetAttributeAsync("aria-sort"));
+    }
+
+    [Fact]
+    public async Task TasksPage_ColumnHeaderSort_PreservesActiveFilters()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        // Quick-add a task (default area=Personal=0, status=NotStarted) so the area=0 +
+        // incomplete=true filter returns a row and the table renders. The point of this
+        // test is filter-preservation across header clicks; the specific area doesn't matter.
+        await page.GotoAsync("/");
+        await page.FillAsync("input[name='title']", $"sort-pres-{Guid.NewGuid():N}".Substring(0, 16));
+        await page.ClickAsync("form.tp-quick-add button[type='submit']");
+        await page.WaitForURLAsync("**/", new() { Timeout = 10000 });
+
+        await page.GotoAsync("/tasks?area=0&incomplete=true");
+        await page.WaitForSelectorAsync(".tp-sortable-th", new() { Timeout = 10000 });
+
+        await page.Locator(".tp-sortable-th").Filter(new() { HasTextString = "Priority" })
+            .Locator("a.tp-sortable-link").ClickAsync();
+        await page.WaitForURLAsync("**sortBy=priority**", new() { Timeout = 10000 });
+
+        Assert.Contains("sortBy=priority", page.Url);
+        Assert.Contains("sortDir=asc",     page.Url);
+        Assert.Contains("incomplete=true", page.Url);
+        Assert.Contains("area=",           page.Url);
     }
 }

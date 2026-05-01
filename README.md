@@ -119,11 +119,13 @@ Authentication: `X-Api-Key: <your-key>` header
 | `tags` | string | Comma-separated tag names |
 | `isRecurring` | bool | Filter recurring tasks only |
 | `includeOnlyIncomplete` | bool | When `true`, returns only `NotStarted`/`InProgress`/`Blocked` (excludes `Completed` and `Cancelled`). Default sort becomes priority asc (Critical first), then targetDate asc nulls-last. |
-| `overdueOnly` | bool | When `true`, returns only tasks with `targetDate < UtcNow` and `targetDate != null`. Composes with all other filters. |
+| `overdueOnly` | bool | When `true`, returns only tasks with `targetDate < UtcNow`, `targetDate != null`, AND incomplete status. Composes with all other filters. |
 | `page` | int | Page number (default: 1) |
 | `pageSize` | int | Results per page (default: 20) |
-| `sortBy` | string | `priority`, `targetDate`, `createdDate`, `lastModifiedDate` |
+| `sortBy` | string | `title`, `area`, `type`, `priority`, `status`, `targetDate`, `createdDate`, `lastModifiedDate`. The first six are exposed via clickable column headers in the web UI's list view; the last two are reachable via the desktop `Sort▼` menu. |
 | `sortDir` | string | `asc`, `desc` |
+
+> **v1.11 note**: the web UI uses `?incomplete=true` as a shorter page-URL alias for the API's `?includeOnlyIncomplete=true`. They map to the same repository filter. API consumers should keep using `includeOnlyIncomplete` — it matches the C# property name and the existing integration-test contract.
 
 ### Response envelope
 

@@ -390,12 +390,57 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     .tp-incomplete-tile:last-child { border-bottom: 0; }
 }
 
+/* Filter chips (Incomplete, Overdue) share the .tp-chip-toggle base; the on-state class
+   carries the lit color. Off-state inherits btn-outline-secondary from Bootstrap. */
+.tp-chip-toggle { /* base — kept for symmetry with the on-state classes */ }
+
+/* Incomplete chip — info palette (matches the dashboard "Incomplete by Status" tint) */
+.tp-incomplete-chip-on {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #93c5fd;
+}
+.tp-incomplete-chip-on:hover { background: #dbeafe; color: #1e3a8a; }
+
+/* Overdue chip — error palette (matches the row-level Overdue pill) */
 .tp-overdue-chip-on {
     background: #fef2f2;
     color: #dc2626;
     border: 1px solid #fca5a5;
 }
 .tp-overdue-chip-on:hover { background: #fee2e2; color: #b91c1c; }
+
+/* Sortable column header — DESIGN-SYSTEM.md §9.6.
+   Composes existing text + primary tokens; no new design tokens introduced. */
+.tp-sortable-th { padding: 0; }
+.tp-sortable-th .tp-sortable-link {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 10px 16px;
+    color: var(--tp-text-muted);
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.tp-sortable-th .tp-sortable-link:hover { color: var(--tp-text); background: #f0f0f5; }
+.tp-sortable-th .tp-sortable-link:focus-visible {
+    outline: 2px solid #9b90f8;
+    outline-offset: -2px;
+}
+.tp-sortable-th .tp-sortable-link i {
+    color: var(--tp-text-muted);
+    opacity: 0.6;
+    font-size: 11px;
+}
+.tp-sortable-th.tp-sortable-active .tp-sortable-link,
+.tp-sortable-th.tp-sortable-active .tp-sortable-link i {
+    color: var(--tp-text);
+    opacity: 1;
+}
 
 /* Mobile: collapse the overdue pill to a compact red dot prefixing the title */
 @media (max-width: 640px) {
