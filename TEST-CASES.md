@@ -702,6 +702,91 @@ Test plan for the Health subsystem (ARCHITECTURE.md §12). All test IDs prefixed
 
 ---
 
+## 18. Incomplete View, Overdue Filter, and Tag Editing
+
+### 18.1 Unit Tests — TagService (`Services/TagServiceTests.cs`)
+
+| # | Test Name | Scenario | Expected |
+|---|-----------|----------|----------|
+| U-TAG-005 | `GetAllTagsAsync_PopulatesTaskCountFromRepository` | Repo returns `(Tag, count)` tuples | `TaskCount` flows into `TagResponse` |
+| U-TAG-006 | `UpdateTagAsync_ValidRequest_UpdatesNameAndColor` | Tag exists, no name conflict | Returns updated `TagResponse`; entity name + color + LastModifiedBy mutated |
+| U-TAG-007 | `UpdateTagAsync_TagDoesNotExist_ReturnsNull` | Repo returns null | Returns null; SaveChanges not called |
+| U-TAG-008 | `UpdateTagAsync_WrongUser_ReturnsNull` | Tag belongs to a different user | Returns null; original entity untouched |
+| U-TAG-009 | `UpdateTagAsync_DuplicateNameForSameUser_ThrowsInvalidOperationException` | Another tag with target name exists for same user | Throws; SaveChanges not called |
+| U-TAG-010 | `UpdateTagAsync_SameNameDifferentUser_DoesNotConflict` | Other user owns the same name | Succeeds (scope is per-user) |
+| U-TAG-011 | `UpdateTagAsync_OnlyColorChanged_AllowsSameName` | Renaming to the existing same name | Succeeds without invoking the duplicate check |
+| U-TAG-012 | `UpdateTagAsync_SetsLastModifiedByToCaller` | Valid update | `LastModifiedBy` reflects the calling identity |
+
+### 18.2 Unit Tests — Validator (`Validators/UpdateTagRequestValidatorTests.cs`)
+
+| # | Test Name | Scenario | Expected |
+|---|-----------|----------|----------|
+| U-V-UTAG-001 | `Validate_ValidRequest_IsValid` | Name + valid 6-digit hex | Valid |
+| U-V-UTAG-002 | `Validate_EmptyName_HasError` | Empty name | Invalid; error on `Name` |
+| U-V-UTAG-003 | `Validate_NameOver50Chars_HasError` | 51-char name | Invalid; error on `Name` |
+| U-V-UTAG-004 | `Validate_InvalidHexColor_HasError` | Color is not a hex value | Invalid; error on `Color` |
+| U-V-UTAG-005 | `Validate_ValidHexColor_IsValid` | Lower- and upper-case hex | Both valid |
+
+### 18.3 Unit Tests — StatsService (`Services/StatsServiceTests.cs`)
+
+| # | Test Name | Scenario | Expected |
+|---|-----------|----------|----------|
+| U-S-IBS-001 | `GetTaskStatsAsync_IncompleteByStatus_CountsCorrectPerStatus` | Mixed statuses | NotStarted/InProgress/Blocked counts + Total |
+| U-S-IBS-002 | `GetTaskStatsAsync_IncompleteByStatus_TotalEqualsTotalActive` | Mixed statuses | `Total === TotalActive` |
+| U-S-IBS-003 | `GetTaskStatsAsync_IncompleteByStatus_NoIncompleteTasks_ReturnsZeroes` | Only Completed/Cancelled | All four fields are 0 |
+| U-S-IBS-004 | `GetTaskStatsAsync_IncompleteByStatus_ScopedToUser` | Two users | Only caller's tasks counted |
+
+### 18.4 Unit Tests — TaskRepository (`Services/TaskRepositoryFilterTests.cs`)
+
+| # | Test Name | Scenario | Expected |
+|---|-----------|----------|----------|
+| U-TR-001 | `GetPagedAsync_WithIncompleteFilter_ReturnsOnlyNotStartedInProgressBlocked` | Mixed statuses, IncludeOnlyIncomplete=true | 3 rows with statuses 0/1/2 |
+| U-TR-002 | `GetPagedAsync_WithIncompleteFilter_ExcludesCompleted` | One Completed task | None returned |
+| U-TR-003 | `GetPagedAsync_WithIncompleteFilter_ExcludesCancelled` | One Cancelled task | None returned |
+| U-TR-004 | `GetPagedAsync_WithIncompleteFilter_ExcludesSoftDeleted` | One IsDeleted=true | Total = 1 (the non-deleted) |
+| U-TR-005 | `GetPagedAsync_WithIncompleteFilter_WrongUser_ReturnsEmpty` | Tasks owned by another user | Empty result |
+| U-TR-006 | `GetPagedAsync_WithOverdueOnly_FiltersToTargetDateInPastAndNotNull` | yesterday/tomorrow/null mix | Only yesterday returned |
+| U-TR-007 | `GetPagedAsync_WithIncompleteAndOverdue_Composes` | Mix incl. completed-overdue + blocked-no-date | Only "incomplete AND overdue" returned |
+| U-TR-008 | `GetPagedAsync_WithIncompleteFilter_DefaultSort_PriorityDescThenTargetDateAscNullsLast` | High/null + High/+1 + High/+7 + Low/now | High items first, dated rows before nulls within priority, Low last |
+| U-TR-009 | `GetPagedAsync_NoFilters_DoesNotApplyIncompleteOrOverdue` | Default ctor, mixed statuses | All rows returned (defaults preserved) |
+
+### 18.5 Integration Tests — Tag Endpoints (`Tags/TagsApiTests.cs`)
+
+| # | Test Name | Scenario | Expected |
+|---|-----------|----------|----------|
+| I-TAG-005 | `UpdateTag_ValidRequest_Returns200WithUpdatedTag` | PUT new name + color | 200; envelope has updated fields |
+| I-TAG-006 | `UpdateTag_NonExistentTag_Returns404` | PUT a random GUID | 404 |
+| I-TAG-007 | `UpdateTag_OtherUsersTag_Returns404` | User2 PUTs User1's tag | 404 (no cross-user leakage) |
+| I-TAG-008 | `UpdateTag_DuplicateNameForSameUser_Returns409` | Two tags exist; rename B → A | 409 |
+| I-TAG-009 | `UpdateTag_InvalidPayload_Returns400` | Empty name + bad color | 400 |
+| I-TAG-010 | `UpdateTag_Unauthenticated_Returns401` | No auth | 401/redirect |
+| I-TAG-011 | `GetTags_TagAssignedToTask_PopulatesTaskCount` | Tag attached to one task | `taskCount = 1` in list response |
+
+### 18.6 Integration Tests — Task Endpoints (`Tasks/TasksApiTests.cs`)
+
+| # | Test Name | Scenario | Expected |
+|---|-----------|----------|----------|
+| I-T-IV-001 | `GetTasks_WithIncludeOnlyIncomplete_ReturnsOnlyIncompleteStatuses` | 5 tasks across all 5 statuses | 3 returned (NotStarted/InProgress/Blocked) |
+| I-T-IV-002 | `GetTasks_WithOverdueOnly_ReturnsOnlyOverdueWithDate` | overdue / future / no-date | Only the overdue task |
+| I-T-IV-003 | `GetTasks_IncompleteAndOverdue_Composes` | Mixed incl. completed-overdue | Only "incomplete AND overdue" |
+| I-T-IV-004 | `GetStats_IncludesIncompleteByStatus` | Mixed statuses | Stats envelope includes correct `incompleteByStatus.{notStarted,inProgress,blocked,total}` |
+
+### 18.7 E2E Tests — Playwright (Dashboard / Tasks / Settings)
+
+| # | Test Name | File | Notes |
+|---|-----------|------|------|
+| E2E-IV-001 | `Dashboard_IncompleteCard_NavigatesToFilteredTasksView` | `Dashboard/DashboardTests.cs` | Quick-add a task, click NotStarted sub-tile, assert URL |
+| E2E-IV-002 | `Dashboard_OverdueCard_NavigatesToOverdueIncompleteView` | `Dashboard/DashboardTests.cs` | Click `.tp-stat-card-link` → `?view=incomplete&overdue=true` |
+| E2E-IV-003 | `TasksPage_IncompleteView_FiltersOutCompletedAndCancelled` | `Tasks/TaskLifecycleTests.cs` | Open `?view=incomplete`, assert Status select is hidden |
+| E2E-IV-004 | `TasksPage_OverdueChip_TogglesAndUpdatesUrl` | `Tasks/TaskLifecycleTests.cs` | Click chip, assert `aria-pressed="true"` and URL `?overdue=true` |
+| E2E-TAG-001 | `Settings_EditTag_RenameAndRecolor_PersistsAcrossPages` | `Settings/SettingsTests.cs` | Rename via inline edit row, assert original gone, renamed visible |
+| E2E-TAG-002 | `Settings_EditTag_DuplicateName_ShowsInlineError` | `Settings/SettingsTests.cs` | Try renaming B → A; assert "already exists" in page; row stays open |
+| E2E-TAG-003 | `Settings_EditTag_KeyboardOnly_CompletesEdit` | `Settings/SettingsTests.cs` | Focus pencil → Enter → type → Enter; renamed visible |
+
+> All Playwright tests in this suite require an app running at `http://localhost:5125`. Run via `dotnet run --project src` in one terminal and `dotnet test tests/TaskPilot.Tests.E2E` in another. Smoke tests under `Smoke/DeploymentSmokeTests.cs` follow the same pattern with `SMOKE_BASE_URL`.
+
+---
+
 ## Coverage Targets
 
 | Layer | Target | How to measure |

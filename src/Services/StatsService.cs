@@ -40,9 +40,14 @@ public class StatsService(ApplicationDbContext context) : IStatsService
         var completionsByArea = await GetCompletionsByAreaAsync(userId, cancellationToken);
         var topTags = await GetTopTagsAsync(userId, cancellationToken);
 
+        // Derived from already-counted values — TotalActive excludes Completed and Cancelled,
+        // so NotStarted = TotalActive − InProgress − Blocked. No extra DB round-trip.
+        var notStarted = Math.Max(0, totalActive - inProgress - blocked);
+        var incompleteByStatus = new IncompleteByStatusData(notStarted, inProgress, blocked, totalActive);
+
         return new TaskStatsResponse(totalActive, completedToday, overdue, inProgress, blocked,
             completedPerWeek, completedPerMonth, completedPerYear, completionRate, byType, byPriority, avgCompletion,
-            completionsByArea, topTags);
+            completionsByArea, topTags, incompleteByStatus);
     }
 
     private async Task<List<WeeklyCompletionData>> GetCompletedPerWeekAsync(string userId, int weeks, CancellationToken ct)

@@ -75,7 +75,7 @@ dotnet test tests/TaskPilot.Tests.Integration
 dotnet test --logger "console;verbosity=normal"
 ```
 
-**Test coverage:** 73 tests (36 unit + 36 integration + 1 E2E placeholder)
+**Test coverage:** 250+ tests (159 unit + 91 integration + a Playwright E2E suite that runs against `localhost:5125`). Smoke tests under `Smoke/DeploymentSmokeTests.cs` require a running server and are skipped by default.
 
 ---
 
@@ -103,8 +103,9 @@ Authentication: `X-Api-Key: <your-key>` header
 | `DELETE` | `/tasks/{id}` | Soft-delete |
 | `POST` | `/tasks/{id}/complete` | Mark complete (optional result analysis) |
 | `GET` | `/tasks/stats` | Aggregated statistics |
-| `GET` | `/tags` | List tags |
+| `GET` | `/tags` | List tags (response includes `taskCount` per tag) |
 | `POST` | `/tags` | Create a tag |
+| `PUT` | `/tags/{id}` | Rename / recolor a tag (returns 409 on duplicate name within the same user) |
 | `DELETE` | `/tags/{id}` | Delete a tag |
 
 ### Query parameters for `GET /tasks`
@@ -117,6 +118,8 @@ Authentication: `X-Api-Key: <your-key>` header
 | `search` | string | Full-text search on title + description |
 | `tags` | string | Comma-separated tag names |
 | `isRecurring` | bool | Filter recurring tasks only |
+| `includeOnlyIncomplete` | bool | When `true`, returns only `NotStarted`/`InProgress`/`Blocked` (excludes `Completed` and `Cancelled`). Default sort becomes priority asc (Critical first), then targetDate asc nulls-last. |
+| `overdueOnly` | bool | When `true`, returns only tasks with `targetDate < UtcNow` and `targetDate != null`. Composes with all other filters. |
 | `page` | int | Page number (default: 1) |
 | `pageSize` | int | Results per page (default: 20) |
 | `sortBy` | string | `priority`, `targetDate`, `createdDate`, `lastModifiedDate` |

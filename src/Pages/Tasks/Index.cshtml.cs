@@ -22,6 +22,7 @@ public class TasksIndexModel(ITaskService taskService, ITaskTypeService taskType
     public Area? AreaFilter { get; private set; }
     public int? TaskTypeIdFilter { get; private set; }
     public List<Guid>? TagIdFilter { get; private set; }
+    public bool OverdueFilter { get; private set; }
     public IReadOnlyList<TaskTypeResponse> TaskTypes { get; private set; } = [];
     public IReadOnlyList<TagResponse> AllTags { get; private set; } = [];
 
@@ -33,6 +34,7 @@ public class TasksIndexModel(ITaskService taskService, ITaskTypeService taskType
         Area? area = null,
         int? taskTypeId = null,
         List<Guid>? tagIds = null,
+        bool overdue = false,
         int page = 1)
     {
         View = view ?? "list";
@@ -42,11 +44,14 @@ public class TasksIndexModel(ITaskService taskService, ITaskTypeService taskType
         AreaFilter = area;
         TaskTypeIdFilter = taskTypeId;
         TagIdFilter = tagIds;
+        OverdueFilter = overdue;
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
         TaskTypes = await taskTypeService.GetAllActiveAsync();
         AllTags = (await tagService.GetAllTagsAsync(userId)).ToList();
+
+        var includeOnlyIncomplete = string.Equals(View, "incomplete", StringComparison.OrdinalIgnoreCase);
 
         var result = await taskService.GetTasksAsync(new TaskQueryParams(
             Status: status,
@@ -58,7 +63,9 @@ public class TasksIndexModel(ITaskService taskService, ITaskTypeService taskType
             Page: page,
             PageSize: 50,
             SortBy: "priority",
-            SortDir: "asc"
+            SortDir: "asc",
+            IncludeOnlyIncomplete: includeOnlyIncomplete,
+            OverdueOnly: overdue
         ), userId);
 
         Tasks = result.Data?.ToList() ?? [];

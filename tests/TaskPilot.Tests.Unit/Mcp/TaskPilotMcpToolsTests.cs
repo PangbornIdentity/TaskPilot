@@ -194,7 +194,7 @@ public class TaskPilotMcpToolsTests
     [Fact]
     public async Task GetStatsAsync_ReturnsSerializedStats()
     {
-        var stats = new TaskStatsResponse(5, 2, 1, 1, 0, [], [], [], [], [], [], [], new(0, 0), []);
+        var stats = new TaskStatsResponse(5, 2, 1, 1, 0, [], [], [], [], [], [], [], new(0, 0), [], new(0, 0, 0, 0));
         _statsSvc.Setup(s => s.GetTaskStatsAsync(UserId, default)).ReturnsAsync(stats);
 
         var result = await CreateSut().GetStatsAsync();

@@ -13,7 +13,7 @@
 6. [Motion & Animation](#6-motion--animation)
 7. [Iconography](#7-iconography)
 8. [Component Tokens](#8-component-tokens)
-9. [New Feature Components](#9-new-feature-components) ← Tag Pill, Area Segmented Control, TaskType Dropdown
+9. [New Feature Components](#9-new-feature-components) ← Tag Pill, Area Segmented Control, TaskType Dropdown, Overdue Indicator, Incomplete by Status Card
 10. [UI Component Library Decision](#10-ui-component-library-decision)
 11. [Accessibility Requirements](#11-accessibility-requirements)
 
@@ -657,6 +657,92 @@ Open state (browser native <select> or custom):
 
 - `<label>` element associated via `for` / `id` pairing
 - `aria-label="Task type"` as fallback if no visible label is present (filter bar context)
+
+---
+
+### 9.4 Overdue Indicator (composition — no new tokens)
+
+Used to mark a task whose `TargetDate < UtcNow AND TargetDate IS NOT NULL` and whose status is incomplete (NotStarted / InProgress / Blocked). Composes existing semantic-error tokens — does NOT introduce a new color or shape token.
+
+#### Variant: Inline pill (Desktop / Tablet)
+
+```
+┌──────────────┐
+│   Overdue    │
+└──────────────┘
+```
+
+- Anatomy: existing `tp-badge` size, label "Overdue"
+- Background: `--color-error-bg`
+- Text: `--color-error-text`
+- Border: `1px solid --color-error-border`
+- Radius: `--radius-full` (matches other badges)
+- Position: rendered to the right of the target date on Line 2 of a task row, with 8px left margin
+- Same family as the existing `Blocked` status badge to anchor the meaning visually
+- Always paired with the literal text "Overdue" — never color-alone
+
+#### Variant: Mobile dot prefix (≤640px)
+
+```
+●  Fix login bug   [Work]
+```
+
+- Solid red dot (●), 8px, `--color-error-icon`
+- Positioned as the first inline element on Line 1 of the row, before the priority dot
+- Companion `<sr-only>Overdue</sr-only>` text immediately after the dot for screen readers
+- Used when horizontal space is at a premium and the inline pill would force a wrap
+
+#### Accessibility
+
+- Never color-alone — always paired with a textual or `<sr-only>` "Overdue" label
+- Tap target N/A (indicator is non-interactive); the surrounding row remains the click target
+
+---
+
+### 9.5 Incomplete by Status Card (composition — no new tokens)
+
+Dashboard card showing three sub-tile counts (Not Started / In Progress / Blocked) plus a header total, each sub-tile linking to a pre-filtered Incomplete view of `/tasks`.
+
+```
+┌──────────────────────────────────────────────────┐
+│  Incomplete by Status               [Total: 14]  │
+│──────────────────────────────────────────────────│
+│   Not Started   │   In Progress   │   Blocked    │
+│       8         │        4        │       2      │
+│       →         │        →        │       →      │
+└──────────────────────────────────────────────────┘
+```
+
+#### Anatomy
+
+- Container: `--color-bg-surface`, 1px border `--color-border-subtle`, `--radius-lg`, `--shadow-sm`, 16px padding
+- Header row: title (h4, `--color-text-primary`, left) + total pill (caption, `--color-bg-overlay` background, `--radius-sm`, right)
+- Body: three sub-tiles in equal columns separated by 1px verticals (`--color-border-subtle`)
+- Each sub-tile (top to bottom): status label (`label`, `--color-text-secondary`) → count (h2, `--color-text-primary`) → arrow affordance (`bi-arrow-right`, `icon-sm`, `--color-text-tertiary`)
+- Sub-tile background tint at rest: very low opacity wash from the matching Status badge palette (NotStarted neutral, InProgress info, Blocked error) — composed from the existing `--color-*-bg` tokens
+
+#### States
+
+- **Default**: as anatomy above
+- **Hover** (sub-tile): background shifts to the next-stronger semantic tint (`--color-bg-overlay` overlay), cursor `pointer`
+- **Focus** (sub-tile, keyboard): visible focus ring `--color-primary-300` outset 2px
+- **Empty (Total = 0)**: body collapses to one centered line `--color-text-secondary`: "Nothing incomplete — you're caught up." Sub-tiles, counts, and arrows are not rendered. Total pill reads "Total: 0".
+
+#### Tokens used
+
+- Surfaces: `--color-bg-surface`, `--color-bg-overlay`, `--color-border-subtle`
+- Text: `--color-text-primary`, `--color-text-secondary`, `--color-text-tertiary`
+- Status tints (low-opacity background): existing `--color-*-bg` tokens via the Status badge palette in §1
+- Focus: `--color-primary-300`
+- Radius: `--radius-lg` (container), `--radius-sm` (total pill)
+- Shadow: `--shadow-sm`
+
+#### Accessibility
+
+- Each sub-tile is a focusable `<a>` with `aria-label="Open the incomplete view filtered to {status}: {count} task(s)"`
+- Tap target ≥ 56px tall on mobile (exceeds 44px AA minimum)
+- `aria-live="polite"` on each count announces changes after tasks are completed in a sibling tab
+- Color tinting is decorative — labels carry the meaning, never color-alone
 
 ---
 

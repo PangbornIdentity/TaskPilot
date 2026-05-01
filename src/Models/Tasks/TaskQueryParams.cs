@@ -13,5 +13,7 @@ public record TaskQueryParams(
     int Page = 1,
     int PageSize = 20,
     string SortBy = "priority",
-    string SortDir = "asc"
+    string SortDir = "asc",
+    bool IncludeOnlyIncomplete = false,
+    bool OverdueOnly = false
 );

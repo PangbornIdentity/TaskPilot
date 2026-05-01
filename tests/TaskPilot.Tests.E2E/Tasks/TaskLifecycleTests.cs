@@ -214,4 +214,84 @@ public class TaskLifecycleTests(PlaywrightFixture fixture)
         }
         Assert.DoesNotContain("An unhandled error", await page.ContentAsync());
     }
+
+    [Fact]
+    public async Task TasksPage_IncompleteView_FiltersOutCompletedAndCancelled()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        // Quick-add two tasks (both default to NotStarted) so the incomplete view has rows
+        await page.GotoAsync("/");
+        var aliveTitle = $"alive-{Guid.NewGuid():N}".Substring(0, 16);
+        await page.FillAsync("input[name='title']", aliveTitle);
+        await page.ClickAsync("form.tp-quick-add button[type='submit']");
+        await page.WaitForURLAsync("**/", new() { Timeout = 10000 });
+
+        await page.GotoAsync("/tasks?view=incomplete");
+        await page.WaitForLoadStateAsync();
+        var content = await page.ContentAsync();
+
+        Assert.Contains(aliveTitle, content);
+        // The Status select must NOT render in incomplete mode (the view fixes the status set)
+        Assert.DoesNotContain("All Status", content);
+    }
+
+    [Fact]
+    public async Task TasksPage_OverdueRow_ShowsOverduePillNextToTargetDate()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        await page.GotoAsync("/tasks");
+        await page.WaitForSelectorAsync("button:has-text('New Task')", new() { Timeout = 10000 });
+        await page.ClickAsync("button:has-text('New Task')");
+        await page.WaitForSelectorAsync("#taskModal.show, .modal.show", new() { Timeout = 5000 });
+
+        var title = $"overdue-row-{Guid.NewGuid().ToString("N")[..8]}";
+        await page.FillAsync("#taskModal input[name='Title']", title);
+
+        // Pick the first valid task type
+        await page.EvalOnSelectorAsync(
+            "#taskModal select[name='taskTypeId']",
+            "el => { const opt = Array.from(el.options).find(o => o.value); if (opt) el.value = opt.value; }");
+
+        // Set target date to yesterday so the row qualifies as overdue
+        var yesterday = DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd");
+        await page.FillAsync("#taskModal input[name='TargetDate']", yesterday);
+
+        await page.ClickAsync("#taskModal button[type='submit']");
+        await page.WaitForLoadStateAsync();
+        await page.WaitForSelectorAsync($"text={title}", new() { Timeout = 10000 });
+
+        // Locate the row containing our task and assert the Overdue pill is present
+        var pill = await page.WaitForSelectorAsync(".tp-badge-overdue", new() { Timeout = 5000 });
+        Assert.NotNull(pill);
+
+        // Non-color signal: the pill must carry visible text, not be color-alone
+        var pillText = (await pill!.TextContentAsync())?.Trim();
+        Assert.Equal("Overdue", pillText);
+    }
+
+    [Fact]
+    public async Task TasksPage_OverdueChip_TogglesAndUpdatesUrl()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        await page.GotoAsync("/tasks");
+        await page.WaitForSelectorAsync(".tp-overdue-chip", new() { Timeout = 10000 });
+
+        // Initially off
+        var initialAriaPressed = await page.GetAttributeAsync(".tp-overdue-chip", "aria-pressed");
+        Assert.Equal("false", initialAriaPressed);
+
+        // Click to turn on
+        await page.ClickAsync(".tp-overdue-chip");
+        await page.WaitForURLAsync("**/tasks**overdue=true**", new() { Timeout = 10000 });
+        Assert.Contains("overdue=true", page.Url);
+
+        var pressedAfter = await page.GetAttributeAsync(".tp-overdue-chip", "aria-pressed");
+        Assert.Equal("true", pressedAfter);
+    }
 }

@@ -172,9 +172,17 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 **Summary cards (top row):**
 - Total Active Tasks
 - Completed Today
-- Overdue (past target date + not completed)
+- **Overdue** (past target date + not completed) — entire card is now a clickable link to `/tasks?view=incomplete&overdue=true`
 - In Progress
 - Blocked
+
+**Incomplete by Status card (between summary row and Area Split):**
+- Single full-width card with header "Incomplete by Status" and a `Total: N` pill
+- Three sub-tiles with counts for `Not Started`, `In Progress`, `Blocked`
+- Each sub-tile is a click-through to `/tasks?view=incomplete&status=…`
+- Empty state when total is zero: "Nothing incomplete — you're caught up." (sub-tiles hidden)
+- `aria-live="polite"` on each count for assistive-tech updates after a sibling-tab completion
+- Counts are derived in-memory from existing stat fields (`TotalActive − InProgress − Blocked = NotStarted`); no extra DB round-trip
 
 **Charts section:**
 | Chart | Type | Data |
@@ -195,14 +203,21 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 ### 4.2 Task List View
 
 - **Default grouping:** By status, sorted by priority within each group
-- **View toggle:** List view (dense table) / Board/Kanban view (columns by status)
+- **View toggle:** List view (dense table) / Board/Kanban view (columns by status) / **Incomplete view (new — third option)**
+- **Incomplete view (`?view=incomplete`):** flat single-column list scoped to `Status` ∈ {`NotStarted`, `InProgress`, `Blocked`}. Default sort is priority (Critical → Low) then target date asc nulls-last. The Status filter dropdown is hidden in this view (the view fixes the status set); dashboard drill-throughs may still pass `?view=incomplete&status=…` to land on a single-status sub-view.
+- **Overdue filter chip (`?overdue=true`):** boolean toggle in the filter bar that narrows to `TargetDate < UtcNow AND TargetDate IS NOT NULL`. Composes with all other filters and with any view (`list`/`board`/`incomplete`). `aria-pressed` reflects state.
+- **Row-level Overdue indicator:** any task with `Status` not in {`Completed`,`Cancelled`} and a target date in the past gets an "Overdue" pill next to its date (desktop/tablet) or a compact red dot prefix on the title with `<sr-only>Overdue</sr-only>` (mobile). Indicator is never color-alone.
 - **Search:** Full-text across title + description (debounced 300ms)
-- **Filters (combinable):** Area (Personal / Work / All), TaskType (dropdown, single-select, sourced from `/api/v1/task-types`), Tags (multi-select chip picker, AND logic — task must have ALL selected tags), priority, status, date range (target date), recurring only
+- **Filters (combinable):** Area (Personal / Work / All), TaskType (dropdown, single-select, sourced from `/api/v1/task-types`), Tags (multi-select chip picker, AND logic — task must have ALL selected tags), priority, status, date range (target date), recurring only, **overdue (boolean chip)**
 - **Sort options:** Priority, target date, created date, last modified date (ascending/descending)
 - **Bulk actions toolbar** (when items selected): mark complete, change priority, change status, add/remove tag, soft-delete
 - **Drag-and-drop reordering** within groups (persists `SortOrder`)
 - **Inline edit:** Click title to rename in place
 - **Mobile swipe:** Right = mark complete, Left = soft-delete with undo toast
+
+**Definitions:**
+- *Incomplete* = `TaskStatus` ∈ {`NotStarted`, `InProgress`, `Blocked`}. Excludes `Completed` and `Cancelled`.
+- *Overdue* = incomplete AND `TargetDate < UtcNow` AND `TargetDate IS NOT NULL`.
 
 ### 4.3 Task Create / Edit
 
@@ -239,6 +254,14 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 - Generate new API key: enter name/label → receive key displayed ONCE (copy button + "won't be shown again" warning)
 - Keys table: name, prefix (8 chars), created date, last used date, status
 - Per-key actions: rename, deactivate/activate, revoke (permanent)
+
+**Tag Management:**
+- List existing tags as chips with name, color dot, edit pencil, and delete X.
+- **Edit tag (new):** clicking the pencil opens an inline edit row anchored below the chip flex wrap. Form fields: name (required, max 50 chars) and color (8-swatch palette: Violet, Blue, Teal, Green, Amber, Orange, Red, Slate).
+- Edit row header: `Editing "{originalName}"  ({TaskCount} tasks use this tag — changes apply everywhere)`. The parenthetical is suppressed when `TaskCount == 0`.
+- Save submits via the page handler `OnPostUpdateTag` → `PUT /api/v1/tags/{id}`. Success toast: "Tag updated." Renames are visible immediately on the Tasks page tag chips (same tag IDs, no orphaned assignments).
+- Duplicate-name attempt (same user) returns inline error in the edit row; row stays open, focus returns to the Name input. Cross-user attempts return 404 at the API surface.
+- Color-only change is allowed (matching the existing record's own name skips the duplicate check).
 
 **Appearance:**
 - Light / Dark / System mode selector

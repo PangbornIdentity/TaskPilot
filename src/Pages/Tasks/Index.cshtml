@@ -4,6 +4,24 @@
 @{
     ViewData["Title"] = "Tasks";
     var isBoard = Model.View == "board";
+    var isIncomplete = Model.View == "incomplete";
+    var nowUtc = DateTime.UtcNow;
+
+    // Build a route-values dict that preserves every active filter, plus any per-link overrides.
+    // Url.Page emits properly URL-encoded query strings AND collapses null values, so we don't
+    // have to special-case empty filters.
+    object FilterRoute(string? viewOverride = null, Area? areaOverride = null, bool keepArea = true)
+        => new
+        {
+            view = viewOverride ?? Model.View,
+            search = Model.Search,
+            status = Model.StatusFilter,
+            priority = Model.PriorityFilter,
+            area = keepArea ? (areaOverride ?? Model.AreaFilter) : areaOverride,
+            taskTypeId = Model.TaskTypeIdFilter,
+            tagIds = Model.TagIdFilter,
+            overdue = Model.OverdueFilter ? (bool?)true : null
+        };
 }
 
 <div class="tp-page-header">
@@ -18,11 +36,11 @@
 
 <!-- Area filter -->
 <div class="tp-area-filter btn-group mb-3" role="group">
-    <a href="@Url.Page("/Tasks/Index", new { view = Model.View, search = Model.Search, status = Model.StatusFilter, priority = Model.PriorityFilter, taskTypeId = Model.TaskTypeIdFilter })"
+    <a href="@Url.Page("/Tasks/Index", FilterRoute(areaOverride: null, keepArea: false))"
        class="btn btn-sm @(Model.AreaFilter == null ? "btn-primary" : "btn-outline-secondary")">All</a>
-    <a href="@Url.Page("/Tasks/Index", new { view = Model.View, search = Model.Search, status = Model.StatusFilter, priority = Model.PriorityFilter, taskTypeId = Model.TaskTypeIdFilter, area = Area.Personal })"
+    <a href="@Url.Page("/Tasks/Index", FilterRoute(areaOverride: Area.Personal, keepArea: false))"
        class="btn btn-sm @(Model.AreaFilter == Area.Personal ? "btn-primary" : "btn-outline-secondary")">Personal</a>
-    <a href="@Url.Page("/Tasks/Index", new { view = Model.View, search = Model.Search, status = Model.StatusFilter, priority = Model.PriorityFilter, taskTypeId = Model.TaskTypeIdFilter, area = Area.Work })"
+    <a href="@Url.Page("/Tasks/Index", FilterRoute(areaOverride: Area.Work, keepArea: false))"
        class="btn btn-sm @(Model.AreaFilter == Area.Work ? "btn-primary" : "btn-outline-secondary")">Work</a>
 </div>
 
@@ -46,13 +64,26 @@
         {
             <input type="hidden" name="area" value="@((int)Model.AreaFilter.Value)" />
         }
-        <select name="status" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
-            <option value="">All Status</option>
-            @foreach (var s in Enum.GetValues<TaskPilot.Models.Enums.TaskStatus>())
+        @* Status dropdown: hidden in Incomplete view (the view fixes the status set).
+           Dashboard drill-throughs that pass an explicit ?status=... still work because the
+           value is preserved in the page model and submitted as a hidden input. *@
+        @if (isIncomplete)
+        {
+            @if (Model.StatusFilter.HasValue)
             {
-                <option value="@s" selected="@(Model.StatusFilter == s)">@s</option>
+                <input type="hidden" name="status" value="@Model.StatusFilter" />
             }
-        </select>
+        }
+        else
+        {
+            <select name="status" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+                <option value="">All Status</option>
+                @foreach (var s in Enum.GetValues<TaskPilot.Models.Enums.TaskStatus>())
+                {
+                    <option value="@s" selected="@(Model.StatusFilter == s)">@s</option>
+                }
+            </select>
+        }
         <select name="priority" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
             <option value="">All Priority</option>
             @foreach (var p in Enum.GetValues<TaskPilot.Models.Enums.TaskPriority>())
@@ -90,16 +121,27 @@
                 </div>
             </div>
         }
+        @* Overdue chip — toggle button. Submits the form with overdue=true on, removes the param off. *@
+        <button type="submit" name="overdue" value="@(Model.OverdueFilter ? "false" : "true")"
+                class="btn btn-sm tp-overdue-chip @(Model.OverdueFilter ? "tp-overdue-chip-on" : "btn-outline-secondary")"
+                aria-pressed="@(Model.OverdueFilter ? "true" : "false")"
+                title="@(Model.OverdueFilter ? "Click to remove the Overdue filter" : "Filter to overdue tasks only")">
+            <i class="bi bi-exclamation-triangle me-1"></i>Overdue
+        </button>
     </form>
 
     <div class="tp-view-toggle btn-group ms-auto" role="group">
-        <a href="?view=list&search=@Model.Search&status=@Model.StatusFilter&priority=@Model.PriorityFilter"
-           class="btn btn-sm @(isBoard ? "btn-outline-secondary" : "btn-secondary")" title="List view">
+        <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "list"))"
+           class="btn btn-sm @(!isBoard && !isIncomplete ? "btn-secondary" : "btn-outline-secondary")" title="List view">
             <i class="bi bi-list-ul"></i>
         </a>
-        <a href="?view=board&search=@Model.Search&status=@Model.StatusFilter&priority=@Model.PriorityFilter"
+        <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "board"))"
            class="btn btn-sm @(isBoard ? "btn-secondary" : "btn-outline-secondary")" title="Board view">
             <i class="bi bi-kanban"></i>
+        </a>
+        <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "incomplete"))"
+           class="btn btn-sm @(isIncomplete ? "btn-secondary" : "btn-outline-secondary")" title="Incomplete only">
+            <i class="bi bi-check2-square"></i>
         </a>
     </div>
 </div>
@@ -113,8 +155,21 @@
             <div class="tp-card">
                 <div class="tp-empty">
                     <div class="tp-empty-icon"><i class="bi bi-clipboard"></i></div>
-                    <div class="tp-empty-title">No tasks found</div>
-                    <div class="tp-empty-text">Try changing your filters or create a new task</div>
+                    @if (isIncomplete && Model.OverdueFilter)
+                    {
+                        <div class="tp-empty-title">Nothing overdue. Nice.</div>
+                        <div class="tp-empty-text">All your incomplete tasks are still on time.</div>
+                    }
+                    else if (isIncomplete)
+                    {
+                        <div class="tp-empty-title">No incomplete tasks match these filters.</div>
+                        <div class="tp-empty-text">Try clearing a filter, or check the dashboard for what's left.</div>
+                    }
+                    else
+                    {
+                        <div class="tp-empty-title">No tasks found</div>
+                        <div class="tp-empty-text">Try changing your filters or create a new task</div>
+                    }
                 </div>
             </div>
         }
@@ -151,7 +206,14 @@
                                 <td>
                                     @if (task.TargetDate.HasValue)
                                     {
+                                        var isOverdue = task.TargetDate.Value < nowUtc
+                                            && task.Status != TaskPilot.Models.Enums.TaskStatus.Completed
+                                            && task.Status != TaskPilot.Models.Enums.TaskStatus.Cancelled;
                                         <span class="small text-muted">@task.TargetDate.Value.ToString("MMM d")</span>
+                                        @if (isOverdue)
+                                        {
+                                            <span class="tp-badge tp-badge-overdue ms-1" title="Overdue">Overdue</span>
+                                        }
                                     }
                                 </td>
                                 <td>

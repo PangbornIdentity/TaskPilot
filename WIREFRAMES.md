@@ -82,6 +82,15 @@
 │                         │  │  24  ││  3   ││  7   ││  8   ││ 2 ││
 │                         │  └──────┘└──────┘└──────┘└──────┘└──┘│
 │                         │                                        │
+│                         │  INCOMPLETE BY STATUS ROW (1 card)     │
+│                         │  ┌──────────────────────────────────┐ │
+│                         │  │ Incomplete by Status   Total: 14 │ │
+│                         │  │──────────────────────────────────│ │
+│                         │  │ Not Started │ In Progress │ Blkd │ │
+│                         │  │      8      │      4      │   2  │ │
+│                         │  │ → filter    │ → filter    │ → ➜  │ │
+│                         │  └──────────────────────────────────┘ │
+│                         │                                        │
 │                         │  AREA SPLIT ROW (2 stat blocks)       │
 │                         │  ┌──────────────────────────────────┐ │
 │                         │  │  Personal [12]  │  Work [11]     │ │
@@ -117,7 +126,26 @@
 
 **Summary card:** Background `--color-bg-surface`, border, shadow-sm. Shows: label (caption, secondary), number (h2, primary), optional trend indicator (↑↓, semantic color).
 
+**Overdue summary card (updated, link wrap):** Same visual treatment as the other summary cards — no layout change. Entire card is now a clickable `<a>` deep-linking to `/tasks?view=incomplete&overdue=true`. Hover: card border shifts to `--color-border-strong`, cursor `pointer`. Keyboard: focusable; visible focus ring uses `--color-primary-300`. `aria-label="Overdue tasks: 7. Open the incomplete view filtered to overdue."` (count interpolated).
+
 **Chart cards:** Same card style. Chart title (h4) at top left of card. 16px padding.
+
+**Incomplete by Status card (new):**
+- Sits in its own full-width row between the Summary Cards Row and the Area Split Row
+- Single card (`--radius-lg`, `--shadow-sm`, `--color-bg-surface`, 16px padding) — same surface style as Area Split block
+- Header row: title "Incomplete by Status" (h4, `--color-text-primary`, left-aligned) and a "Total: N" pill on the right (caption text, `--color-bg-overlay` background, `--radius-sm`)
+- Body: three side-by-side sub-tiles divided by 1px vertical separators (`--color-border-subtle`)
+- Each sub-tile contains, top to bottom:
+  - Status label ("Not Started" / "In Progress" / "Blocked", `label` style, `--color-text-secondary`)
+  - Count (h2, `--color-text-primary`)
+  - A subtle right-arrow affordance (`bi-arrow-right`, `icon-sm`, `--color-text-tertiary`) indicating the tile is clickable
+- Each sub-tile is the entire click target — wraps an `<a>` deep-linking to `/tasks?view=incomplete&status={NotStarted|InProgress|Blocked}`
+- Sub-tile hover: background `--color-bg-overlay`. Focus: visible primary focus ring.
+- Sub-tile background tint at rest: matches the Status badge palette from `DESIGN-SYSTEM.md` §1 at very low opacity (use the "bg" channel of each status: NotStarted neutral, InProgress info, Blocked error). This visual ties the sub-tile to the row badges users already know.
+- Touch target: each sub-tile ≥ 56px tall on mobile (exceeds the 44px AA minimum).
+- `aria-live="polite"` on each count so it announces when stats change after a row is completed in a sibling tab.
+- Empty state (Total = 0): the body collapses to a single centered line in `--color-text-secondary`: "Nothing incomplete — you're caught up." Sub-tiles and arrows are hidden in this state. The header total pill reads "Total: 0".
+- Data source: `TaskStatsResponse.IncompleteByStatus` (new — record `{ NotStarted, InProgress, Blocked, Total }`). `Total === TotalActive` by definition; computed in `StatsService` as `NotStarted = TotalActive − InProgress − Blocked` from existing in-memory counts (no extra DB query).
 
 **Area Split stat block (new):**
 - Sits in its own full-width row between the Summary Cards and Charts Row 1
@@ -141,6 +169,7 @@
 ### Tablet Layout
 - Sidebar collapses to icon rail (72px)
 - Summary cards: 3-column first row (Total, Completed, Overdue), then 2 more below
+- **Incomplete by Status card:** full-width row, three sub-tiles in equal columns (same as desktop)
 - Area Split block: same 2-column layout, full width
 - Charts: 2-column grid throughout
 - Charts Row 4 (Top Tags + Type Breakdown): 2-column
@@ -149,6 +178,7 @@
 - No sidebar, bottom tab bar
 - Quick-add bar at top
 - Summary cards: 2-column grid (2+2+1 centered)
+- **Incomplete by Status card:** full-width row directly below the summary grid. Three sub-tiles remain side-by-side (each tile shows label above count, no horizontal arrow — entire tile remains tappable). Header "Total: N" pill stays visible on the right of the title. If horizontal space is too tight (≤320px), sub-tiles stack vertically with thin horizontal separators replacing the verticals.
 - Area Split block: full width, 2-column inside
 - Charts: single column, each chart full width
 - Charts Row 4 charts stack below all other charts
@@ -170,8 +200,8 @@
 │          │  └────────────────────────────────────────────────────────┘       │
 │          │                                                                    │
 │          │  FILTER & SEARCH BAR                                              │
-│          │  [🔍 Search tasks...]  [☰ List][⊞ Board]  [Sort▼]               │
-│          │  [Status▼]  [Priority▼]  [Type▼]  [Tags▼]  [Clear filters]      │
+│          │  [🔍 Search tasks...]  [☰ List][⊞ Board][☑ Incomplete]  [Sort▼] │
+│          │  [Status▼]  [Priority▼]  [Type▼]  [Tags▼]  [⚠ Overdue]  [Clear] │
 │          │                                                                    │
 │          │  ACTIVE FILTER CHIPS                                              │
 │          │  [× Work] [× High Priority] [× Meeting] [× project-alpha]        │
@@ -221,23 +251,48 @@ Line 2 (indented to align with title):
 - **Area segmented control**: full-width of filter area on mobile; auto-width on desktop/tablet. Both segments inactive = no area filter applied.
 - **Type dropdown** (filter mode, `sm` size, 32px height): options from `GET /api/v1/task-types`; first option "All types" (value `""`) clears the filter.
 - **Tags multi-select dropdown** (filter mode): renders a popover with tag checkboxes; active selected tags shown as filter chips. Tag filter logic: **AND** — tasks must have ALL selected tags.
-- Active filter chips: each shows `× [label]` and removes that filter when clicked. "Clear filters" removes all.
+- **View toggle** (`list | board | incomplete`): three-segment control. `list` and `board` retain current behavior. `incomplete` switches the page into the Incomplete view (see below). State persists in `?view=…`.
+- **Overdue chip (new)**: a button (not a dropdown) in the filter row, styled like the existing filter chips. Two visual states:
+  - Off (default): outline button, `--color-text-secondary`, label "⚠ Overdue".
+  - On: filled background `--color-error-bg`, text `--color-error-text`, border `--color-error-border`, label unchanged.
+  - Toggle behavior: clicking flips `?overdue=true` ⇄ removed. `aria-pressed` reflects state.
+  - Composes with all other filters (area, type, tags, search, status). When `view=incomplete` is on AND the chip is on, the result is "incomplete tasks whose target date is in the past and is not null".
+  - When `view=incomplete` is **off** and the chip is on, the chip still applies — overdue is meaningful in any view.
+- Active filter chips: each shows `× [label]` and removes that filter when clicked. "Clear filters" removes all (including Overdue).
+
+**Incomplete view (new — third view toggle option):**
+- Layout: single column, flat list (no kanban columns, no status group headers). Status is implied — every visible row is incomplete.
+- Default sort: priority desc, then targetDate asc nulls-last. `Sort▼` still allows override.
+- Row anatomy: identical to List View row, with one addition (see below for the inline overdue indicator).
+- Honors all other filters (area, type, tags, search) and composes with the Overdue chip.
+- Empty state: when zero rows after filters, show the standard "tp-empty" block with copy "No incomplete tasks match these filters." Single CTA: "Clear filters" (only shown when at least one filter is active beyond `view=incomplete`). When the Overdue chip is on and zero rows match, copy is "Nothing overdue. Nice."
+- URL: `/tasks?view=incomplete[&overdue=true&area=…&priority=…&taskTypeId=…&tagIds=…&search=…]`. Deep-linkable, shareable, refreshable.
+- The `Status▼` filter is hidden while in the Incomplete view (the view itself fixes the status set). The dashboard's per-status drill-through links pass `?view=incomplete&status=…` so the implementation must honor an explicit `status=` override even in incomplete mode (single-status sub-view).
+
+**Row-level Overdue indicator (new — appears in any view when a row is overdue):**
+- Inline pill rendered to the right of the target date on Line 2 of the row.
+- Visual: `tp-badge` size, background `--color-error-bg`, text `--color-error-text`, border `--color-error-border`, label "Overdue".
+- Same family as the `Blocked` status badge (deliberate — reuses existing palette, no new tokens).
+- Mobile (≤640px): the pill collapses to a small red dot (●, 8px, `--color-error-icon`) prefixing the title on Line 1, paired with `<sr-only>Overdue</sr-only>` for screen readers.
+- Always paired with a non-color signal (the word "Overdue" on desktop/tablet, or `<sr-only>` text on mobile) — a11y requirement: never color-alone.
 
 ### Tablet Layout
 - Sidebar collapsed to icon rail
 - Area segmented control: full width of content area
-- Filter bar: Status, Priority, Type, Tags filters collapse into a single `[Filters ▼]` dropdown button to save horizontal space; active filter count badge shown on button
+- Filter bar: Status, Priority, Type, Tags filters collapse into a single `[Filters ▼]` dropdown button to save horizontal space; active filter count badge shown on button. **Overdue chip and view toggle (`list | board | incomplete`) remain visible outside the dropdown** — they are primary controls for this release and shouldn't be buried.
 - Task row: single line; omit TaskType label if viewport < 800px; truncate tag pills to 1 + overflow count
+- Row-level Overdue pill: shown to the right of date as on desktop
 
 ### Mobile Layout
 - No sidebar; bottom tab bar
 - Area segmented control: full width, above search bar
 - Search bar full width below area control
-- No view toggle (list view only on mobile)
-- Filter bar: tap `[Filters ▼]` to open bottom-sheet drawer with all filter options (Status, Priority, Type, Tags)
+- View toggle on mobile: `list | incomplete` only (board hidden — kanban doesn't fit). Two-segment, defaults to `list`.
+- Filter bar: tap `[Filters ▼]` to open bottom-sheet drawer with all filter options (Status, Priority, Type, Tags, **Overdue**)
 - Task row simplified — two sub-lines:
-  - Line 1: [checkbox] [priority dot] [title] [Area badge]
+  - Line 1: [checkbox] [● red dot if overdue] [priority dot] [title] [Area badge]
   - Line 2 (indented): [tag pills, max 2] [date]
+- Overdue indicator collapses to the red dot prefix on Line 1, with `<sr-only>Overdue</sr-only>` companion text
 - Swipe right: green overlay with ✓ icon → complete
 - Swipe left: red overlay with 🗑 icon → soft-delete
 
@@ -553,9 +608,60 @@ Theme
 
 **Export section:** Description text + [Export Tasks as CSV] button with download icon.
 
+**Tags section (current implementation reality):**
+
+> Note: the broader Settings sub-nav shown in the ASCII above is aspirational. The current production layout (`src/Pages/Settings/Index.cshtml`) is a single page with stacked sections in this order: **Tags → API Keys → API Reference → Appearance → Password**. The Tags section spec below describes the *current* layout plus the new edit affordance shipping in this release. A separate effort to bring the broader Settings wireframe back in line with the implementation is tracked as doc-debt.
+
+```
+TAGS
+─────────────────────────────────────────────────────────────
+Tags help you categorise tasks. Create tags with a colour
+code and assign them when creating or editing tasks.
+
+Existing tags (one chip per tag):
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│ ● bug      ✎  ✕  │ │ ● roadmap  ✎  ✕  │ │ ● ui       ✎  ✕  │
+└──────────────────┘ └──────────────────┘ └──────────────────┘
+
+Edit row (inline, appears when ✎ is clicked on a tag):
+┌──────────────────────────────────────────────────────────────┐
+│ Editing "bug"   (used by 4 tasks — changes apply everywhere)│
+│  Name: [ bug________________ ]                              │
+│  Colour: [●][●][●][●][●][●][●][●]   ← 8 swatches            │
+│  [ Cancel ]                            [ Save changes ]      │
+│  ⚠ Inline error region (hidden unless duplicate-name etc.)  │
+└──────────────────────────────────────────────────────────────┘
+
+Create row (existing — unchanged by this release):
+[ Tag name ___________ ]  [●][●][●][●][●][●][●][●]  [+ Create Tag]
+```
+
+**Existing tag chip (anatomy):**
+- Container: 1px border (`--color-border-subtle`), `--radius-sm`, 4px vertical padding, 8px horizontal
+- Color dot (12px circle, tag color), small bold name, then two icon buttons:
+  - **✎ Edit (new):** `bi-pencil`, 11px, `--color-text-secondary`, hover `--color-primary-500`. Aria-label: `"Edit tag {name}"`. Click: opens the inline edit row anchored below the wrapping flex line. Focus moves into the Name input on open.
+  - **✕ Delete (existing):** unchanged behavior — confirms via the existing `confirm()` prompt before submit.
+- Click target for the icons: padded to ≥ 32px tap target (visually 11px icon + padding). On mobile, full chip stays ≥ 44px tall.
+
+**Edit row (anatomy):**
+- Renders inline below the chip flex wrap (full width of the Tags section body), `--color-bg-overlay` background, `--radius-md`, 12px padding.
+- Header line (caption, `--color-text-secondary`): `Editing "{originalName}"   ({TaskCount} task{s} use this tag — changes apply everywhere)` — the parenthetical is suppressed when `TaskCount == 0`.
+- Form fields:
+  - **Name** input: pre-filled with current name. Required. `maxlength=50` matching the existing `CreateTagRequestValidator`.
+  - **Colour swatches**: same 8-swatch palette used in the Create row (Violet, Blue, Teal, Green, Amber, Orange, Red, Slate). Pre-selects the current color. Keyboard: arrow keys move selection between swatches (radio group semantics). Each swatch has `aria-label` of the color name.
+- Actions:
+  - **Cancel**: closes the row, no change persisted, focus returns to the original chip's edit icon.
+  - **Save changes**: submits the form (`POST` to `OnPostUpdateTag` page handler, which calls `PUT /api/v1/tags/{id}` server-side). On success: row closes, toast "Tag updated.", chip re-renders with new name + color, focus returns to the chip's edit icon.
+  - On duplicate-name error: row stays open, inline error region shows the message ("A tag named '{name}' already exists."), focus moves to the Name input. Same visual style as the existing `tag-inline-error` div on `Tasks/Index.cshtml`.
+  - On validation error (empty name, color hex invalid): same inline error treatment.
+- Empty Name disables the Save button (visual + `aria-disabled`).
+- Only one edit row may be open at a time. Clicking ✎ on a different chip closes any open row first (with a confirm prompt only if the open form has unsaved changes).
+- Tablet/Mobile: layout unchanged (full width of the Tags section body, fields stack vertically below ~480px).
+
 ### Mobile Layout
 - Sub-nav becomes top tabs (scrollable)
 - Content full width below tabs
+- Tags edit row: name input full width, swatches wrap to second line if needed, Cancel + Save buttons stack with Save first (primary action top per mobile convention)
 
 ---
 

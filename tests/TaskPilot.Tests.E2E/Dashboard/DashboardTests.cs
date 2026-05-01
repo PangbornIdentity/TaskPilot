@@ -65,4 +65,39 @@ public class DashboardTests(PlaywrightFixture fixture)
         await page.WaitForURLAsync("**/audit", new() { Timeout = 10000 });
         Assert.Contains("/audit", page.Url);
     }
+
+    [Fact]
+    public async Task Dashboard_IncompleteCard_NavigatesToFilteredTasksView()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        // The card shows the empty-state copy for a fresh user. Quick-add a task so the
+        // sub-tiles render with a count.
+        await page.WaitForSelectorAsync("form.tp-quick-add input[name='title']", new() { Timeout = 10000 });
+        await page.FillAsync("form.tp-quick-add input[name='title']", "needs doing");
+        await page.ClickAsync("form.tp-quick-add button[type='submit']");
+        await page.WaitForURLAsync("**/", new() { Timeout = 10000 });
+
+        var tile = await page.WaitForSelectorAsync(".tp-incomplete-tile-not-started",
+            new() { Timeout = 10000 });
+        Assert.NotNull(tile);
+        await tile!.ClickAsync();
+        await page.WaitForURLAsync("**/tasks?view=incomplete&status=NotStarted", new() { Timeout = 10000 });
+        Assert.Contains("view=incomplete", page.Url);
+        Assert.Contains("status=NotStarted", page.Url);
+    }
+
+    [Fact]
+    public async Task Dashboard_OverdueCard_NavigatesToOverdueIncompleteView()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        await page.WaitForSelectorAsync(".tp-stat-card-link", new() { Timeout = 10000 });
+        await page.ClickAsync(".tp-stat-card-link");
+        await page.WaitForURLAsync("**/tasks?view=incomplete&overdue=true", new() { Timeout = 10000 });
+        Assert.Contains("view=incomplete", page.Url);
+        Assert.Contains("overdue=true", page.Url);
+    }
 }
