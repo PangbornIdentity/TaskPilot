@@ -35,13 +35,25 @@ public class ChangelogService : IChangelogService
                 v.VersionType ?? "minor",
                 v.Summary ?? string.Empty,
                 (v.Changes ?? []).Select(c => new ChangelogEntry(c.Type ?? "Change", c.Description ?? "")).ToList()))
-            .OrderByDescending(v => v.Version, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(v => ParseSemVer(v.Version))
             .ToList();
         }
         catch (JsonException)
         {
             return [];
         }
+    }
+
+    // Parse a version string into a tuple so it sorts numerically, not lexicographically.
+    // The previous OrdinalIgnoreCase string comparer treated "1.10" as less than "1.8"
+    // (char index 2: '1' < '8'), so versions ≥ 1.10 were buried in the changelog UI.
+    // Tolerates malformed segments by falling back to 0 (and the raw string as a final
+    // tiebreaker so duplicate versions stay deterministic).
+    private static (int Major, int Minor, int Patch, string Raw) ParseSemVer(string version)
+    {
+        var parts = (version ?? string.Empty).Split('.');
+        int Get(int i) => parts.Length > i && int.TryParse(parts[i], out var n) ? n : 0;
+        return (Get(0), Get(1), Get(2), version ?? string.Empty);
     }
 
     // Private DTOs for JSON deserialization only

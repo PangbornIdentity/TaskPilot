@@ -7,6 +7,24 @@
 
 ---
 
+## 2026-05-01 — Fix changelog page SemVer sort (v1.10.1)
+
+### Fix | ChangelogService sorts versions numerically, not lexicographically
+
+- **Bug**: `src/Services/ChangelogService.cs` used `OrderByDescending(v => v.Version, StringComparer.OrdinalIgnoreCase)`. With ordinal string comparison, `"1.10" < "1.8"` (char index 2: `'1'` (0x31) < `'8'` (0x38)). After the v1.10 release shipped via PR #1, the in-app `/changelog` page kept showing v1.8 at the top of the version list. Latent since the changelog system shipped in v1.8 — only became visible the moment we crossed `1.9 → 1.10`.
+- **Fix**: introduced `ParseSemVer(string)` returning a `(int Major, int Minor, int Patch, string Raw)` tuple. C# tuples compare element-by-element, so `(1, 10, 0, "1.10") > (1, 8, 0, "1.8")` numerically. Malformed segments fall back to `0` so a typo'd entry doesn't throw — it just sorts after well-formed entries.
+- **Test**: 4 new unit tests in `ChangelogServiceTests.cs` (`U-CL-005..008`) — explicitly cover the 1.10 vs 1.8 case, three-segment 1.10.10 vs 1.10.1 vs 1.10.0, malformed-segment tolerance, and `GetLatest()` picking the highest SemVer rather than the lex-largest. The 1.10-vs-1.8 test would have failed against the previous code, confirming it's a regression test.
+- Files affected: `src/Services/ChangelogService.cs`, `tests/TaskPilot.Tests.Unit/Services/ChangelogServiceTests.cs`
+
+### Docs | Release Checklist artifacts updated
+
+- `CHANGELOG.md` (this entry)
+- `src/app-changelog.json` — new top entry for v1.10.1 (the user-facing release notes)
+- `src/TaskPilot.csproj` — `<Version>` bumped to `1.10.1` (patch release per SemVer; bug fix only, no new features)
+- `README.md` — no changes (no API surface, no test count change)
+
+---
+
 ## 2026-05-01 — Incomplete view (with Overdue) + Tag editing in Settings (v1.10)
 
 ### Design | Wireframes, flows, and design-system additions for the new surfaces
