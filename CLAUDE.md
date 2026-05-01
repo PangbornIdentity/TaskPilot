@@ -26,7 +26,7 @@
 
 **Every time a change is made — whether to code, design, or requirements — the following must happen in the same operation:**
 
-1. **CHANGELOG.md** — Add an entry with: date (YYYY-MM-DD), type (Feature / Fix / Design / Architecture / Refactor / Security / Test), brief description, and which files were affected.
+1. **`CHANGELOG.md` (engineering log)** — Add a top entry with: date (YYYY-MM-DD), the version suffix `(v1.X)` matching the new `csproj` version, type tags (Feature / Fix / Design / Architecture / Refactor / Security / Test / Docs / Config), one paragraph per change block, and an exhaustive list of files affected. This is for engineers reading git history.
 
 2. **Affected documentation files** — Update any doc that is now inaccurate. Specifically:
    - New or changed API endpoint → update `ARCHITECTURE.md` (Section 3) AND `REQUIREMENTS.md`
@@ -39,10 +39,21 @@
 
 3. **No doc debt allowed** — Code and docs must stay in sync. A change is not complete until the docs reflect it.
 
+### Release Checklist (MANDATORY for any user-visible feature, fix, or improvement that ships to prod)
+
+The engineering `CHANGELOG.md` alone is **not enough** — users see a separate set of artifacts. **All four** must be updated in the same change set whenever a user-visible behaviour ships:
+
+1. **`CHANGELOG.md`** (engineering log) — as above.
+2. **`src/app-changelog.json`** (**user-facing** release notes — this is what `/changelog` renders in the live app). Add a new top entry to the `versions` array with `version`, `releaseDate` (YYYY-MM-DD), `versionType` (`minor` / `patch` / `major`), `summary` (one short user-facing sentence), and a `changes` array of `{ type, description }` items. Type values used today: `Feature`, `Improvement`, `Fix`. Write descriptions in plain user language — not engineering language.
+3. **`src/TaskPilot.csproj`** — bump `<Version>`, `<AssemblyVersion>`, and `<FileVersion>` together. **Patch** for fixes, **minor** for new user-visible features, **major** for breaking changes. The bumped version is what the build stamps into the assembly and what `/api/v1/health/version` returns; it also drives the sidebar version pill. The `CHANGELOG.md` heading suffix must match.
+4. **`README.md`** — update endpoint tables, query-param tables, or the test-coverage line if any of those changed.
+
+**Why all four:** `CHANGELOG.md` is engineering history; `app-changelog.json` is what users see on `/changelog`; the `csproj` version drives the sidebar pill, the `/health` page, and post-deploy smoke verification; `README.md` is the public-facing API contract surface. Skipping any one means a real user or contributor sees stale information after a deploy, even though the binary shipped correctly.
+
 **When I ask for a change, Claude automatically:**
 - Identifies which docs are affected
 - Updates the code/design/config
-- Updates all affected docs
+- Updates all affected docs (including `app-changelog.json` and the `csproj` version when user-visible)
 - Adds a CHANGELOG entry
 - Confirms what was changed and what docs were updated
 

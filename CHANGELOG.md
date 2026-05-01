@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-05-01 — Incomplete view (with Overdue) + Tag editing in Settings
+## 2026-05-01 — Incomplete view (with Overdue) + Tag editing in Settings (v1.10)
 
 ### Design | Wireframes, flows, and design-system additions for the new surfaces
 

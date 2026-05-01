@@ -1,6 +1,22 @@
 {
   "versions": [
     {
+      "version": "1.10",
+      "releaseDate": "2026-05-01",
+      "versionType": "minor",
+      "summary": "Incomplete view (with Overdue) + Tag editing in Settings",
+      "changes": [
+        { "type": "Feature", "description": "New Incomplete view on /tasks: third toggle alongside list/board, flat single-column list of NotStarted/InProgress/Blocked tasks sorted by priority then target-date nulls-last, deep-linkable as ?view=incomplete[&status=…]" },
+        { "type": "Feature", "description": "Overdue filter chip composes with all other filters; row-level Overdue pill renders next to the date on desktop/tablet and collapses to a red-dot prefix on mobile (with screen-reader companion text — never color-alone)" },
+        { "type": "Feature", "description": "Dashboard Incomplete by Status card with three click-through sub-tiles (Not Started / In Progress / Blocked); existing Overdue summary card now drills through to /tasks?view=incomplete&overdue=true" },
+        { "type": "Feature", "description": "Settings tag editing: pencil affordance on each chip opens an inline edit row with name + colour, cascading-effect hint (\"used by N tasks — changes apply everywhere\"), duplicate-name inline error, and a fully keyboard-only editing path" },
+        { "type": "Feature", "description": "REST API: PUT /api/v1/tags/{id} for renaming/recolouring tags; GET /api/v1/tags now returns taskCount per tag" },
+        { "type": "Improvement", "description": "Settings page handlers (Create + Update tag) now run FluentValidation on every submit — tampered forms with over-length names or non-hex colours are rejected with a clear inline error instead of silent EF truncation" },
+        { "type": "Improvement", "description": "Tasks page view toggle and area chips use Url.Page so switching list/board/incomplete or area preserves all active filters (search, type, tags, priority, overdue, status) and properly URL-encodes special characters" },
+        { "type": "Fix", "description": "Overdue filter (?overdueOnly=true) now correctly excludes Completed and Cancelled tasks, matching the stats card and row-level pill semantics" }
+      ]
+    },
+    {
       "version": "1.8",
       "releaseDate": "2026-04-15",
       "versionType": "minor",
