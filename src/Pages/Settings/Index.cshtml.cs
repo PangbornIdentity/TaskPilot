@@ -19,15 +19,22 @@ public class SettingsIndexModel(
     public string? PasswordError { get; private set; }
     public List<TagResponse> Tags { get; private set; } = [];
     public bool IsDevelopment { get; private set; }
+    public Guid? EditingTagId { get; private set; }
+    public string? TagEditError { get; private set; }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
     private string ModifiedBy => $"user:{User.Identity?.Name}";
 
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(Guid? editTagId = null)
     {
         IsDevelopment = env.IsDevelopment();
         ApiKeys = (await apiKeyService.GetAllKeysAsync(UserId)).ToList();
         Tags = (await tagService.GetAllTagsAsync(UserId)).ToList();
+        EditingTagId = editTagId.HasValue && Tags.Any(t => t.Id == editTagId.Value)
+            ? editTagId
+            : null;
+        if (TempData["TagEditError"] is string err) TagEditError = err;
+        if (TempData["EditingTagId"] is string id && Guid.TryParse(id, out var g)) EditingTagId = g;
     }
 
     public async Task<IActionResult> OnPostGenerateAsync(string keyName)
@@ -106,5 +113,38 @@ public class SettingsIndexModel(
         await tagService.DeleteTagAsync(tagId, UserId);
         TempData["Toast"] = "Tag deleted.";
         return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostUpdateTagAsync(Guid tagId, string tagName, string tagColor)
+    {
+        if (string.IsNullOrWhiteSpace(tagName))
+        {
+            TempData["TagEditError"] = "Tag name is required.";
+            TempData["EditingTagId"] = tagId.ToString();
+            return RedirectToPage();
+        }
+
+        if (string.IsNullOrWhiteSpace(tagColor)) tagColor = "#64748B";
+
+        try
+        {
+            var updated = await tagService.UpdateTagAsync(tagId,
+                new UpdateTagRequest(tagName.Trim(), tagColor), UserId, ModifiedBy);
+
+            if (updated is null)
+            {
+                TempData["Error"] = "Tag not found.";
+                return RedirectToPage();
+            }
+
+            TempData["Toast"] = "Tag updated.";
+            return RedirectToPage();
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["TagEditError"] = ex.Message;
+            TempData["EditingTagId"] = tagId.ToString();
+            return RedirectToPage();
+        }
     }
 }

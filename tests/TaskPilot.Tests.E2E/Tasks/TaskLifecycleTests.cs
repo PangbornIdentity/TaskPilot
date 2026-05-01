@@ -214,4 +214,48 @@ public class TaskLifecycleTests(PlaywrightFixture fixture)
         }
         Assert.DoesNotContain("An unhandled error", await page.ContentAsync());
     }
+
+    [Fact]
+    public async Task TasksPage_IncompleteView_FiltersOutCompletedAndCancelled()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        // Quick-add two tasks (both default to NotStarted) so the incomplete view has rows
+        await page.GotoAsync("/");
+        var aliveTitle = $"alive-{Guid.NewGuid():N}".Substring(0, 16);
+        await page.FillAsync("input[name='title']", aliveTitle);
+        await page.ClickAsync("form.tp-quick-add button[type='submit']");
+        await page.WaitForURLAsync("**/", new() { Timeout = 10000 });
+
+        await page.GotoAsync("/tasks?view=incomplete");
+        await page.WaitForLoadStateAsync();
+        var content = await page.ContentAsync();
+
+        Assert.Contains(aliveTitle, content);
+        // The Status select must NOT render in incomplete mode (the view fixes the status set)
+        Assert.DoesNotContain("All Status", content);
+    }
+
+    [Fact]
+    public async Task TasksPage_OverdueChip_TogglesAndUpdatesUrl()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        await page.GotoAsync("/tasks");
+        await page.WaitForSelectorAsync(".tp-overdue-chip", new() { Timeout = 10000 });
+
+        // Initially off
+        var initialAriaPressed = await page.GetAttributeAsync(".tp-overdue-chip", "aria-pressed");
+        Assert.Equal("false", initialAriaPressed);
+
+        // Click to turn on
+        await page.ClickAsync(".tp-overdue-chip");
+        await page.WaitForURLAsync("**/tasks**overdue=true**", new() { Timeout = 10000 });
+        Assert.Contains("overdue=true", page.Url);
+
+        var pressedAfter = await page.GetAttributeAsync(".tp-overdue-chip", "aria-pressed");
+        Assert.Equal("true", pressedAfter);
+    }
 }

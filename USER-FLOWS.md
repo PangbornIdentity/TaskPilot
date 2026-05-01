@@ -405,6 +405,92 @@
 
 ---
 
+## Flow 15: Check What's Left to Do (Incomplete by Status)
+
+**Trigger:** User opens TaskPilot and wants to see what's still on their plate, broken down by status.
+
+1. User lands on **Dashboard** (`/`)
+2. Below the Summary Cards row, the user sees the new **Incomplete by Status** card. Header shows "Incomplete by Status" and "Total: 14".
+3. Card body shows three sub-tiles, each with a label and count:
+   - `Not Started — 8`
+   - `In Progress — 4`
+   - `Blocked   — 2`
+4. User clicks the **Blocked** sub-tile (it's the smallest count and feels like "what needs unsticking first")
+5. **System:** Navigates to `/tasks?view=incomplete&status=Blocked`
+6. The Tasks page loads with the **Incomplete** view toggle active and the **Status** filter pre-set to `Blocked`. Header reads "2 tasks found".
+7. The page shows a flat single-column list (no kanban columns, no status group headers — every visible row is incomplete). Sort is `priority desc, then targetDate asc nulls-last`.
+8. User reviews the two blocked tasks. They click into one, write a comment in the description, change status to `InProgress`, and save.
+9. User uses browser **back** to return to the Dashboard. The Incomplete card recounts: `Not Started — 8`, `In Progress — 5`, `Blocked — 1`. `aria-live="polite"` announces the In Progress and Blocked counts changing.
+
+**Edge cases:**
+- All counts zero: card body collapses to a single centered line "Nothing incomplete — you're caught up." Sub-tiles and arrows hidden. Total pill reads "Total: 0".
+- One sub-tile is zero (e.g., no Blocked tasks): the tile is rendered but still clickable (lands on an empty Incomplete view filtered to that status with the standard empty state).
+- Keyboard: each sub-tile is reachable by Tab, activated by Enter or Space, focus ring visible (`--color-primary-300`).
+- Mobile (≤320px): sub-tiles stack vertically with horizontal separators; tap targets remain ≥56px tall.
+
+---
+
+## Flow 16: Triage Overdue Work
+
+**Trigger:** User notices their inbox or calendar slipped and wants to see exactly what's overdue right now.
+
+1. User lands on **Dashboard**
+2. The existing **Overdue** summary card (in the Summary Cards row) shows `Overdue — 7`. The card visibly looks clickable now (the cursor changes to pointer on hover; the card border deepens). `aria-label="Overdue tasks: 7. Open the incomplete view filtered to overdue."`
+3. User clicks the Overdue card
+4. **System:** Navigates to `/tasks?view=incomplete&overdue=true`
+5. The Tasks page loads with the **Incomplete** view toggle active and the **Overdue** chip in the filter bar in its "on" state (filled `--color-error-bg` background, label "⚠ Overdue"). `aria-pressed="true"`. Header reads "7 tasks found".
+6. Each row in the list shows the row-level **Overdue** pill to the right of its target date (background `--color-error-bg`, text "Overdue"). On mobile, the pill collapses to a small red dot prefixing the title with `<sr-only>Overdue</sr-only>`.
+7. User picks the task with the earliest target date, opens it, sets a new target date, saves, and returns
+8. The row is no longer overdue, so it disappears from the filtered list. Header recounts to "6 tasks found". `aria-live` announces the new total.
+9. User toggles the Overdue chip off. URL updates to `/tasks?view=incomplete`. The list expands to all 14 incomplete tasks. The Overdue pills disappear from the rows that are no longer in the past.
+10. User clicks **Clear filters** to return to the default tasks page
+
+**Edge cases:**
+- Zero overdue items: Incomplete view with Overdue chip on shows the empty state "Nothing overdue. Nice." (instead of the generic "No incomplete tasks match these filters.").
+- Tasks with no `TargetDate` are never overdue (overdue requires `TargetDate < UtcNow AND TargetDate IS NOT NULL`).
+- Composing the Overdue chip with other filters (e.g., `area=Work`) narrows further; counts and chip state both reflect the combined filter.
+- Browser back from a deep link restores all filter chips and the Overdue chip state (URL is the source of truth).
+
+**URL parameter mapping:**
+| Filter | URL param | Value |
+|--------|-----------|-------|
+| View: incomplete | `?view=incomplete` | mode toggle |
+| Overdue only | `?overdue=true` | boolean (omitted = false) |
+| Status sub-filter (from dashboard drill-through) | `?view=incomplete&status=Blocked` | enum, intersects with the incomplete set |
+
+---
+
+## Flow 17: Rename a Tag
+
+**Trigger:** User has a typo in a tag name ("backedn" instead of "backend") and wants to fix it without losing the tag's assignments to existing tasks.
+
+1. User navigates to **Settings** (`/settings`)
+2. In the **Tags** section, user sees their existing tag chips. Each chip now shows two icon buttons after the name: **✎** (edit, new) and **✕** (delete, existing).
+3. User clicks the **✎** icon on the "backedn" chip
+4. **System:** An inline edit row appears immediately below the chip flex wrap. Header reads `Editing "backedn"   (used by 4 tasks — changes apply everywhere)`. Focus moves into the Name input. Name field is pre-filled with "backedn"; the original color swatch is pre-selected.
+5. User edits the Name field to "backend"
+6. (Optional) User picks a different colour swatch with the mouse or arrow keys
+7. User clicks **Save changes**
+8. **System:** POSTs to the Settings page handler `OnPostUpdateTag`, which calls `PUT /api/v1/tags/{id}` with `{ Name: "backend", Color: "#…" }`
+9. **Success:** edit row closes, success toast "Tag updated." (5s, green), chip re-renders with the new name and color, focus returns to the chip's edit icon
+10. User navigates to `/tasks` and confirms the task chips for the four affected tasks now show "backend" (not "backedn") in the new color — same tag IDs, no orphaned assignments
+
+**Edge cases:**
+- **Duplicate name** (user renames "backedn" to "frontend" but a "frontend" tag already exists for the same user):
+  - Edit row stays open
+  - Inline error region displays: `A tag named 'frontend' already exists.`
+  - Focus moves back to the Name input
+  - Save button is enabled again so the user can correct
+- **Empty name**: Save button is disabled (`aria-disabled="true"`) while the field is empty
+- **Color-only change** (same name, new color): allowed; `UpdateTagAsync` treats matching the existing record's own name as not a duplicate
+- **Cross-user attempt** (URL-tampered `PUT /api/v1/tags/{otherUsersId}`): API returns 404 (not 403 — never confirms existence of other users' resources)
+- **Cancel** during edit: closes the row, no change persisted, focus returns to the chip's edit icon
+- **Unsaved changes + click another ✎**: prompts via `confirm()` "Discard unsaved changes?" before opening the new edit row
+- **Concurrent rename in another tab**: standard last-write-wins; the older tab will get a stale view until refresh — out of scope for this release
+- **Keyboard-only path**: Tab into chip → Tab to ✎ → Enter → focus moves to Name → edit → Tab to swatches → arrow keys to pick → Tab to Save → Enter
+
+---
+
 ## Interaction Pattern Specifications
 
 ### Slide-Over Panel

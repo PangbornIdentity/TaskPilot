@@ -343,7 +343,7 @@ All endpoints: `Content-Type: application/json`, wrapped in the standard respons
 
 | Method | Endpoint | Auth | Request | Success Response | Error Codes |
 |--------|----------|------|---------|-----------------|-------------|
-| GET | /api/v1/tasks | Cookie or ApiKey | Query: `TaskFilterParams` | 200 `ApiListResponse<TaskResponse>` | 401 |
+| GET | /api/v1/tasks | Cookie or ApiKey | Query: `TaskQueryParams` (incl. `view`/`status`/`area`/`priority`/`taskTypeId`/`tagIds`/`search`/`page`/`pageSize`/`sortBy`/`sortDir`/**`includeOnlyIncomplete`**/**`overdueOnly`**) | 200 `ApiListResponse<TaskResponse>` | 401 |
 | GET | /api/v1/tasks/{id} | Cookie or ApiKey | — | 200 `ApiResponse<TaskResponse>` | 401, 404 |
 | POST | /api/v1/tasks | Cookie or ApiKey | `CreateTaskRequest` | 201 `ApiResponse<TaskResponse>` | 400, 401 |
 | PUT | /api/v1/tasks/{id} | Cookie or ApiKey | `UpdateTaskRequest` | 200 `ApiResponse<TaskResponse>` | 400, 401, 404 |
@@ -519,7 +519,7 @@ public record TagTaskCountData(string TagName, int TaskCount);
 |--------|----------|------|---------|-----------------|-------------|
 | GET | /api/v1/tags | Cookie or ApiKey | — | 200 `ApiListResponse<TagResponse>` | 401 |
 | POST | /api/v1/tags | Cookie or ApiKey | `CreateTagRequest` | 201 `ApiResponse<TagResponse>` | 400, 401, 409 |
-| PUT | /api/v1/tags/{id} | Cookie or ApiKey | `UpdateTagRequest` | 200 `ApiResponse<TagResponse>` | 400, 401, 404 |
+| PUT | /api/v1/tags/{id} | Cookie or ApiKey | `UpdateTagRequest` | 200 `ApiResponse<TagResponse>` | 400, 401, 404, 409 |
 | DELETE | /api/v1/tags/{id} | Cookie or ApiKey | — | 204 | 401, 404 |
 
 ### 3.3 API Key Endpoints

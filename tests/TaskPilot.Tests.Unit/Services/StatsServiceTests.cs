@@ -137,6 +137,80 @@ public class StatsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetTaskStatsAsync_IncompleteByStatus_CountsCorrectPerStatus()
+    {
+        _context.Tasks.AddRange(
+            MakeTask("user1", TaskStatus.NotStarted),
+            MakeTask("user1", TaskStatus.NotStarted),
+            MakeTask("user1", TaskStatus.NotStarted),
+            MakeTask("user1", TaskStatus.InProgress),
+            MakeTask("user1", TaskStatus.Blocked),
+            MakeTask("user1", TaskStatus.Completed),  // excluded
+            MakeTask("user1", TaskStatus.Cancelled)   // excluded
+        );
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetTaskStatsAsync("user1");
+
+        Assert.Equal(3, result.IncompleteByStatus.NotStarted);
+        Assert.Equal(1, result.IncompleteByStatus.InProgress);
+        Assert.Equal(1, result.IncompleteByStatus.Blocked);
+        Assert.Equal(5, result.IncompleteByStatus.Total);
+    }
+
+    [Fact]
+    public async Task GetTaskStatsAsync_IncompleteByStatus_TotalEqualsTotalActive()
+    {
+        _context.Tasks.AddRange(
+            MakeTask("user1", TaskStatus.NotStarted),
+            MakeTask("user1", TaskStatus.InProgress),
+            MakeTask("user1", TaskStatus.Blocked),
+            MakeTask("user1", TaskStatus.Completed)
+        );
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetTaskStatsAsync("user1");
+
+        Assert.Equal(result.TotalActive, result.IncompleteByStatus.Total);
+    }
+
+    [Fact]
+    public async Task GetTaskStatsAsync_IncompleteByStatus_NoIncompleteTasks_ReturnsZeroes()
+    {
+        _context.Tasks.AddRange(
+            MakeTask("user1", TaskStatus.Completed),
+            MakeTask("user1", TaskStatus.Cancelled)
+        );
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetTaskStatsAsync("user1");
+
+        Assert.Equal(0, result.IncompleteByStatus.NotStarted);
+        Assert.Equal(0, result.IncompleteByStatus.InProgress);
+        Assert.Equal(0, result.IncompleteByStatus.Blocked);
+        Assert.Equal(0, result.IncompleteByStatus.Total);
+    }
+
+    [Fact]
+    public async Task GetTaskStatsAsync_IncompleteByStatus_ScopedToUser()
+    {
+        _context.Tasks.AddRange(
+            MakeTask("user1", TaskStatus.NotStarted),
+            MakeTask("user1", TaskStatus.Blocked),
+            MakeTask("user2", TaskStatus.NotStarted),
+            MakeTask("user2", TaskStatus.InProgress)
+        );
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetTaskStatsAsync("user1");
+
+        Assert.Equal(1, result.IncompleteByStatus.NotStarted);
+        Assert.Equal(0, result.IncompleteByStatus.InProgress);
+        Assert.Equal(1, result.IncompleteByStatus.Blocked);
+        Assert.Equal(2, result.IncompleteByStatus.Total);
+    }
+
+    [Fact]
     public async Task GetTaskStatsAsync_ByType_GroupsByTaskTypeName()
     {
         // Add TaskType entities

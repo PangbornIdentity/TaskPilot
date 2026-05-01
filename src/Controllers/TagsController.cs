@@ -7,7 +7,10 @@ using TaskPilot.Models.Tags;
 namespace TaskPilot.Controllers;
 
 [Authorize]
-public class TagsController(ITagService tagService, IValidator<CreateTagRequest> validator) : BaseApiController
+public class TagsController(
+    ITagService tagService,
+    IValidator<CreateTagRequest> createValidator,
+    IValidator<UpdateTagRequest> updateValidator) : BaseApiController
 {
     [HttpGet]
     public async Task<IActionResult> GetTags(CancellationToken cancellationToken)
@@ -19,7 +22,7 @@ public class TagsController(ITagService tagService, IValidator<CreateTagRequest>
     [HttpPost]
     public async Task<IActionResult> CreateTag([FromBody] CreateTagRequest request, CancellationToken cancellationToken)
     {
-        var validation = await validator.ValidateAsync(request, cancellationToken);
+        var validation = await createValidator.ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
         {
             var details = validation.Errors.Select(e => new Models.Common.FieldError(e.PropertyName, e.ErrorMessage)).ToList();
@@ -30,6 +33,28 @@ public class TagsController(ITagService tagService, IValidator<CreateTagRequest>
         {
             var tag = await tagService.CreateTagAsync(request, UserId, ModifiedBy, cancellationToken);
             return Created(string.Empty, Envelope(tag));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ConflictError(ex.Message));
+        }
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> UpdateTag(Guid id, [FromBody] UpdateTagRequest request, CancellationToken cancellationToken)
+    {
+        var validation = await updateValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            var details = validation.Errors.Select(e => new Models.Common.FieldError(e.PropertyName, e.ErrorMessage)).ToList();
+            return BadRequest(ValidationError("Validation failed.", details));
+        }
+
+        try
+        {
+            var tag = await tagService.UpdateTagAsync(id, request, UserId, ModifiedBy, cancellationToken);
+            if (tag is null) return NotFound(NotFoundError("Tag"));
+            return Ok(Envelope(tag));
         }
         catch (InvalidOperationException ex)
         {

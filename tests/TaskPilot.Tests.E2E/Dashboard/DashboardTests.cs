@@ -65,4 +65,44 @@ public class DashboardTests(PlaywrightFixture fixture)
         await page.WaitForURLAsync("**/audit", new() { Timeout = 10000 });
         Assert.Contains("/audit", page.Url);
     }
+
+    [Fact]
+    public async Task Dashboard_IncompleteCard_NavigatesToFilteredTasksView()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        await page.WaitForSelectorAsync(".tp-incomplete-card", new() { Timeout = 10000 });
+
+        // Empty-state path: the card may show the "caught up" message for a fresh user.
+        // In that case the sub-tiles aren't rendered. Add a task first to force a count.
+        await page.GotoAsync("/tasks");
+        await page.FillAsync("input[name='Title']", "needs doing"); // open the new-task modal first
+        // (Quick-add on the dashboard is simpler — restart and use it instead)
+        await page.GotoAsync("/");
+        await page.FillAsync("input[name='title']", "blocked-thing");
+        await page.ClickAsync("form.tp-quick-add button[type='submit']");
+        await page.WaitForURLAsync("**/", new() { Timeout = 10000 });
+
+        var tile = await page.WaitForSelectorAsync(".tp-incomplete-tile-not-started",
+            new() { Timeout = 10000 });
+        Assert.NotNull(tile);
+        await tile!.ClickAsync();
+        await page.WaitForURLAsync("**/tasks?view=incomplete&status=NotStarted", new() { Timeout = 10000 });
+        Assert.Contains("view=incomplete", page.Url);
+        Assert.Contains("status=NotStarted", page.Url);
+    }
+
+    [Fact]
+    public async Task Dashboard_OverdueCard_NavigatesToOverdueIncompleteView()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        await page.WaitForSelectorAsync(".tp-stat-card-link", new() { Timeout = 10000 });
+        await page.ClickAsync(".tp-stat-card-link");
+        await page.WaitForURLAsync("**/tasks?view=incomplete&overdue=true", new() { Timeout = 10000 });
+        Assert.Contains("view=incomplete", page.Url);
+        Assert.Contains("overdue=true", page.Url);
+    }
 }

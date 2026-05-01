@@ -30,10 +30,12 @@
         <div class="tp-stat-label">Completed Today</div>
         <div class="tp-stat-value">@Model.Stats?.CompletedToday</div>
     </div>
-    <div class="tp-stat-card danger">
+    <a class="tp-stat-card danger tp-stat-card-link"
+       href="/tasks?view=incomplete&overdue=true"
+       aria-label="Overdue tasks: @Model.Stats?.Overdue. Open the incomplete view filtered to overdue.">
         <div class="tp-stat-label">Overdue</div>
         <div class="tp-stat-value">@Model.Stats?.Overdue</div>
-    </div>
+    </a>
     <div class="tp-stat-card warning">
         <div class="tp-stat-label">In Progress</div>
         <div class="tp-stat-value">@Model.Stats?.InProgress</div>
@@ -42,6 +44,52 @@
         <div class="tp-stat-label">Blocked</div>
         <div class="tp-stat-value">@Model.Stats?.Blocked</div>
     </div>
+</div>
+
+<!-- Incomplete by Status -->
+@{
+    var incomplete = Model.Stats?.IncompleteByStatus;
+    var incompleteTotal = incomplete?.Total ?? 0;
+}
+<div class="tp-card tp-incomplete-card mb-3">
+    <div class="tp-card-header d-flex justify-content-between align-items-center">
+        <span>Incomplete by Status</span>
+        <span class="tp-incomplete-total" aria-live="polite">Total: @incompleteTotal</span>
+    </div>
+    @if (incompleteTotal == 0)
+    {
+        <div class="tp-card-body text-center text-muted py-3">
+            Nothing incomplete &mdash; you&rsquo;re caught up.
+        </div>
+    }
+    else
+    {
+        <div class="tp-card-body p-0">
+            <div class="tp-incomplete-grid">
+                <a class="tp-incomplete-tile tp-incomplete-tile-not-started"
+                   href="/tasks?view=incomplete&status=NotStarted"
+                   aria-label="Open the incomplete view filtered to Not Started: @(incomplete?.NotStarted ?? 0) task(s)">
+                    <div class="tp-incomplete-tile-label">Not Started</div>
+                    <div class="tp-incomplete-tile-count" aria-live="polite">@(incomplete?.NotStarted ?? 0)</div>
+                    <div class="tp-incomplete-tile-arrow"><i class="bi bi-arrow-right"></i></div>
+                </a>
+                <a class="tp-incomplete-tile tp-incomplete-tile-in-progress"
+                   href="/tasks?view=incomplete&status=InProgress"
+                   aria-label="Open the incomplete view filtered to In Progress: @(incomplete?.InProgress ?? 0) task(s)">
+                    <div class="tp-incomplete-tile-label">In Progress</div>
+                    <div class="tp-incomplete-tile-count" aria-live="polite">@(incomplete?.InProgress ?? 0)</div>
+                    <div class="tp-incomplete-tile-arrow"><i class="bi bi-arrow-right"></i></div>
+                </a>
+                <a class="tp-incomplete-tile tp-incomplete-tile-blocked"
+                   href="/tasks?view=incomplete&status=Blocked"
+                   aria-label="Open the incomplete view filtered to Blocked: @(incomplete?.Blocked ?? 0) task(s)">
+                    <div class="tp-incomplete-tile-label">Blocked</div>
+                    <div class="tp-incomplete-tile-count" aria-live="polite">@(incomplete?.Blocked ?? 0)</div>
+                    <div class="tp-incomplete-tile-arrow"><i class="bi bi-arrow-right"></i></div>
+                </a>
+            </div>
+        </div>
+    }
 </div>
 
 <!-- Area split stat block -->

@@ -7,6 +7,58 @@
 
 ---
 
+## 2026-05-01 — Incomplete view (with Overdue) + Tag editing in Settings
+
+### Design | Wireframes, flows, and design-system additions for the new surfaces
+
+- **WIREFRAMES.md**: new "Incomplete by Status" card spec on Page 2 (Dashboard) including header total pill, three sub-tile click-throughs, hover/focus/empty states, a11y, and Tablet/Mobile layout placement (sub-tiles stack vertically at ≤320px). Updated the existing Overdue summary card spec to describe its new clickable link wrap. Page 3 (Tasks): updated the in-ASCII view toggle to `[☰ List][⊞ Board][☑ Incomplete]`, added the `[⚠ Overdue]` chip to the filter bar, added spec blocks for the **Incomplete view** (flat single-column list, default sort `priority asc, targetDate asc nulls-last`, hides the Status select except for dashboard drill-throughs) and the **row-level Overdue indicator** (inline pill desktop/tablet, red-dot prefix + `<sr-only>` mobile — never color-alone). Page 8 (Settings): new Tags sub-section spec (closing prior wireframe doc-debt that didn't reflect the existing implementation) including the new pencil edit affordance, inline edit row with cascading-effect hint `(used by N tasks — changes apply everywhere)`, focus management, duplicate-name inline error treatment, and only-one-row-open rule.
+- **USER-FLOWS.md**: three new flows in the existing format. Flow 15 "Check What's Left to Do" (Dashboard Incomplete card → drill-through → counts auto-update via `aria-live`). Flow 16 "Triage Overdue Work" (Overdue summary card click → `?view=incomplete&overdue=true` → row leaves the list when a date is fixed; URL parameter mapping table appended). Flow 17 "Rename a Tag" (Settings → pencil → inline edit → name + color update propagates everywhere; covers duplicate name, empty name, color-only change, cross-user 404, cancel/discard, keyboard-only path).
+- **DESIGN-SYSTEM.md**: added §9.4 Overdue Indicator and §9.5 Incomplete by Status Card as documented compositions of existing tokens — explicitly **no new color, spacing, or component tokens introduced**. TOC updated.
+- Files affected: `WIREFRAMES.md`, `USER-FLOWS.md`, `DESIGN-SYSTEM.md`
+
+### Feature | Incomplete view + Overdue filter + Dashboard Incomplete by Status card
+
+- **`TaskQueryParams`** (`src/Models/Tasks/TaskQueryParams.cs`): two new boolean flags appended with safe defaults — `IncludeOnlyIncomplete` and `OverdueOnly`. Positional record append keeps every existing call site working.
+- **`TaskRepository.GetPagedAsync`** (`src/Repositories/TaskRepository.cs`): honors the two new flags. Incomplete = `Status` ∈ {`NotStarted`,`InProgress`,`Blocked`}. Overdue = `TargetDate < UtcNow AND TargetDate IS NOT NULL`. New default-sort branch when `IncludeOnlyIncomplete=true` and the caller didn't override `SortBy`: `priority asc` (`TaskPriority` is numerically `Critical=1..Low=4`, so ascending puts highest priority first), then nulls-last by target date, then by `SortOrder` for a stable tie-break.
+- **`TaskStatsResponse`** (`src/Models/Stats/StatsResponse.cs`): new `IncompleteByStatus` field of type `IncompleteByStatusData(NotStarted, InProgress, Blocked, Total)`. Populated in `StatsService.GetTaskStatsAsync` from already-counted in-memory values: `NotStarted = TotalActive − InProgress − Blocked`. **Zero new DB round-trips.**
+- **Tasks page** (`src/Pages/Tasks/Index.cshtml(.cs)`): third view toggle option (`view=incomplete`); new Overdue chip submitting the form with `?overdue=true` toggle; row-level Overdue pill (desktop/tablet) collapsing to a red dot prefix on mobile; Status dropdown hidden in incomplete mode but still honors a passed-through value for dashboard drill-throughs; view-aware empty-state copy.
+- **Dashboard** (`src/Pages/Index.cshtml`): new Incomplete by Status card with three sub-tile drill-throughs, header "Total: N" pill, and empty state "Nothing incomplete — you're caught up." Existing Overdue summary card now wraps a click-through `<a>` to `/tasks?view=incomplete&overdue=true` with full `aria-label`.
+- **CSS** (`src/wwwroot/css/app.css`): `.tp-badge-overdue`, `.tp-overdue-chip-on`, `.tp-stat-card-link`, `.tp-incomplete-card`, `.tp-incomplete-grid`, `.tp-incomplete-tile-*`, mobile breakpoints — all reusing existing color tokens (no new design tokens).
+- Files affected: `src/Models/Tasks/TaskQueryParams.cs`, `src/Models/Stats/StatsResponse.cs`, `src/Repositories/TaskRepository.cs`, `src/Services/StatsService.cs`, `src/Pages/Tasks/Index.cshtml(.cs)`, `src/Pages/Index.cshtml`, `src/wwwroot/css/app.css`
+
+### Feature | Tag editing in Settings + `PUT /api/v1/tags/{id}`
+
+- **DTO + validator** (`src/Models/Tags/UpdateTagRequest.cs`, `src/Models/Validators/UpdateTagRequestValidator.cs`): mirrors `CreateTagRequest`/its validator (max-50 name, hex-6 color). Auto-registered via `AddValidatorsFromAssemblyContaining<…>`.
+- **Tag projection with `TaskCount`** (`src/Models/Tags/TagResponse.cs`, `src/Repositories/TagRepository.cs`, `src/Repositories/Interfaces/ITagRepository.cs`): added `int TaskCount` field with default `0` so existing call sites still work; new `GetAllForUserWithTaskCountAsync` repo method projects `Tag.TaskTags.Count(tt => !tt.Task.IsDeleted)` in a single query (no N+1, no extra round-trip). `TagService.GetAllTagsAsync` switched to the count-aware path.
+- **`TagService.UpdateTagAsync`** (`src/Services/TagService.cs`, `src/Services/Interfaces/ITagService.cs`): ownership-checked update. Returns `null` when not found or owned by another user (no cross-user leakage). Throws `InvalidOperationException` on duplicate-name within the same user. Allows color-only renames to the existing same name without invoking the duplicate check. Updates `LastModifiedBy`.
+- **Controller** (`src/Controllers/TagsController.cs`): new `PUT /api/v1/tags/{id}` mirroring Create's error semantics — 200/400/404/409. Constructor now also takes `IValidator<UpdateTagRequest>`.
+- **Settings page** (`src/Pages/Settings/Index.cshtml(.cs)`): pencil edit affordance per chip with `aria-label="Edit tag {name}"`. Server-side edit-row toggle via `?editTagId={id}`; no JS state required. Cascading-effect hint reads `TagResponse.TaskCount`. Inline error region preserves the failing form on duplicate name; focus returns to Name input. Cancel link returns to `/settings`.
+- **CSS** (`src/wwwroot/css/app.css`): `.tp-tag-edit-row` background + radius (reuses existing tokens).
+- Files affected: `src/Models/Tags/UpdateTagRequest.cs` (new), `src/Models/Tags/TagResponse.cs`, `src/Models/Validators/UpdateTagRequestValidator.cs` (new), `src/Repositories/Interfaces/ITagRepository.cs`, `src/Repositories/TagRepository.cs`, `src/Services/Interfaces/ITagService.cs`, `src/Services/TagService.cs`, `src/Controllers/TagsController.cs`, `src/Pages/Settings/Index.cshtml(.cs)`, `src/wwwroot/css/app.css`
+
+### Test | Unit + Integration + E2E coverage
+
+- **Unit (xUnit + Moq + in-memory EF, `tests/TaskPilot.Tests.Unit`)**: 159 total (up from 130). Added: `Services/TagServiceTests.cs` (8 new — U-TAG-005..012), `Services/StatsServiceTests.cs` (4 new — U-S-IBS-001..004), `Services/TaskRepositoryFilterTests.cs` (9 new — U-TR-001..009), `Validators/UpdateTagRequestValidatorTests.cs` (5 new — U-V-UTAG-001..005). Existing `TagServiceTests.GetAllTagsAsync_ReturnsAllUserTags` updated to mock the new `GetAllForUserWithTaskCountAsync`. `Mcp/TaskPilotMcpToolsTests.cs` updated to construct `TaskStatsResponse` with the new `IncompleteByStatus` arg. **All 159 unit tests pass.**
+- **Integration (`tests/TaskPilot.Tests.Integration`)**: 91 non-smoke pass (up from 80). Added 7 to `Tags/TagsApiTests.cs` (I-TAG-005..011 covering PUT happy path, 404, cross-user 404, 409 duplicate, 400 invalid payload, 401 unauthenticated, plus `GetTags_TagAssignedToTask_PopulatesTaskCount`). Added 4 to `Tasks/TasksApiTests.cs` (I-T-IV-001..004 covering `?includeOnlyIncomplete=true`, `?overdueOnly=true`, composition, and `incompleteByStatus` in stats envelope). The 5 pre-existing `Smoke/DeploymentSmokeTests` remain — they require a running server and are unchanged.
+- **E2E (`tests/TaskPilot.Tests.E2E`)**: 7 new Playwright tests targeting `localhost:5125` per the existing `PlaywrightFixture`. `Dashboard/DashboardTests.cs` (E2E-IV-001..002), `Tasks/TaskLifecycleTests.cs` (E2E-IV-003..004), `Settings/SettingsTests.cs` (E2E-TAG-001..003 incl. keyboard-only path). They require the dev server to be running; no behavioral CI gating change in this PR.
+- **TEST-CASES.md §18** appended with all new IDs in the established table format.
+- Files affected: `tests/TaskPilot.Tests.Unit/Services/TagServiceTests.cs`, `tests/TaskPilot.Tests.Unit/Services/StatsServiceTests.cs`, `tests/TaskPilot.Tests.Unit/Services/TaskRepositoryFilterTests.cs` (new), `tests/TaskPilot.Tests.Unit/Validators/UpdateTagRequestValidatorTests.cs` (new), `tests/TaskPilot.Tests.Unit/Mcp/TaskPilotMcpToolsTests.cs`, `tests/TaskPilot.Tests.Integration/Tags/TagsApiTests.cs`, `tests/TaskPilot.Tests.Integration/Tasks/TasksApiTests.cs`, `tests/TaskPilot.Tests.E2E/Dashboard/DashboardTests.cs`, `tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs`, `tests/TaskPilot.Tests.E2E/Settings/SettingsTests.cs`, `TEST-CASES.md`
+
+### Docs | Requirements / Architecture / README
+
+- `REQUIREMENTS.md` §4.1: new "Incomplete by Status card" spec; §4.2: incomplete view, overdue chip, row-level overdue indicator, definitions of *Incomplete* and *Overdue*; §4.6: tag editing description.
+- `ARCHITECTURE.md` §3.1 endpoint table: `GET /api/v1/tasks` row updated to enumerate the new `includeOnlyIncomplete` and `overdueOnly` query params and the actual record name `TaskQueryParams`. §3.2: `PUT /api/v1/tags/{id}` row updated to include `409` (duplicate-name conflict).
+- `README.md`: REST API table now includes `PUT /tags/{id}`; query-params table for `GET /tasks` adds `includeOnlyIncomplete` and `overdueOnly`; test-coverage line refreshed (250+ tests).
+- Files affected: `REQUIREMENTS.md`, `ARCHITECTURE.md`, `README.md`
+
+### Refactor | Decisions worth noting (not bugs)
+
+- **Priority sort orientation in the Incomplete view default**: `TaskPriority` is numerically `Critical=1, High=2, Medium=3, Low=4`. The Incomplete view's default sort uses `OrderBy(Priority)` (ascending) so Critical surfaces first — opinionated, since this view is the user's "what to attend to next" lens. The pre-existing default sort on the regular list view is unchanged (separate doc-debt).
+- **No tag activity log added** in this PR. There is no `TagActivityLog` entity today and adding one would be scope creep. Tag rename/recolor events are not yet auditable. If audit is desired, follow up with a dedicated PR.
+- **CLAUDE.md stack description (Blazor WASM 3-project structure with MudBlazor)** is still inaccurate vs. the actual flat ASP.NET Core Razor Pages app. Not corrected in this PR — flagged as separate doc-debt.
+
+---
+
 ## 2026-04-17 — Bundle CDN assets locally, fix uptime bug (v1.9)
 
 ### Fix | CDN assets bundled locally to avoid Tracking Prevention breakage

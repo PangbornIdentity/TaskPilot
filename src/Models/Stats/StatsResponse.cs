@@ -14,7 +14,8 @@ public record TaskStatsResponse(
     IReadOnlyList<PriorityBreakdownData> ByPriority,
     IReadOnlyList<AvgCompletionData> AvgTimeToCompletionByWeek,
     CompletionsByAreaData CompletionsByArea,
-    IReadOnlyList<TagTaskCountData> TopTags
+    IReadOnlyList<TagTaskCountData> TopTags,
+    IncompleteByStatusData IncompleteByStatus
 );
 
 public record WeeklyCompletionData(string WeekLabel, int Count);
@@ -26,3 +27,4 @@ public record PriorityBreakdownData(string Priority, int NotStarted, int InProgr
 public record AvgCompletionData(string WeekLabel, double AvgDays);
 public record CompletionsByAreaData(int Personal, int Work);
 public record TagTaskCountData(string TagName, int TaskCount);
+public record IncompleteByStatusData(int NotStarted, int InProgress, int Blocked, int Total);

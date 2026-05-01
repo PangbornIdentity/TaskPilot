@@ -533,4 +533,104 @@ public class TasksApiTests : IClassFixture<TaskPilotWebAppFactory>
         await db.SaveChangesAsync();
         return taskType.Id;
     }
+
+    // ───────── Incomplete view + Overdue filter ─────────
+
+    [Fact]
+    public async Task GetTasks_WithIncludeOnlyIncomplete_ReturnsOnlyIncompleteStatuses()
+    {
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+        // Status enum: NotStarted=0, InProgress=1, Blocked=2, Completed=3, Cancelled=4
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("ns",  status: 0));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("ip",  status: 1));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("blk", status: 2));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("done", status: 3));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("can",  status: 4));
+
+        var response = await client.GetAsync("/api/v1/tasks?includeOnlyIncomplete=true&pageSize=50");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var data = body.GetProperty("data").EnumerateArray().ToList();
+        Assert.Equal(3, data.Count);
+        Assert.All(data, t =>
+        {
+            var status = t.GetProperty("status").GetInt32();
+            Assert.InRange(status, 0, 2);
+        });
+    }
+
+    [Fact]
+    public async Task GetTasks_WithOverdueOnly_ReturnsOnlyOverdueWithDate()
+    {
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+        var yesterday = DateTime.UtcNow.AddDays(-1);
+        var tomorrow = DateTime.UtcNow.AddDays(1);
+
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("overdue",      targetDate: yesterday));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("future",       targetDate: tomorrow));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("no-date"));
+
+        var response = await client.GetAsync("/api/v1/tasks?overdueOnly=true&pageSize=50");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var data = body.GetProperty("data").EnumerateArray().ToList();
+        Assert.Single(data);
+        Assert.Equal("overdue", data[0].GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task GetTasks_IncompleteAndOverdue_Composes()
+    {
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+        var yesterday = DateTime.UtcNow.AddDays(-1);
+
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("notstarted-overdue", status: 0, targetDate: yesterday));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("completed-overdue",  status: 3, targetDate: yesterday));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("blocked-no-date",    status: 2));
+
+        var response = await client.GetAsync(
+            "/api/v1/tasks?includeOnlyIncomplete=true&overdueOnly=true&pageSize=50");
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var data = body.GetProperty("data").EnumerateArray().ToList();
+        Assert.Single(data);
+        Assert.Equal("notstarted-overdue", data[0].GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task GetStats_IncludesIncompleteByStatus()
+    {
+        var (client, _) = await AuthHelper.CreateAuthenticatedClientAsync(_factory);
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("ns1",  status: 0));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("ip1",  status: 1));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("blk1", status: 2));
+        await client.PostAsJsonAsync("/api/v1/tasks", MakeTask("done", status: 3));
+
+        var response = await client.GetAsync("/api/v1/tasks/stats");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var ibs = body.GetProperty("data").GetProperty("incompleteByStatus");
+        Assert.Equal(1, ibs.GetProperty("notStarted").GetInt32());
+        Assert.Equal(1, ibs.GetProperty("inProgress").GetInt32());
+        Assert.Equal(1, ibs.GetProperty("blocked").GetInt32());
+        Assert.Equal(3, ibs.GetProperty("total").GetInt32());
+    }
+
+    private static object MakeTask(string title, int status = 0, DateTime? targetDate = null) => new
+    {
+        Title = title,
+        Description = (string?)null,
+        TaskTypeId = 1,
+        Area = 0,
+        Priority = 1,
+        Status = status,
+        TargetDateType = 1,
+        TargetDate = targetDate,
+        IsRecurring = false,
+        RecurrencePattern = (int?)null,
+        TagIds = (List<Guid>?)null
+    };
 }

@@ -4,5 +4,6 @@ public record TagResponse(
     Guid Id,
     string Name,
     string Color,
-    DateTime CreatedDate
+    DateTime CreatedDate,
+    int TaskCount = 0
 );
