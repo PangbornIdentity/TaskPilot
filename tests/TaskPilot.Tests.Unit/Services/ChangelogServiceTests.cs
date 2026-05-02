@@ -147,4 +147,92 @@ public class ChangelogServiceTests
 
         Assert.Empty(service.GetAll());
     }
+
+    [Fact]
+    public void GetAll_VersionsWithDoubleDigitMinor_OrdersByNumericComponents()
+    {
+        // Regression: ordinal-string sort treats "1.10" < "1.8" because at index 2
+        // the digit '1' (0x31) < '8' (0x38). The fix parses each version into a
+        // (major, minor, patch) tuple and sorts numerically.
+        var json = """
+            {
+              "versions": [
+                { "version": "1.8",  "releaseDate": "2026-04-15", "versionType": "minor", "summary": "v1.8",  "changes": [] },
+                { "version": "1.10", "releaseDate": "2026-05-01", "versionType": "minor", "summary": "v1.10", "changes": [] },
+                { "version": "1.9",  "releaseDate": "2026-04-17", "versionType": "patch", "summary": "v1.9",  "changes": [] }
+              ]
+            }
+            """;
+
+        var service = new ChangelogService(json);
+        var versions = service.GetAll();
+
+        Assert.Equal("1.10", versions[0].Version);
+        Assert.Equal("1.9",  versions[1].Version);
+        Assert.Equal("1.8",  versions[2].Version);
+    }
+
+    [Fact]
+    public void GetAll_PatchVersions_OrderedByThirdSegment()
+    {
+        // 1.10.10 should beat 1.10.1 should beat 1.10.0 — same regression as above
+        // applied to the patch segment.
+        var json = """
+            {
+              "versions": [
+                { "version": "1.10.0",  "releaseDate": "2026-05-01", "versionType": "minor", "summary": "v1.10",     "changes": [] },
+                { "version": "1.10.10", "releaseDate": "2026-05-15", "versionType": "patch", "summary": "v1.10.10",  "changes": [] },
+                { "version": "1.10.1",  "releaseDate": "2026-05-02", "versionType": "patch", "summary": "v1.10.1",   "changes": [] }
+              ]
+            }
+            """;
+
+        var service = new ChangelogService(json);
+        var versions = service.GetAll();
+
+        Assert.Equal("1.10.10", versions[0].Version);
+        Assert.Equal("1.10.1",  versions[1].Version);
+        Assert.Equal("1.10.0",  versions[2].Version);
+    }
+
+    [Fact]
+    public void GetAll_MalformedVersion_DoesNotThrowAndSortsAfterNumeric()
+    {
+        // A malformed version segment falls back to 0 — the entry is still returned,
+        // and it sorts behind any well-formed entry.
+        var json = """
+            {
+              "versions": [
+                { "version": "abc",  "releaseDate": "2026-01-01", "versionType": "major", "summary": "broken",  "changes": [] },
+                { "version": "1.10", "releaseDate": "2026-05-01", "versionType": "minor", "summary": "v1.10",   "changes": [] }
+              ]
+            }
+            """;
+
+        var service = new ChangelogService(json);
+        var versions = service.GetAll();
+
+        Assert.Equal(2, versions.Count);
+        Assert.Equal("1.10", versions[0].Version);
+        Assert.Equal("abc",  versions[1].Version);
+    }
+
+    [Fact]
+    public void GetLatest_PicksHighestSemver_NotLexLargest()
+    {
+        // The bug visible to users: GetLatest returned "1.8" instead of "1.10" because
+        // the cached order was wrong.
+        var json = """
+            {
+              "versions": [
+                { "version": "1.8",  "releaseDate": "2026-04-15", "versionType": "minor", "summary": "v1.8",  "changes": [] },
+                { "version": "1.10", "releaseDate": "2026-05-01", "versionType": "minor", "summary": "v1.10", "changes": [] }
+              ]
+            }
+            """;
+
+        var service = new ChangelogService(json);
+
+        Assert.Equal("1.10", service.GetLatest()!.Version);
+    }
 }

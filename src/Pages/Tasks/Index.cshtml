@@ -4,14 +4,40 @@
 @{
     ViewData["Title"] = "Tasks";
     var isBoard = Model.View == "board";
-    var isIncomplete = Model.View == "incomplete";
     var nowUtc = DateTime.UtcNow;
+    var isIncomplete = Model.IncompleteFilter;
 
     // Build a route-values dict that preserves every active filter, plus any per-link overrides.
-    // Url.Page emits properly URL-encoded query strings AND collapses null values, so we don't
-    // have to special-case empty filters.
-    object FilterRoute(string? viewOverride = null, Area? areaOverride = null, bool keepArea = true)
-        => new
+    // sortOverride is tri-state:
+    //   null              → preserve current Model.SortBy/SortDir (omit if default "priority")
+    //   (col, dir)        → set explicitly
+    //   ("", "")          → clear (explicitly drop sortBy + sortDir from the URL)
+    // Url.Page emits properly URL-encoded query strings AND collapses null values automatically.
+    object FilterRoute(
+        string? viewOverride = null,
+        Area? areaOverride = null,
+        bool keepArea = true,
+        bool? incompleteOverride = null,
+        bool? overdueOverride = null,
+        (string? by, string? dir)? sortOverride = null)
+    {
+        string? sortBy;
+        string? sortDir;
+        if (sortOverride.HasValue)
+        {
+            // Explicit override: empty string means clear (Url.Page omits null route values).
+            sortBy = string.IsNullOrEmpty(sortOverride.Value.by) ? null : sortOverride.Value.by;
+            sortDir = string.IsNullOrEmpty(sortOverride.Value.dir) ? null : sortOverride.Value.dir;
+        }
+        else
+        {
+            // No override: preserve the current sort state. Model.SortBy is null when no
+            // sortBy URL param was set (default sort active), so this passes through cleanly.
+            sortBy = Model.SortBy;
+            sortDir = Model.SortDir;
+        }
+
+        return new
         {
             view = viewOverride ?? Model.View,
             search = Model.Search,
@@ -20,8 +46,30 @@
             area = keepArea ? (areaOverride ?? Model.AreaFilter) : areaOverride,
             taskTypeId = Model.TaskTypeIdFilter,
             tagIds = Model.TagIdFilter,
-            overdue = Model.OverdueFilter ? (bool?)true : null
+            // Emit lowercase string literals so the URL is consistent regardless of Url.Page's
+            // default Boolean serialization (which is TitleCase). Browser bookmarks stay tidy.
+            incomplete = (incompleteOverride ?? Model.IncompleteFilter) ? "true" : null,
+            overdue = (overdueOverride ?? Model.OverdueFilter) ? "true" : null,
+            sortBy = sortBy,
+            sortDir = sortDir
         };
+    }
+
+    // Compute the next sort state for a sortable header. Cycle: none → asc → desc → none.
+    // Returns sortOverride that can be passed straight to FilterRoute.
+    // A column is "active" only when Model.SortBy was set explicitly via URL — null means
+    // the default sort is in effect and no header is currently lit.
+    ((string? by, string? dir) sortOverride, string ariaSort, string chevronIcon) HeaderSortState(string column)
+    {
+        var active = Model.SortBy is not null
+            && string.Equals(Model.SortBy, column, StringComparison.OrdinalIgnoreCase);
+        if (!active)
+            return ((column, "asc"), "none", "bi-chevron-expand");
+        if (Model.SortDir == "asc")
+            return ((column, "desc"), "ascending", "bi-chevron-up");
+        // desc → cycle off: explicit clear (empty strings) so the URL drops sortBy/sortDir entirely.
+        return (("", ""), "descending", "bi-chevron-down");
+    }
 }
 
 <div class="tp-page-header">
@@ -64,26 +112,20 @@
         {
             <input type="hidden" name="area" value="@((int)Model.AreaFilter.Value)" />
         }
-        @* Status dropdown: hidden in Incomplete view (the view fixes the status set).
-           Dashboard drill-throughs that pass an explicit ?status=... still work because the
-           value is preserved in the page model and submitted as a hidden input. *@
-        @if (isIncomplete)
+        @* Preserve sort across filter submits — the form submit drops everything not in a named
+           input, so without these hiddens, changing a filter dropdown would silently reset sort. *@
+        @if (!string.IsNullOrEmpty(Model.SortBy))
         {
-            @if (Model.StatusFilter.HasValue)
+            <input type="hidden" name="sortBy" value="@Model.SortBy" />
+            <input type="hidden" name="sortDir" value="@Model.SortDir" />
+        }
+        <select name="status" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+            <option value="">All Status</option>
+            @foreach (var s in Enum.GetValues<TaskPilot.Models.Enums.TaskStatus>())
             {
-                <input type="hidden" name="status" value="@Model.StatusFilter" />
+                <option value="@s" selected="@(Model.StatusFilter == s)">@s</option>
             }
-        }
-        else
-        {
-            <select name="status" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
-                <option value="">All Status</option>
-                @foreach (var s in Enum.GetValues<TaskPilot.Models.Enums.TaskStatus>())
-                {
-                    <option value="@s" selected="@(Model.StatusFilter == s)">@s</option>
-                }
-            </select>
-        }
+        </select>
         <select name="priority" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
             <option value="">All Priority</option>
             @foreach (var p in Enum.GetValues<TaskPilot.Models.Enums.TaskPriority>())
@@ -121,27 +163,69 @@
                 </div>
             </div>
         }
-        @* Overdue chip — toggle button. Submits the form with overdue=true on, removes the param off. *@
+        @* Incomplete chip — toggle button. Submits the form with incomplete=true on, removes the param off.
+           Status filter (above) stays visible regardless of chip state — the chip restricts to
+           {NotStarted, InProgress, Blocked} and Status= further narrows within that set. *@
+        <button type="submit" name="incomplete" value="@(Model.IncompleteFilter ? "false" : "true")"
+                class="btn btn-sm tp-chip-toggle @(Model.IncompleteFilter ? "tp-incomplete-chip-on" : "btn-outline-secondary")"
+                aria-pressed="@(Model.IncompleteFilter ? "true" : "false")"
+                title="@(Model.IncompleteFilter ? "Click to remove the Incomplete filter" : "Show only incomplete tasks")">
+            <i class="bi bi-check2-square me-1"></i>Incomplete
+        </button>
+        @* Overdue chip — toggle button, same shape as Incomplete. *@
         <button type="submit" name="overdue" value="@(Model.OverdueFilter ? "false" : "true")"
-                class="btn btn-sm tp-overdue-chip @(Model.OverdueFilter ? "tp-overdue-chip-on" : "btn-outline-secondary")"
+                class="btn btn-sm tp-chip-toggle @(Model.OverdueFilter ? "tp-overdue-chip-on" : "btn-outline-secondary")"
                 aria-pressed="@(Model.OverdueFilter ? "true" : "false")"
                 title="@(Model.OverdueFilter ? "Click to remove the Overdue filter" : "Filter to overdue tasks only")">
             <i class="bi bi-exclamation-triangle me-1"></i>Overdue
         </button>
     </form>
 
+    @* Mobile Sort dropdown — visible only below md (Bootstrap 768). On tablet/desktop the
+       column header click handles sort; on mobile <thead> is hidden so this dropdown is the
+       only sort surface. Same URL params (?sortBy=…&sortDir=…), same reducer. *@
+    @if (!isBoard)
+    {
+        var sortLabels = new (string Col, string Dir, string Label)[]
+        {
+            ("title",      "asc",  "Title (A→Z)"),
+            ("title",      "desc", "Title (Z→A)"),
+            ("priority",   "asc",  "Priority (Critical→Low)"),
+            ("priority",   "desc", "Priority (Low→Critical)"),
+            ("status",     "asc",  "Status (A→Z)"),
+            ("targetdate", "asc",  "Due (earliest first)"),
+            ("targetdate", "desc", "Due (latest first)"),
+        };
+        var activeSortLabel = sortLabels.FirstOrDefault(s =>
+            string.Equals(s.Col, Model.SortBy, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(s.Dir, Model.SortDir, StringComparison.OrdinalIgnoreCase)).Label ?? "Default";
+        <div class="dropdown d-md-none">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle tp-mobile-sort-btn"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                    aria-label="Sort tasks">
+                <i class="bi bi-arrow-down-up me-1"></i>Sort: @activeSortLabel
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="@Url.Page("/Tasks/Index", FilterRoute(sortOverride: ("", "")))">Default</a></li>
+                @foreach (var s in sortLabels)
+                {
+                    var isActive = string.Equals(s.Col, Model.SortBy, StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(s.Dir, Model.SortDir, StringComparison.OrdinalIgnoreCase);
+                    <li><a class="dropdown-item @(isActive ? "active" : "")"
+                           href="@Url.Page("/Tasks/Index", FilterRoute(sortOverride: (s.Col, s.Dir)))">@s.Label</a></li>
+                }
+            </ul>
+        </div>
+    }
+    @* View toggle is display mode only: List | Board. Incomplete is a filter chip above. *@
     <div class="tp-view-toggle btn-group ms-auto" role="group">
         <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "list"))"
-           class="btn btn-sm @(!isBoard && !isIncomplete ? "btn-secondary" : "btn-outline-secondary")" title="List view">
+           class="btn btn-sm @(!isBoard ? "btn-secondary" : "btn-outline-secondary")" title="List view">
             <i class="bi bi-list-ul"></i>
         </a>
         <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "board"))"
            class="btn btn-sm @(isBoard ? "btn-secondary" : "btn-outline-secondary")" title="Board view">
             <i class="bi bi-kanban"></i>
-        </a>
-        <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "incomplete"))"
-           class="btn btn-sm @(isIncomplete ? "btn-secondary" : "btn-outline-secondary")" title="Incomplete only">
-            <i class="bi bi-check2-square"></i>
         </a>
     </div>
 </div>
@@ -176,34 +260,58 @@
         else
         {
             <div class="tp-card">
-                <div class="tp-table-scroll">
                 <table class="tp-table">
                     <thead>
                         <tr>
-                            <th>Title</th>
-                            <th>Area</th>
-                            <th>Type</th>
-                            <th>Priority</th>
-                            <th>Status</th>
-                            <th>Due</th>
-                            <th>Tags</th>
-                            <th></th>
+                            @{
+                                Microsoft.AspNetCore.Html.IHtmlContent SortHeader(string label, string column, string extraClasses = "")
+                                {
+                                    var (sortOverride, ariaSort, icon) = HeaderSortState(column);
+                                    var href = Url.Page("/Tasks/Index", FilterRoute(sortOverride: sortOverride));
+                                    var active = string.Equals(Model.SortBy, column, StringComparison.OrdinalIgnoreCase);
+                                    var aLabel = ariaSort switch
+                                    {
+                                        "ascending" => $"Sort by {label}, currently ascending. Click to sort descending.",
+                                        "descending" => $"Sort by {label}, currently descending. Click to remove sort.",
+                                        _ => $"Sort by {label}"
+                                    };
+                                    var iconHtml = active ? $@"<i class=""bi {icon} ms-1""></i>" : "";
+                                    var html = $@"<th aria-sort=""{ariaSort}"" class=""tp-sortable-th{(active ? " tp-sortable-active" : "")} {extraClasses}"">
+    <a href=""{href}"" class=""tp-sortable-link"" aria-label=""{aLabel}"">
+        <span>{System.Net.WebUtility.HtmlEncode(label)}</span>
+        {iconHtml}
+    </a>
+</th>";
+                                    return new Microsoft.AspNetCore.Html.HtmlString(html);
+                                }
+                            }
+                            @* Per WIREFRAMES Page 3 responsive table: Title/Priority/Status/Due always visible.
+                               Area + Tags + Edit hidden < md (768). Type hidden < lg (992). Mobile uses
+                               CSS-Grid reflow on the tr (see app.css .tp-table at @media max-width 639.98). *@
+                            @SortHeader("Title", "title")
+                            @SortHeader("Area", "area", "d-none d-md-table-cell")
+                            @SortHeader("Type", "type", "d-none d-lg-table-cell")
+                            @SortHeader("Priority", "priority")
+                            @SortHeader("Status", "status")
+                            @SortHeader("Due", "targetdate")
+                            <th class="d-none d-md-table-cell">Tags</th>
+                            <th class="d-none d-md-table-cell"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var task in Model.Tasks)
                         {
                             <tr>
-                                <td>
+                                <td data-label="Title">
                                     <a href="/tasks/@task.Id" class="text-decoration-none fw-medium">
                                         @task.Title
                                     </a>
                                 </td>
-                                <td>@Html.Raw(AreaBadge(task.Area))</td>
-                                <td><span class="text-muted small">@(task.TaskTypeName ?? "—")</span></td>
-                                <td>@Html.Raw(PriorityBadge(task.Priority))</td>
-                                <td>@Html.Raw(StatusBadge(task.Status))</td>
-                                <td>
+                                <td class="d-none d-md-table-cell" data-label="Area">@Html.Raw(AreaBadge(task.Area))</td>
+                                <td class="d-none d-lg-table-cell" data-label="Type"><span class="text-muted small">@(task.TaskTypeName ?? "—")</span></td>
+                                <td data-label="Priority">@Html.Raw(PriorityBadge(task.Priority))</td>
+                                <td data-label="Status">@Html.Raw(StatusBadge(task.Status))</td>
+                                <td data-label="Due">
                                     @if (task.TargetDate.HasValue)
                                     {
                                         var isOverdue = task.TargetDate.Value < nowUtc
@@ -216,13 +324,13 @@
                                         }
                                     }
                                 </td>
-                                <td>
+                                <td class="d-none d-md-table-cell" data-label="Tags">
                                     @foreach (var tag in task.Tags)
                                     {
                                         <span class="badge" style="background-color:@tag.Color;font-size:11px">@tag.Name</span>
                                     }
                                 </td>
-                                <td class="text-end">
+                                <td class="d-none d-md-table-cell text-end">
                                     <a href="/tasks/@task.Id" class="btn btn-sm btn-outline-secondary">
                                         <i class="bi bi-pencil"></i>
                                     </a>
@@ -231,7 +339,6 @@
                         }
                     </tbody>
                 </table>
-                </div>
             </div>
         }
     }

@@ -172,14 +172,14 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 **Summary cards (top row):**
 - Total Active Tasks
 - Completed Today
-- **Overdue** (past target date + not completed) — entire card is now a clickable link to `/tasks?view=incomplete&overdue=true`
+- **Overdue** (past target date + not completed) — entire card is now a clickable link to `/tasks?incomplete=true&overdue=true`
 - In Progress
 - Blocked
 
 **Incomplete by Status card (between summary row and Area Split):**
 - Single full-width card with header "Incomplete by Status" and a `Total: N` pill
 - Three sub-tiles with counts for `Not Started`, `In Progress`, `Blocked`
-- Each sub-tile is a click-through to `/tasks?view=incomplete&status=…`
+- Each sub-tile is a click-through to `/tasks?incomplete=true&status=…`
 - Empty state when total is zero: "Nothing incomplete — you're caught up." (sub-tiles hidden)
 - `aria-live="polite"` on each count for assistive-tech updates after a sibling-tab completion
 - Counts are derived in-memory from existing stat fields (`TotalActive − InProgress − Blocked = NotStarted`); no extra DB round-trip
@@ -203,13 +203,14 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 ### 4.2 Task List View
 
 - **Default grouping:** By status, sorted by priority within each group
-- **View toggle:** List view (dense table) / Board/Kanban view (columns by status) / **Incomplete view (new — third option)**
-- **Incomplete view (`?view=incomplete`):** flat single-column list scoped to `Status` ∈ {`NotStarted`, `InProgress`, `Blocked`}. Default sort is priority (Critical → Low) then target date asc nulls-last. The Status filter dropdown is hidden in this view (the view fixes the status set); dashboard drill-throughs may still pass `?view=incomplete&status=…` to land on a single-status sub-view.
-- **Overdue filter chip (`?overdue=true`):** boolean toggle in the filter bar that narrows to `TargetDate < UtcNow AND TargetDate IS NOT NULL`. Composes with all other filters and with any view (`list`/`board`/`incomplete`). `aria-pressed` reflects state.
+- **View toggle (display mode only):** List view (dense table) / Board/Kanban view (columns by status). Two segments — `list` and `board`. The previous three-segment toggle (with "Incomplete" as a third option) was wrong UX (conflated display mode with status filter); the Incomplete behaviour moved to a filter chip in v1.11.
+- **Incomplete filter chip (`?incomplete=true`):** boolean toggle in the filter bar. Restricts results to `Status` ∈ {`NotStarted`, `InProgress`, `Blocked`}. Composes with both display modes — on `list`, results are a flat list; on `board`, the kanban renders only the three "open" columns (Completed and Cancelled hidden). Default sort when chip is on: priority asc (Critical → Low), then target date asc nulls-last, then sortOrder. `aria-pressed` reflects chip state.
+- **Overdue filter chip (`?overdue=true`):** boolean toggle in the filter bar. Restricts to `TargetDate < UtcNow AND TargetDate IS NOT NULL AND Status incomplete`. Composes with all other filters and chips, including the Incomplete chip and both display modes. `aria-pressed` reflects state.
 - **Row-level Overdue indicator:** any task with `Status` not in {`Completed`,`Cancelled`} and a target date in the past gets an "Overdue" pill next to its date (desktop/tablet) or a compact red dot prefix on the title with `<sr-only>Overdue</sr-only>` (mobile). Indicator is never color-alone.
+- **Sortable column headers (v1.11):** in list view, each `<th>` is a click target — clicking cycles unsorted → ascending → descending → unsorted. Sortable columns: Title, Area, Type, Priority, Status, Due. Tags is intentionally not sortable (multi-valued). Active column shows a chevron icon (`bi-chevron-up` / `bi-chevron-down`) and reads `aria-sort="ascending|descending"`. Sort and all active filters are preserved across header clicks (URL is the source of truth). On mobile (≤640px) the column-header pattern doesn't apply (no table); a `Sort▼` button + bottom-sheet exposes the same options.
 - **Search:** Full-text across title + description (debounced 300ms)
-- **Filters (combinable):** Area (Personal / Work / All), TaskType (dropdown, single-select, sourced from `/api/v1/task-types`), Tags (multi-select chip picker, AND logic — task must have ALL selected tags), priority, status, date range (target date), recurring only, **overdue (boolean chip)**
-- **Sort options:** Priority, target date, created date, last modified date (ascending/descending)
+- **Filters (combinable):** Area (Personal / Work / All), TaskType (dropdown, single-select, sourced from `/api/v1/task-types`), Tags (multi-select chip picker, AND logic — task must have ALL selected tags), priority, status, date range (target date), recurring only, **incomplete (boolean chip)**, **overdue (boolean chip)**
+- **Sort options:** Title, Area, Type, Priority, Status, Due (target date), Created date, Last modified date (each ascending/descending)
 - **Bulk actions toolbar** (when items selected): mark complete, change priority, change status, add/remove tag, soft-delete
 - **Drag-and-drop reordering** within groups (persists `SortOrder`)
 - **Inline edit:** Click title to rename in place

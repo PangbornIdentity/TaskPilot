@@ -74,22 +74,44 @@ public class TaskRepository(ApplicationDbContext context) : GenericRepository<Ta
                                   && t.Status != TaskStatus.Cancelled);
         }
 
-        // Default sort for the Incomplete view: priority desc, then targetDate asc nulls-last,
-        // then sortOrder for stable tie-breaking. Honored only when caller didn't override.
+        // Default sort for the Incomplete view: priority asc (Critical → Low), then
+        // targetDate asc nulls-last, then sortOrder for stable tie-breaking. Only honored
+        // when the caller didn't override SortBy. Other branches handle explicit
+        // column-header sorts (title, area, type, status, targetdate, etc.) — these all
+        // append a SortOrder tiebreaker so pagination stays deterministic on ties.
         var sortKey = queryParams.SortBy.ToLower();
+        var desc = queryParams.SortDir == "desc";
         var usingIncompleteDefault = queryParams.IncludeOnlyIncomplete && sortKey == "priority";
 
         query = sortKey switch
         {
-            "targetdate" => queryParams.SortDir == "desc"
-                ? query.OrderByDescending(t => t.TargetDate)
-                : query.OrderBy(t => t.TargetDate),
-            "createddate" => queryParams.SortDir == "desc"
-                ? query.OrderByDescending(t => t.CreatedDate)
-                : query.OrderBy(t => t.CreatedDate),
-            "lastmodifieddate" => queryParams.SortDir == "desc"
-                ? query.OrderByDescending(t => t.LastModifiedDate)
-                : query.OrderBy(t => t.LastModifiedDate),
+            "title" => desc
+                ? query.OrderByDescending(t => t.Title).ThenBy(t => t.SortOrder)
+                : query.OrderBy(t => t.Title).ThenBy(t => t.SortOrder),
+            "area" => desc
+                ? query.OrderByDescending(t => t.Area).ThenBy(t => t.SortOrder)
+                : query.OrderBy(t => t.Area).ThenBy(t => t.SortOrder),
+            "type" => desc
+                ? query.OrderByDescending(t => t.TaskType.Name).ThenBy(t => t.SortOrder)
+                : query.OrderBy(t => t.TaskType.Name).ThenBy(t => t.SortOrder),
+            "status" => desc
+                ? query.OrderByDescending(t => t.Status).ThenBy(t => t.SortOrder)
+                : query.OrderBy(t => t.Status).ThenBy(t => t.SortOrder),
+            "targetdate" => desc
+                // Nulls-last regardless of direction: OrderBy(IsNull)=ASC puts false (has-date)
+                // before true (null). The dated rows then sort by TargetDate desc.
+                ? query.OrderBy(t => t.TargetDate == null)
+                       .ThenByDescending(t => t.TargetDate)
+                       .ThenBy(t => t.SortOrder)
+                : query.OrderBy(t => t.TargetDate == null)
+                       .ThenBy(t => t.TargetDate)
+                       .ThenBy(t => t.SortOrder),
+            "createddate" => desc
+                ? query.OrderByDescending(t => t.CreatedDate).ThenBy(t => t.SortOrder)
+                : query.OrderBy(t => t.CreatedDate).ThenBy(t => t.SortOrder),
+            "lastmodifieddate" => desc
+                ? query.OrderByDescending(t => t.LastModifiedDate).ThenBy(t => t.SortOrder)
+                : query.OrderBy(t => t.LastModifiedDate).ThenBy(t => t.SortOrder),
             _ => usingIncompleteDefault
                 // Priority enum is numerically Critical=1..Low=4, so ascending order
                 // surfaces the highest priority first (Critical → High → Medium → Low).
@@ -97,7 +119,7 @@ public class TaskRepository(ApplicationDbContext context) : GenericRepository<Ta
                        .ThenBy(t => t.TargetDate == null)   // false (has date) sorts first
                        .ThenBy(t => t.TargetDate)
                        .ThenBy(t => t.SortOrder)
-                : queryParams.SortDir == "desc"
+                : desc
                     ? query.OrderByDescending(t => t.Priority).ThenBy(t => t.SortOrder)
                     : query.OrderBy(t => t.Priority).ThenBy(t => t.SortOrder)
         };

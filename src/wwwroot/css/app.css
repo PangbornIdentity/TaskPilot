@@ -390,6 +390,19 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     .tp-incomplete-tile:last-child { border-bottom: 0; }
 }
 
+/* Filter chips (Incomplete, Overdue) share the .tp-chip-toggle base; the on-state class
+   carries the lit color. Off-state inherits btn-outline-secondary from Bootstrap. */
+.tp-chip-toggle { /* base — kept for symmetry with the on-state classes */ }
+
+/* Incomplete chip — info palette (matches the dashboard "Incomplete by Status" tint) */
+.tp-incomplete-chip-on {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #93c5fd;
+}
+.tp-incomplete-chip-on:hover { background: #dbeafe; color: #1e3a8a; }
+
+/* Overdue chip — error palette (matches the row-level Overdue pill) */
 .tp-overdue-chip-on {
     background: #fef2f2;
     color: #dc2626;
@@ -397,22 +410,80 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 .tp-overdue-chip-on:hover { background: #fee2e2; color: #b91c1c; }
 
-/* Mobile: collapse the overdue pill to a compact red dot prefixing the title */
-@media (max-width: 640px) {
-    .tp-table-scroll .tp-badge-overdue {
-        font-size: 0;
+/* Sortable column header — DESIGN-SYSTEM.md §9.6.
+   Composes existing text + primary tokens; no new design tokens introduced. */
+.tp-sortable-th { padding: 0; }
+.tp-sortable-th .tp-sortable-link {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 10px 16px;
+    color: var(--tp-text-muted);
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.tp-sortable-th .tp-sortable-link:hover { color: var(--tp-text); background: #f0f0f5; }
+.tp-sortable-th .tp-sortable-link:focus-visible {
+    outline: 2px solid #9b90f8;
+    outline-offset: -2px;
+}
+.tp-sortable-th .tp-sortable-link i {
+    color: var(--tp-text-muted);
+    opacity: 0.6;
+    font-size: 11px;
+}
+.tp-sortable-th.tp-sortable-active .tp-sortable-link,
+.tp-sortable-th.tp-sortable-active .tp-sortable-link i {
+    color: var(--tp-text);
+    opacity: 1;
+}
+
+/* Mobile reflow: <table class="tp-table"> renders as a card-like CSS Grid stack below 640px.
+   Single DOM tree across all breakpoints (per WIREFRAMES Page 3 "Responsive Strategy" + the
+   ux-designer.md §6 mobile-first rule). This is the ONE bespoke media query for the table —
+   Bootstrap has no "table → card stack" utility (its .table-responsive adds horizontal scroll,
+   which violates WCAG 1.4.10). Column hiding for tablet/desktop uses Bootstrap d-none/d-{bp}-table-cell. */
+@media (max-width: 639.98px) {
+    /* Hide the column header row — the mobile Sort dropdown (.tp-mobile-sort-btn in the filter row)
+       replaces the click-to-sort affordance on phones. */
+    .tp-table thead {
+        display: none;
+    }
+    .tp-table,
+    .tp-table tbody {
+        display: block;
+        width: 100%;
+    }
+    .tp-table tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "title    status"
+            "priority due";
+        gap: 4px 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--tp-border);
+    }
+    .tp-table tr:last-child { border-bottom: none; }
+    .tp-table tr:hover td { background: transparent; }
+    .tp-table td {
+        display: block;
         padding: 0;
-        border: 0;
-        background: transparent;
+        border: none;
+        font-size: 14px;
+        min-height: 0;
     }
-    .tp-table-scroll .tp-badge-overdue::before {
-        content: '';
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #ef4444;
-    }
+    .tp-table td[data-label="Title"]    { grid-area: title; font-weight: 600; }
+    .tp-table td[data-label="Title"] a  { color: var(--tp-text); }
+    .tp-table td[data-label="Status"]   { grid-area: status; justify-self: end; }
+    .tp-table td[data-label="Priority"] { grid-area: priority; }
+    .tp-table td[data-label="Due"]      { grid-area: due; justify-self: end; color: var(--tp-text-muted); }
+    /* Mobile Sort button reaches finger-friendly minimum tap-target per ux-designer.md §6. */
+    .tp-mobile-sort-btn { min-height: 44px; }
 }
 
 /* ===== TASK FORM / MODAL ===== */
@@ -939,7 +1010,9 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 .tp-sidebar-backdrop.active { display: block; }
 
-/* Horizontal scroll wrapper for tables */
+/* Horizontal scroll wrapper — used by Audit + Dashboard tables that haven't yet been
+   converted to the mobile-reflow pattern (see Tasks/Index.cshtml). New pages should NOT
+   wrap tables in .tp-table-scroll — let the table reflow at the .tp-table @media block. */
 .tp-table-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;

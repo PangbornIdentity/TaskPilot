@@ -7,6 +7,71 @@
 
 ---
 
+## 2026-05-01 — Tasks page polish: view/filter separation + sortable column headers (v1.11)
+
+### Design + Fix | Mobile-first responsive Tasks list (single DOM, CSS Grid + Bootstrap utilities)
+
+- **Regression caught in local verification**: after the sortable-headers work landed, the Tasks list rendered a horizontal scrollbar at every viewport ≤768 px (table min-width ~718 px, no responsive collapse). The earlier v1.7 mobile work had wrapped the table in `.tp-table-scroll` (`overflow-x: auto`) — a workaround that violates WCAG 1.4.10 (Reflow) and pushed the actual responsive design to "later." This release does the actual responsive work.
+- **`.claude/agents/ux-designer.md`**: added §6 "Mobile-First & Touch Requirements" — explicit 44 px minimum tap targets, 8 px gap between adjacent targets, thumb-zone reachability, and a hard rule to "prefer Bootstrap utilities + CSS Grid over bespoke `@media` rules" with breakpoint-mapping documentation. Also added a Reflow rule to §5 making `overflow-x: auto` an anti-pattern at mobile widths. Closes the gap that produced the agent's first spec, which proposed a parallel desktop-table + mobile-cards rendering path instead of leveraging Bootstrap.
+- **`WIREFRAMES.md` Page 3**: replaced the parallel mobile/tablet sections with a mobile-first "Responsive Strategy" subsection — single `<table class="tp-table">` at every breakpoint, Bootstrap `d-none d-md-table-cell` / `d-lg-table-cell` for column hiding, and ONE justified `@media` block for the mobile CSS Grid `<tr>` reflow. Per-column visibility table documents which columns are hidden at which breakpoint and why. Bootstrap → TaskPilot breakpoint mapping (640/1024 vs Bootstrap's 576/768/992) is documented in-line.
+- **`src/Pages/Tasks/Index.cshtml`**: removed the `.tp-table-scroll` wrapper. Added `d-none d-md-table-cell` to Area / Tags / Edit columns and `d-none d-lg-table-cell` to Type. Refactored `SortableHeader` Razor helper to take an `extraClasses` parameter so the Bootstrap utility classes propagate from `<th>` to the matching column header (inactive chevron stays hidden — only the active sort column shows asc/desc). Added a 44 px Bootstrap `dropdown` Sort button visible only `d-md-none` — same `?sortBy=…&sortDir=…` URL params as the column-header click, so one URL contract drives two surfaces. Each `<td>` got a `data-label` attribute used by the mobile Grid layout for `grid-area` placement.
+- **CSS** (`src/wwwroot/css/app.css`): replaced the obsolete "mobile pill collapse" media query (which assumed the now-removed `.tp-table-scroll` wrapper) with a single `@media (max-width: 639.98px)` block that flips `<table>`/`<tr>`/`<td>` to `display: block`/`grid`/`block`, hides `<thead>`, and uses `grid-template-areas: "title status" "priority due"` so each row reads as a 2-line card. The `.tp-table-scroll` rule itself stays — it's still used by Audit + Dashboard tables that haven't been converted yet (a comment marks it as "do not use on new pages").
+- **Tests** (`tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs`): updated both responsive guards. The single-fact desktop-width test and the parameterized 10-viewport `Theory` (320/375/414/540/640/768/900/1024/1280/1440 px) now assert against `document.documentElement.scrollWidth <= window.innerWidth + 1` — the actual WCAG 1.4.10 signal, not the (now-removed) wrapper width. All 10 parameterized cases now pass green; previously 6/10 failed at mobile/tablet widths.
+- Files affected: `.claude/agents/ux-designer.md`, `WIREFRAMES.md`, `src/Pages/Tasks/Index.cshtml`, `src/wwwroot/css/app.css`, `tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs`
+
+### Design | Decoupled display mode from incomplete filter; specified sortable column header component
+
+- **WIREFRAMES.md**: Page 3 view toggle reverts to `List | Board`; Incomplete moves into the filter row alongside Overdue. New "Sortable column headers" section covers anatomy, three states (asc / desc / none), iconography (`bi-chevron-up` / `bi-chevron-down` / `bi-chevron-expand`), aria-sort, focus ring, tap-target size, and per-breakpoint behaviour. Mobile (≤640px) drops to a `Sort▼` bottom-sheet since the row renders as a card stack, not a table. Page 4 (Board) gains a "Composition with the Incomplete chip" paragraph: when chip is on, the kanban renders only `Not Started` / `In Progress` / `Blocked` columns; Completed and Cancelled are hidden entirely.
+- **USER-FLOWS.md**: Flows 15 + 16 URLs migrate from `view=incomplete` to `incomplete=true`. New Flow 18 walks through the column-header click cycle (asc → desc → none) including keyboard, screen-reader, and mobile fallback.
+- **DESIGN-SYSTEM.md** §9.6 (new): Sortable Column Header component spec — anatomy, state matrix, tokens used (none new — composes existing text + primary-300 focus tokens), full a11y rules.
+- Files affected: `WIREFRAMES.md`, `USER-FLOWS.md`, `DESIGN-SYSTEM.md`
+
+### Feature | Incomplete chip + sortable column headers
+
+- **`Pages/Tasks/Index.cshtml.cs`**: `OnGetAsync` accepts new params `bool incomplete`, `string? sortBy`, `string? sortDir`. `View` is now display-mode only (`list` or `board`) — never `incomplete`. `SortBy`/`SortDir` are nullable on the model so the page can distinguish "URL set this column explicitly" (header is lit, click cycles) from "no sortBy in URL" (default sort active, no header is lit). When the Incomplete chip is on AND the view is `board`, the kanban map drops the `Completed`/`Cancelled` columns entirely.
+- **`Pages/Tasks/Index.cshtml`**: View toggle is two segments (`List | Board`). New Incomplete chip in the filter row (info palette) sits alongside the Overdue chip (error palette); both are toggle buttons with `aria-pressed` and submit the form to flip their boolean URL param. New `SortableHeader` helper renders each sortable `<th>` with a chevron icon (`bi-chevron-expand` inactive @ 60% opacity / `bi-chevron-up` active asc / `bi-chevron-down` active desc), proper `aria-sort` value, and an `<a>` whose href cycles asc → desc → none (none clears `sortBy`/`sortDir` from the URL entirely). The `FilterRoute` helper grew a tri-state `sortOverride` parameter (`null` = preserve, `("col","dir")` = set, `("","")` = clear) and now emits `incomplete=true`/`overdue=true` as lowercase string literals so URLs stay tidy regardless of `Url.Page`'s default Boolean serialization (TitleCase).
+- **`Pages/Index.cshtml`**: dashboard drill-through URLs migrated from `view=incomplete&...` to `incomplete=true&...` (Incomplete-by-Status sub-tiles, Overdue card click-through).
+- **`Repositories/TaskRepository.cs`**: `GetPagedAsync` sort switch extended with `title`, `area`, `type` (via `TaskType.Name`), and `status` cases. Each new branch adds `ThenBy(SortOrder)` for stable pagination. The `targetdate` branch now sorts nulls-last in BOTH directions (previous code put nulls first on desc); a unit test guards this. Fall-through branch (no explicit `SortBy`) retains the prior priority-based default.
+- **CSS** (`wwwroot/css/app.css`): `.tp-chip-toggle` base class, `.tp-incomplete-chip-on` (info palette), `.tp-overdue-chip-on` (error palette, kept), `.tp-sortable-th` + `.tp-sortable-link` + `.tp-sortable-active` (anchor styling, chevron icon coloring, focus ring). All composed from existing `--tp-text` / `--tp-text-muted` tokens — no new design tokens.
+- **Back-compat note**: per the user's call, the legacy `?view=incomplete` URL is **not** preserved as a shim. Any external bookmarks pointing at it will land on a list view with no Incomplete filter applied — the user confirmed this is acceptable since no one had bookmarked these URLs.
+- Files affected: `src/Pages/Tasks/Index.cshtml(.cs)`, `src/Pages/Index.cshtml`, `src/Repositories/TaskRepository.cs`, `src/wwwroot/css/app.css`
+
+### Test | Unit + integration + E2E coverage
+
+- **Unit (`tests/TaskPilot.Tests.Unit/Services/TaskRepositoryFilterTests.cs`)**: 6 new tests (`U-TR-010..015`) — title asc, title desc, status by enum, area by enum, type by `TaskType.Name`, and the targetdate-nulls-always-last regression. The nulls-last test would have failed against the previous repo code; ships as a regression guard.
+- **Integration**: 91/91 non-smoke pass; no integration test changes were required (existing `?includeOnlyIncomplete=true` API tests still pass — the API surface name is unchanged; the `incomplete` query param is page-specific).
+- **E2E** (`tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs`, `Dashboard/DashboardTests.cs`): URL migrations in 3 existing tests (Dashboard sub-tile click, Overdue card click, `TasksPage_IncompleteView_FiltersOutCompletedAndCancelled`); 4 new tests covering `IncompleteChip` toggle, `BoardView+Incomplete` column hiding, column-header click cycle (`asc → desc → none`), and filter preservation across header clicks. The existing `TasksPage_IncompleteView_FiltersOutCompletedAndCancelled` had its assertion flipped from "Status select is hidden" to "Status select stays visible" matching the new design.
+- 83/83 E2E pass against a live `localhost:5125`.
+- Suite-wide: 172 unit + 91 integration + 83 E2E = **346 passing tests**, up from 330 in v1.10.
+
+### Docs | Release Checklist
+
+- `CHANGELOG.md` (this entry)
+- `src/app-changelog.json` — new top entry for v1.11 with user-language summaries (will sort above v1.10 once PR A's SemVer fix lands)
+- `src/TaskPilot.csproj` — `<Version>` bumped to `1.11.0` (minor — new user-visible behaviour)
+- `README.md` — query-params table for `GET /tasks` updated for new `sortBy` values (`title`, `area`, `type`, `status`)
+- `REQUIREMENTS.md` §4.2 — view toggle text updated, Incomplete reframed as a filter not a view, sort-on-header behaviour described
+- `ARCHITECTURE.md` §3.1 — query-param table refreshed
+
+---
+
+## 2026-05-01 — Fix changelog page SemVer sort (v1.10.1)
+
+### Fix | ChangelogService sorts versions numerically, not lexicographically
+
+- **Bug**: `src/Services/ChangelogService.cs` used `OrderByDescending(v => v.Version, StringComparer.OrdinalIgnoreCase)`. With ordinal string comparison, `"1.10" < "1.8"` (char index 2: `'1'` (0x31) < `'8'` (0x38)). After the v1.10 release shipped via PR #1, the in-app `/changelog` page kept showing v1.8 at the top of the version list. Latent since the changelog system shipped in v1.8 — only became visible the moment we crossed `1.9 → 1.10`.
+- **Fix**: introduced `ParseSemVer(string)` returning a `(int Major, int Minor, int Patch, string Raw)` tuple. C# tuples compare element-by-element, so `(1, 10, 0, "1.10") > (1, 8, 0, "1.8")` numerically. Malformed segments fall back to `0` so a typo'd entry doesn't throw — it just sorts after well-formed entries.
+- **Test**: 4 new unit tests in `ChangelogServiceTests.cs` (`U-CL-005..008`) — explicitly cover the 1.10 vs 1.8 case, three-segment 1.10.10 vs 1.10.1 vs 1.10.0, malformed-segment tolerance, and `GetLatest()` picking the highest SemVer rather than the lex-largest. The 1.10-vs-1.8 test would have failed against the previous code, confirming it's a regression test.
+- Files affected: `src/Services/ChangelogService.cs`, `tests/TaskPilot.Tests.Unit/Services/ChangelogServiceTests.cs`
+
+### Docs | Release Checklist artifacts updated
+
+- `CHANGELOG.md` (this entry)
+- `src/app-changelog.json` — entry for v1.10.1 inserted between v1.11 and v1.10 (the user-facing release notes)
+- `src/TaskPilot.csproj` — superseded by the v1.11 bump in the consolidated PR; the patch (1.10.1) was rolled into 1.11.0 since both ship together
+
+---
+
 ## 2026-05-01 — Incomplete view (with Overdue) + Tag editing in Settings (v1.10)
 
 ### Design | Wireframes, flows, and design-system additions for the new surfaces

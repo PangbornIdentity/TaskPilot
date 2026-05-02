@@ -343,7 +343,7 @@ All endpoints: `Content-Type: application/json`, wrapped in the standard respons
 
 | Method | Endpoint | Auth | Request | Success Response | Error Codes |
 |--------|----------|------|---------|-----------------|-------------|
-| GET | /api/v1/tasks | Cookie or ApiKey | Query: `TaskQueryParams` (incl. `view`/`status`/`area`/`priority`/`taskTypeId`/`tagIds`/`search`/`page`/`pageSize`/`sortBy`/`sortDir`/**`includeOnlyIncomplete`**/**`overdueOnly`**) | 200 `ApiListResponse<TaskResponse>` | 401 |
+| GET | /api/v1/tasks | Cookie or ApiKey | Query: `TaskQueryParams` — `status`/`area`/`priority`/`taskTypeId`/`tagIds`/`search`/`page`/`pageSize`/`sortBy` (one of `title`/`area`/`type`/`priority`/`status`/`targetDate`/`createdDate`/`lastModifiedDate`)/`sortDir`/`includeOnlyIncomplete`/`overdueOnly` | 200 `ApiListResponse<TaskResponse>` | 401 |
 | GET | /api/v1/tasks/{id} | Cookie or ApiKey | — | 200 `ApiResponse<TaskResponse>` | 401, 404 |
 | POST | /api/v1/tasks | Cookie or ApiKey | `CreateTaskRequest` | 201 `ApiResponse<TaskResponse>` | 400, 401 |
 | PUT | /api/v1/tasks/{id} | Cookie or ApiKey | `UpdateTaskRequest` | 200 `ApiResponse<TaskResponse>` | 400, 401, 404 |

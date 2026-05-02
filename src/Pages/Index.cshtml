@@ -31,7 +31,7 @@
         <div class="tp-stat-value">@Model.Stats?.CompletedToday</div>
     </div>
     <a class="tp-stat-card danger tp-stat-card-link"
-       href="/tasks?view=incomplete&overdue=true"
+       href="/tasks?incomplete=true&overdue=true"
        aria-label="Overdue tasks: @Model.Stats?.Overdue. Open the incomplete view filtered to overdue.">
         <div class="tp-stat-label">Overdue</div>
         <div class="tp-stat-value">@Model.Stats?.Overdue</div>
@@ -67,21 +67,21 @@
         <div class="tp-card-body p-0">
             <div class="tp-incomplete-grid">
                 <a class="tp-incomplete-tile tp-incomplete-tile-not-started"
-                   href="/tasks?view=incomplete&status=NotStarted"
+                   href="/tasks?incomplete=true&status=NotStarted"
                    aria-label="Open the incomplete view filtered to Not Started: @(incomplete?.NotStarted ?? 0) task(s)">
                     <div class="tp-incomplete-tile-label">Not Started</div>
                     <div class="tp-incomplete-tile-count" aria-live="polite">@(incomplete?.NotStarted ?? 0)</div>
                     <div class="tp-incomplete-tile-arrow"><i class="bi bi-arrow-right"></i></div>
                 </a>
                 <a class="tp-incomplete-tile tp-incomplete-tile-in-progress"
-                   href="/tasks?view=incomplete&status=InProgress"
+                   href="/tasks?incomplete=true&status=InProgress"
                    aria-label="Open the incomplete view filtered to In Progress: @(incomplete?.InProgress ?? 0) task(s)">
                     <div class="tp-incomplete-tile-label">In Progress</div>
                     <div class="tp-incomplete-tile-count" aria-live="polite">@(incomplete?.InProgress ?? 0)</div>
                     <div class="tp-incomplete-tile-arrow"><i class="bi bi-arrow-right"></i></div>
                 </a>
                 <a class="tp-incomplete-tile tp-incomplete-tile-blocked"
-                   href="/tasks?view=incomplete&status=Blocked"
+                   href="/tasks?incomplete=true&status=Blocked"
                    aria-label="Open the incomplete view filtered to Blocked: @(incomplete?.Blocked ?? 0) task(s)">
                     <div class="tp-incomplete-tile-label">Blocked</div>
                     <div class="tp-incomplete-tile-count" aria-live="polite">@(incomplete?.Blocked ?? 0)</div>

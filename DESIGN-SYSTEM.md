@@ -13,7 +13,7 @@
 6. [Motion & Animation](#6-motion--animation)
 7. [Iconography](#7-iconography)
 8. [Component Tokens](#8-component-tokens)
-9. [New Feature Components](#9-new-feature-components) ← Tag Pill, Area Segmented Control, TaskType Dropdown, Overdue Indicator, Incomplete by Status Card
+9. [New Feature Components](#9-new-feature-components) ← Tag Pill, Area Segmented Control, TaskType Dropdown, Overdue Indicator, Incomplete by Status Card, Sortable Column Header
 10. [UI Component Library Decision](#10-ui-component-library-decision)
 11. [Accessibility Requirements](#11-accessibility-requirements)
 
@@ -743,6 +743,71 @@ Dashboard card showing three sub-tile counts (Not Started / In Progress / Blocke
 - Tap target ≥ 56px tall on mobile (exceeds 44px AA minimum)
 - `aria-live="polite"` on each count announces changes after tasks are completed in a sibling tab
 - Color tinting is decorative — labels carry the meaning, never color-alone
+
+---
+
+### 9.6 Sortable Column Header (composition — no new tokens)
+
+The Tasks list view's column headers (`<th>` elements) are interactive: click cycles `unsorted → asc → desc → unsorted`. Used by Flow 18. Composes existing iconography and text tokens — does NOT introduce a new color or component token.
+
+#### Anatomy
+
+```
+┌────────────────────────────────┐
+│  Priority  ⌃                   │   ← active asc (label + bi-chevron-up, primary)
+└────────────────────────────────┘
+┌────────────────────────────────┐
+│  Priority  ⌄                   │   ← active desc (label + bi-chevron-down, primary)
+└────────────────────────────────┘
+┌────────────────────────────────┐
+│  Priority  ⇅                   │   ← inactive but sortable (label + bi-chevron-expand, tertiary @60%)
+└────────────────────────────────┘
+┌────────────────────────────────┐
+│  Tags                          │   ← non-sortable (no chevron, default <th>)
+└────────────────────────────────┘
+```
+
+- The entire `<th>` cell is the click target. Markup: either a `<button type="button">` wrapping the label + chevron, OR the `<th>` itself with `role="columnheader" aria-sort="…"` + a click handler. Either is acceptable — pick whichever the implementer finds cleaner. Both are keyboard-activatable.
+- Chevron icon sits to the right of the label, with 4px gap, vertically centered.
+- Header cell padding stays consistent with the existing `tp-table th` (10px vertical, 16px horizontal).
+
+#### States
+
+| State | Chevron icon | Chevron color | Label color | `aria-sort` |
+|-------|--------------|---------------|-------------|-------------|
+| Inactive (sortable) | **none** (no chevron rendered) | n/a | `--color-text-secondary` (existing) | `none` |
+| Active asc | `bi-chevron-up` | `--color-text-primary` | `--color-text-primary` | `ascending` |
+| Active desc | `bi-chevron-down` | `--color-text-primary` | `--color-text-primary` | `descending` |
+| Hover (sortable, inactive) | none → none | n/a | bumps to `--color-text-primary` (signals clickability) | unchanged |
+| Focus (keyboard) | unchanged | unchanged | unchanged | unchanged + visible focus ring |
+| Non-sortable (`Tags` column, trailing actions column) | none | n/a | `--color-text-secondary` | omitted entirely |
+
+> **Why no inactive chevron** (decided in v1.11 hotfix): rendering `bi-chevron-expand` on every inactive sortable header added ~15 px per column. With six sortable columns that's ~90 px on top of an already-wide eight-column table, which pushed `.tp-table-scroll` into horizontal-scroll mode at desktop widths the table previously fit. The active asc/desc chevron on the lit column is a strong-enough sort signal; cursor-pointer + label-color hover handles the "click me" affordance for the inactive ones. Two Playwright tests guard the regression: `TasksPage_ListView_DoesNotOverflowHorizontallyAtDesktopWidth` and `TasksPage_InactiveSortableHeader_HasNoChevronIcon`.
+
+- Cursor `pointer` on sortable headers; default cursor on non-sortable.
+- Focus ring uses `--color-primary-300` outset 2px to match other focusable elements in the table area.
+
+#### Tokens used
+
+- Icons: `bi-chevron-up`, `bi-chevron-down`, `bi-chevron-expand` (Bootstrap Icons, already loaded)
+- Text colors: existing `--color-text-primary`, `--color-text-secondary`, `--color-text-tertiary`
+- Focus: existing `--color-primary-300`
+- No new tokens introduced.
+
+#### Accessibility
+
+- `aria-sort` on the active header cell ("ascending" / "descending"); inactive sortable cells have `aria-sort="none"`. Non-sortable cells omit the attribute entirely.
+- `aria-label` on the click target updates with state, e.g.:
+  - Inactive: `"Sort by Priority"`
+  - Active asc: `"Sort by Priority, currently ascending. Click to sort descending."`
+  - Active desc: `"Sort by Priority, currently descending. Click to remove sort."`
+- Keyboard: Tab focuses each sortable header in document order; Enter or Space activates the cycle; Escape does nothing (no modal context).
+- Tap target ≥ 32px tall on mobile (the entire `<th>` row is the target). On viewports where the table is replaced by a card stack (≤640px), this component is **not used** — Flow 18 falls back to a `Sort▼` button + bottom-sheet.
+- Color is decorative — `aria-sort` and the chevron shape carry the meaning. Never color-alone.
+
+#### Variants
+
+- None at the component level. Three states (asc / desc / none) cover all behaviour.
 
 ---
 

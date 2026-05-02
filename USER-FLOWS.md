@@ -432,9 +432,9 @@
    - `In Progress — 4`
    - `Blocked   — 2`
 4. User clicks the **Blocked** sub-tile (it's the smallest count and feels like "what needs unsticking first")
-5. **System:** Navigates to `/tasks?view=incomplete&status=Blocked`
-6. The Tasks page loads with the **Incomplete** view toggle active and the **Status** filter pre-set to `Blocked`. Header reads "2 tasks found".
-7. The page shows a flat single-column list (no kanban columns, no status group headers — every visible row is incomplete). Sort is `priority desc, then targetDate asc nulls-last`.
+5. **System:** Navigates to `/tasks?incomplete=true&status=Blocked`
+6. The Tasks page loads with the **Incomplete** filter chip lit (`aria-pressed="true"`) and the **Status** dropdown pre-set to `Blocked`. Header reads "2 tasks found". The view-mode toggle stays at whatever the user had it at — list (default) or board.
+7. On `list` view: a flat single-column list of the two Blocked tasks. Default sort is priority asc (Critical → Low) then targetDate asc nulls-last. Clickable column headers (Title, Area, Type, Priority, Status, Due) re-sort the list — see Flow 18.
 8. User reviews the two blocked tasks. They click into one, write a comment in the description, change status to `InProgress`, and save.
 9. User uses browser **back** to return to the Dashboard. The Incomplete card recounts: `Not Started — 8`, `In Progress — 5`, `Blocked — 1`. `aria-live="polite"` announces the In Progress and Blocked counts changing.
 
@@ -453,13 +453,13 @@
 1. User lands on **Dashboard**
 2. The existing **Overdue** summary card (in the Summary Cards row) shows `Overdue — 7`. The card visibly looks clickable now (the cursor changes to pointer on hover; the card border deepens). `aria-label="Overdue tasks: 7. Open the incomplete view filtered to overdue."`
 3. User clicks the Overdue card
-4. **System:** Navigates to `/tasks?view=incomplete&overdue=true`
-5. The Tasks page loads with the **Incomplete** view toggle active and the **Overdue** chip in the filter bar in its "on" state (filled `--color-error-bg` background, label "⚠ Overdue"). `aria-pressed="true"`. Header reads "7 tasks found".
+4. **System:** Navigates to `/tasks?incomplete=true&overdue=true`
+5. The Tasks page loads with both the **Incomplete** chip and the **Overdue** chip lit (filled `--color-info-bg` and `--color-error-bg` respectively, both `aria-pressed="true"`). Header reads "7 tasks found". View-mode toggle unchanged from the user's previous preference.
 6. Each row in the list shows the row-level **Overdue** pill to the right of its target date (background `--color-error-bg`, text "Overdue"). On mobile, the pill collapses to a small red dot prefixing the title with `<sr-only>Overdue</sr-only>`.
 7. User picks the task with the earliest target date, opens it, sets a new target date, saves, and returns
 8. The row is no longer overdue, so it disappears from the filtered list. Header recounts to "6 tasks found". `aria-live` announces the new total.
-9. User toggles the Overdue chip off. URL updates to `/tasks?view=incomplete`. The list expands to all 14 incomplete tasks. The Overdue pills disappear from the rows that are no longer in the past.
-10. User clicks **Clear filters** to return to the default tasks page
+9. User toggles the Overdue chip off. URL updates to `/tasks?incomplete=true`. The list expands to all 14 incomplete tasks. The Overdue pills disappear from the rows that are no longer in the past.
+10. User clicks **Clear filters** to return to the default tasks page (chips off, no status, no area).
 
 **Edge cases:**
 - Zero overdue items: Incomplete view with Overdue chip on shows the empty state "Nothing overdue. Nice." (instead of the generic "No incomplete tasks match these filters.").
@@ -470,9 +470,12 @@
 **URL parameter mapping:**
 | Filter | URL param | Value |
 |--------|-----------|-------|
-| View: incomplete | `?view=incomplete` | mode toggle |
-| Overdue only | `?overdue=true` | boolean (omitted = false) |
-| Status sub-filter (from dashboard drill-through) | `?view=incomplete&status=Blocked` | enum, intersects with the incomplete set |
+| View: list / board | `?view=list` / `?view=board` | display mode (defaults to `list`) |
+| Incomplete filter | `?incomplete=true` | boolean (omitted = false) — restricts status to NotStarted/InProgress/Blocked |
+| Overdue filter | `?overdue=true` | boolean (omitted = false) — restricts to past `TargetDate` non-null AND incomplete status |
+| Status sub-filter (from dashboard drill-through) | `?incomplete=true&status=Blocked` | enum, intersects with the incomplete set |
+
+**Back-compat (one-release shim, deprecated):** old URLs that still use `?view=incomplete` continue to work — the page model treats them as `?incomplete=true&view=list` and emits a deprecation log. Bookmarks and shared links from earlier releases will not break. The shim is retained for at least one minor release.
 
 ---
 
@@ -504,6 +507,35 @@
 - **Unsaved changes + click another ✎**: prompts via `confirm()` "Discard unsaved changes?" before opening the new edit row
 - **Concurrent rename in another tab**: standard last-write-wins; the older tab will get a stale view until refresh — out of scope for this release
 - **Keyboard-only path**: Tab into chip → Tab to ✎ → Enter → focus moves to Name → edit → Tab to swatches → arrow keys to pick → Tab to Save → Enter
+
+---
+
+## Flow 18: Sort the Task List by Clicking a Column Header
+
+**Trigger:** User is on the Tasks list view and wants to find the highest-priority overdue work, or the most recently created tasks, etc. The default sort isn't what they need this time.
+
+1. User is on `/tasks` (list view) with the default sort active. Header columns: Title, Area, Type, Priority, Status, Due, Tags, (edit). The first six columns each show a faint expand-chevron (`bi-chevron-expand`, `--color-text-tertiary` at 60% opacity) next to their label, indicating they're clickable. Tags is plain (multi-valued, not sortable).
+2. User clicks the **Due** column header.
+3. **System:** Updates the URL to `/tasks?sortBy=targetdate&sortDir=asc` (preserving any active filters). The page reloads. The Due column header now shows `bi-chevron-up` in `--color-text-primary` and reads `aria-sort="ascending"`. All other sortable headers' chevrons remain in the inactive 60%-opacity state. The list reorders by `TargetDate` ascending, with null target dates sorted last.
+4. User wants to flip — they click **Due** again.
+5. **System:** URL updates to `?sortBy=targetdate&sortDir=desc`. Chevron flips to `bi-chevron-down`. `aria-sort="descending"`. List reorders.
+6. User wants to clear the sort and return to default. They click **Due** a third time.
+7. **System:** URL drops both `sortBy` and `sortDir`. Chevron returns to the inactive expand-chevron. `aria-sort="none"`. List sort returns to the page default (priority + sortOrder for plain list; priority + targetDate-nulls-last + sortOrder when the Incomplete chip is on).
+8. User clicks the **Title** header instead → list re-sorts alphabetically asc.
+9. User had **Area: Work**, **Type: Meeting**, and **Tags: project-alpha** active before sorting. Clicking any header keeps all three filters on (the URL preserves them). Header chevron now reads asc/desc/none for the active column only.
+
+**Edge cases:**
+- Mobile (≤640px): the table renders as card stack rows, not a table — column headers do not exist. A `Sort▼` button at the top of the list opens a bottom-sheet with the same six options (Title/Area/Type/Priority/Status/Due) and an asc/desc toggle.
+- Keyboard: each sortable header is reachable by Tab. Enter or Space activates the cycle (asc → desc → none). Visible focus ring uses `--color-primary-300` outset 2px.
+- Screen reader: the active header announces "Sort by Due, ascending. Click to sort descending." `aria-label` text changes with each click.
+- The trailing edit-button column has no header label and no chevron — non-interactive header cell.
+
+**URL parameter mapping:**
+| Sort | URL param | Value |
+|------|-----------|-------|
+| Sort by | `?sortBy=…` | one of `title`, `area`, `type`, `priority`, `status`, `targetdate`, `createddate`, `lastmodifieddate` (the first six are exposed via column-header clicks; the latter two are reachable via the desktop `Sort▼` menu and the mobile sheet) |
+| Sort direction | `?sortDir=asc` / `?sortDir=desc` | omitted = default |
+| Default sort | (`sortBy` omitted) | priority asc + sortOrder asc; or priority asc + targetDate-nulls-last + sortOrder when `?incomplete=true` |
 
 ---
 

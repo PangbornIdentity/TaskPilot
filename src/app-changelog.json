@@ -1,6 +1,30 @@
 {
   "versions": [
     {
+      "version": "1.11",
+      "releaseDate": "2026-05-01",
+      "versionType": "minor",
+      "summary": "Tasks page polish: separate view from filter, sortable column headers, properly responsive on phones and tablets",
+      "changes": [
+        { "type": "Improvement", "description": "View toggle on the Tasks page is now display-mode only (List or Board). The 'Incomplete' option moved to a filter chip alongside Overdue — it composes with both views and with all other filters. Board view + Incomplete chip drops the Completed and Cancelled columns so you see only what's open, in kanban form." },
+        { "type": "Feature", "description": "Click any column header in the list view to sort by that column. The cycle is unsorted → ascending → descending → unsorted. Active column shows an up/down chevron and screen readers hear an aria-sort announcement on every state change. Sortable: Title, Area, Type, Priority, Status, Due. Tags is intentionally not sortable (multi-valued)." },
+        { "type": "Improvement", "description": "Sort and all active filters are preserved when you toggle list/board, switch areas, or click a column header — no more silent drops when changing one filter." },
+        { "type": "Improvement", "description": "Status dropdown is always visible — previously it was hidden in 'incomplete view' mode, which made it impossible to drill from a per-status dashboard tile to a single-status incomplete list." },
+        { "type": "Fix", "description": "Dashboard sub-tile and Overdue card drill-throughs now use ?incomplete=true&… instead of ?view=incomplete&… — old URLs no longer work but no one had bookmarked them." },
+        { "type": "Fix", "description": "Tasks list no longer overflows horizontally at standard desktop widths. The new sortable column headers were rendering an inactive chevron next to every label, which added ~90px to the table width across six columns. Inactive chevrons are now hidden — only the active sort column shows an up/down arrow. Cursor-pointer plus a hover color change still signals clickability on the other headers." },
+        { "type": "Fix", "description": "Tasks list is properly responsive on phones and tablets — no more horizontal scrollbar at any width from 320px (iPhone SE) up. The list reflows into a 2-line card layout below 640px (title + status on top, priority + due date underneath, with a Sort ▼ button replacing the desktop column headers). On tablets, less-essential columns (Area, Type, Tags) hide automatically; on desktop everything stays visible. Built on Bootstrap responsive utilities so column visibility lives in one place per cell. Verified by Playwright tests at 10 viewport widths from 320px through 1440px." }
+      ]
+    },
+    {
+      "version": "1.10.1",
+      "releaseDate": "2026-05-01",
+      "versionType": "patch",
+      "summary": "Changelog page now sorts versions numerically (1.10 above 1.8)",
+      "changes": [
+        { "type": "Fix", "description": "What's New / Changelog page sorts releases by version number, not alphabetically. Previously v1.10 appeared below v1.8 because '1.10' is lexicographically less than '1.8' — fixed by parsing each version into a (major, minor, patch) tuple and sorting numerically." }
+      ]
+    },
+    {
       "version": "1.10",
       "releaseDate": "2026-05-01",
       "versionType": "minor",
