@@ -1,8 +1,8 @@
 # TaskPilot
 
-A personal task management web app with a REST API for LLM clients (ChatGPT, Claude, Copilot, etc.).
+A personal task management web app with a REST API for LLM clients (ChatGPT, Claude, Copilot, etc.) and a native MCP server for direct agent integration (Claude Desktop, Claude.ai Projects).
 
-Built on .NET 10, Blazor WebAssembly, ASP.NET Core, Entity Framework Core, and MudBlazor.
+Built on .NET 10 with ASP.NET Core Razor Pages, htmx, Bootstrap 5, Entity Framework Core, and ApexCharts. No SPA framework, no client-side build pipeline — server-rendered by design.
 
 ---
 
@@ -26,14 +26,14 @@ dotnet restore
 The server requires an HMAC secret for API key hashing. Set it via `dotnet user-secrets`:
 
 ```bash
-cd src/TaskPilot.Server
+cd src
 dotnet user-secrets set "Hmac:SecretKey" "$(openssl rand -base64 32)"
 ```
 
 On Windows (PowerShell):
 
 ```powershell
-cd src/TaskPilot.Server
+cd src
 $key = [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
 dotnet user-secrets set "Hmac:SecretKey" $key
 ```
@@ -163,32 +163,33 @@ curl -X POST https://localhost:5001/api/v1/tasks \
 
 ## Project Structure
 
+Single flat ASP.NET Core project — no Server/Client/Shared split. Razor Pages render the UI directly from server state.
+
 ```
 TaskPilot/
-├── src/
-│   ├── TaskPilot.Server/        ASP.NET Core Web API host + Blazor WASM host
-│   │   ├── Auth/                ApiKeyAuthenticationHandler
-│   │   ├── Controllers/         Tasks, Tags, ApiKeys, Audit, Account
-│   │   ├── Data/                ApplicationDbContext, EF configurations
-│   │   ├── Entities/            TaskItem, Tag, ApiKey, ApiAuditLog, TaskActivityLog
-│   │   ├── Extensions/          DI registration, middleware registration
-│   │   ├── Middleware/          ApiAuditMiddleware, GlobalExceptionMiddleware
-│   │   ├── Repositories/        Generic + specialized repositories
-│   │   └── Services/            Task, Tag, ApiKey, Stats, Audit services
-│   ├── TaskPilot.Client/        Blazor WebAssembly
-│   │   ├── Components/          Reusable UI components
-│   │   ├── Pages/               Dashboard, Tasks, TaskDetail, Audit, Settings
-│   │   ├── Services/            HTTP clients, auth, toast, theme
-│   │   └── wwwroot/             Static assets
-│   └── TaskPilot.Shared/        DTOs, enums, validators (shared by Server + Client)
-│       ├── Constants/
-│       ├── DTOs/
-│       ├── Enums/
-│       └── Validators/
+├── src/                       (single project — TaskPilot.csproj)
+│   ├── Constants/             Shared constants
+│   ├── Controllers/           REST API: Tasks, Tags, ApiKeys, Audit, Health, etc.
+│   ├── Data/                  ApplicationDbContext, EF configurations
+│   ├── Diagnostics/           Health checks, build/version stamping
+│   ├── Entities/              TaskItem, Tag, ApiKey, ApiAuditLog, TaskActivityLog
+│   ├── Extensions/            DI registration, middleware registration
+│   ├── Mcp/                   Native MCP server (Model Context Protocol)
+│   ├── Middleware/            ApiAuditMiddleware, GlobalExceptionMiddleware
+│   ├── Migrations/            EF Core migrations (Azure SQL targeted)
+│   ├── Models/                DTOs, request/response models, validators
+│   ├── Pages/                 Razor Pages — Index (Dashboard), Tasks, Settings,
+│   │                          Audit, Integrations, Health, Changelog, Auth
+│   ├── Repositories/          Generic + specialized repositories
+│   ├── Services/              Task, Tag, ApiKey, Stats, Audit, Changelog services
+│   ├── wwwroot/               Static assets — css/app.css, lib/ (Bootstrap, htmx,
+│   │                          ApexCharts, Bootstrap Icons), favicon
+│   ├── Program.cs             Composition root
+│   └── app-changelog.json     User-facing release notes (consumed by /changelog)
 └── tests/
-    ├── TaskPilot.Tests.Unit/        xUnit + Moq + bUnit
+    ├── TaskPilot.Tests.Unit/        xUnit + Moq + in-memory EF
     ├── TaskPilot.Tests.Integration/ xUnit + WebApplicationFactory
-    └── TaskPilot.Tests.E2E/         Playwright for .NET (iteration 2)
+    └── TaskPilot.Tests.E2E/         Playwright for .NET (live localhost:5125)
 ```
 
 ---
@@ -198,16 +199,18 @@ TaskPilot/
 | Layer | Technology |
 |-------|-----------|
 | Runtime | .NET 10, C# 13 |
-| Frontend | Blazor WebAssembly (hosted) |
-| UI Library | MudBlazor 9.2.0 |
-| Charts | Blazor-ApexCharts 6.1.0 |
-| Backend | ASP.NET Core 10 Web API |
-| Auth | ASP.NET Core Identity (cookie) + custom API key handler (HMAC-SHA256) |
+| Backend | ASP.NET Core 10 Razor Pages + REST controllers (single project) |
+| Frontend | Server-rendered Razor + htmx for partial updates — no SPA framework |
+| UI Library | Bootstrap 5 (loaded from `wwwroot/lib/`, no npm/build pipeline) |
+| Charts | ApexCharts (vanilla JS, loaded from `wwwroot/lib/`) |
+| Icons | Bootstrap Icons |
+| MCP | Native MCP server at `/mcp` (Claude Desktop, Claude.ai Projects, any MCP client) |
+| Auth | ASP.NET Core Identity (cookie) for the web UI + custom API key handler (HMAC-SHA256) for REST/MCP |
 | ORM | Entity Framework Core 10 |
-| Database | SQLite (iteration 1) |
+| Database | SQLite (development) / Azure SQL (production) |
 | Validation | FluentValidation |
 | Logging | Serilog |
-| Testing | xUnit + Moq + bUnit + WebApplicationFactory |
+| Testing | xUnit + Moq + WebApplicationFactory + Playwright for .NET |
 
 ---
 
@@ -276,19 +279,25 @@ az webapp deploy --name taskpilot --resource-group taskpilot-rg --src-path ./tas
 
 ---
 
-## Iteration 2 Roadmap
+## Roadmap
 
-The following are planned for iteration 2 (no code changes required — configuration only):
+Still planned (none currently shipped):
 
 | Feature | Notes |
 |---------|-------|
-| Azure App Service | Replace `dotnet run` with hosted deployment |
-| Azure SQL / PostgreSQL | Replace SQLite connection string |
-| Azure Key Vault | Replace `dotnet user-secrets` for `Hmac:SecretKey` |
-| Application Insights | Add Serilog sink |
-| GitHub Actions CI/CD | Build → test → deploy pipeline |
+| Azure Key Vault | Replace `dotnet user-secrets` / app settings for `Hmac:SecretKey` in production |
+| Application Insights | Add Serilog sink for production telemetry |
+| GitHub Actions CI/CD | Build → test → deploy pipeline (currently manual `dotnet publish` + `az webapp deploy`) |
 | Per-API-key rate limiting | Insertion point documented in ARCHITECTURE.md §4.8 |
-| Playwright E2E tests | `tests/TaskPilot.Tests.E2E/` scaffolded and ready |
+
+Already shipped (kept here as a record of recent milestones):
+
+- Azure App Service deployment (production at https://taskpilot.azurewebsites.net)
+- Azure SQL in production (SQLite remains for local development)
+- Playwright E2E suite — 95 tests against a live `localhost:5125`
+- Native MCP server at `/mcp` (v1.6) — connect Claude Desktop directly
+- Health & diagnostics page + post-deploy smoke script (`scripts/smoke.ps1`) (v1.8)
+- Mobile-responsive layout across all pages (v1.7) and the Tasks list specifically (v1.11)
 
 ---
 
