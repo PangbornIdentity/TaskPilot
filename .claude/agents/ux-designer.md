@@ -93,6 +93,35 @@ Document how every interactive element behaves:
 - Screen reader announcements for dynamic content (toasts, modals, drag results, filter changes, bulk actions)
 - Keyboard navigation order for every page
 - Reduced motion: honor `prefers-reduced-motion` — define which animations are suppressed
+- **Reflow (WCAG 1.4.10)**: NO horizontal scroll on any vertical-scrolling page at 320 px viewport width. A wrapper with `overflow-x: auto` is a workaround, not a design — specs that produce a workaround at mobile widths are rejected. Tables that don't fit must collapse to a stack/grid layout, not scroll.
+
+### 6. Mobile-First & Touch Requirements
+Mobile is not a fallback — it's the starting point. Every page spec MUST address mobile before desktop.
+
+**Tap targets**
+- Minimum **44×44 px** for any interactive element on mobile (WCAG 2.5.5, Apple HIG). Applies to buttons, chips, checkboxes, links in lists, sortable column headers, dropdown triggers — anything a finger taps.
+- Minimum **8 px gap** between adjacent tap targets so a thumb doesn't hit two at once.
+- Stacked-row patterns (cards, list items): the entire row should be tappable where it makes semantic sense, not just a tiny chevron at the end.
+
+**Thumb-zone reachability**
+- On phones, primary actions belong in the bottom third of the screen (the natural thumb arc), not pinned to the top.
+- Destructive actions stay AWAY from the bottom-right thumb-rest position (avoid accidental taps).
+- A persistent top bar is fine for nav/branding; the working actions (Save, Add, Filter, Sort) should reach the thumb on phones — bottom sheet, sticky bottom bar, or floating action button.
+
+**Layout strategy: prefer Bootstrap utilities + CSS Grid over bespoke media queries**
+- The app uses Bootstrap 5. **Use its responsive utilities first** (`d-none d-md-table-cell`, `d-md-none`, `col-12 col-md-6`, `g-2`, `gap-md-3`) before writing custom `@media` rules in `tp-*` classes.
+- For layouts that need to reflow without duplicating DOM, use **CSS Grid** with `grid-template-columns` + `grid-template-areas` so a single DOM tree responds at every breakpoint. Avoid parallel "desktop table + mobile cards" markup paths — they drift, double the test surface, and screen readers read both.
+- A new `@media` block on a `tp-*` class is a smell. Justify it in the spec if you reach for one.
+
+**Bootstrap breakpoints — align or override deliberately**
+- TaskPilot's design breakpoints are 640 / 1024. Bootstrap's defaults are 576/768/992/1200. When specs use `d-md-*` or similar, document which Bootstrap breakpoint maps to which TaskPilot breakpoint, OR specify an SCSS variable override.
+- Don't silently introduce a third set of breakpoints in custom CSS.
+
+**Mobile-first checklist for every page spec**
+1. Mobile (≤640 px) layout described first — no horizontal scroll, all primary actions thumb-reachable, all targets ≥44 px.
+2. Tablet (641–1024 px) layout described as a progressive enhancement of mobile.
+3. Desktop (≥1025 px) layout described last, as the densest variant.
+4. Single DOM tree across breakpoints (Grid + Bootstrap utilities) unless duplicating is genuinely simpler — and if so, explain why.
 
 ## Your Design Philosophy
 The user is a power user who values:

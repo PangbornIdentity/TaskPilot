@@ -775,12 +775,14 @@ The Tasks list view's column headers (`<th>` elements) are interactive: click cy
 
 | State | Chevron icon | Chevron color | Label color | `aria-sort` |
 |-------|--------------|---------------|-------------|-------------|
-| Inactive (sortable) | `bi-chevron-expand` | `--color-text-tertiary` @ 60% opacity | `--color-text-secondary` (existing) | `none` |
+| Inactive (sortable) | **none** (no chevron rendered) | n/a | `--color-text-secondary` (existing) | `none` |
 | Active asc | `bi-chevron-up` | `--color-text-primary` | `--color-text-primary` | `ascending` |
 | Active desc | `bi-chevron-down` | `--color-text-primary` | `--color-text-primary` | `descending` |
-| Hover (any sortable state) | unchanged icon | bumps to `--color-text-primary` | `--color-text-primary` | unchanged |
+| Hover (sortable, inactive) | none → none | n/a | bumps to `--color-text-primary` (signals clickability) | unchanged |
 | Focus (keyboard) | unchanged | unchanged | unchanged | unchanged + visible focus ring |
 | Non-sortable (`Tags` column, trailing actions column) | none | n/a | `--color-text-secondary` | omitted entirely |
+
+> **Why no inactive chevron** (decided in v1.11 hotfix): rendering `bi-chevron-expand` on every inactive sortable header added ~15 px per column. With six sortable columns that's ~90 px on top of an already-wide eight-column table, which pushed `.tp-table-scroll` into horizontal-scroll mode at desktop widths the table previously fit. The active asc/desc chevron on the lit column is a strong-enough sort signal; cursor-pointer + label-color hover handles the "click me" affordance for the inactive ones. Two Playwright tests guard the regression: `TasksPage_ListView_DoesNotOverflowHorizontallyAtDesktopWidth` and `TasksPage_InactiveSortableHeader_HasNoChevronIcon`.
 
 - Cursor `pointer` on sortable headers; default cursor on non-sortable.
 - Focus ring uses `--color-primary-300` outset 2px to match other focusable elements in the table area.

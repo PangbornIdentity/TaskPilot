@@ -181,6 +181,42 @@
         </button>
     </form>
 
+    @* Mobile Sort dropdown — visible only below md (Bootstrap 768). On tablet/desktop the
+       column header click handles sort; on mobile <thead> is hidden so this dropdown is the
+       only sort surface. Same URL params (?sortBy=…&sortDir=…), same reducer. *@
+    @if (!isBoard)
+    {
+        var sortLabels = new (string Col, string Dir, string Label)[]
+        {
+            ("title",      "asc",  "Title (A→Z)"),
+            ("title",      "desc", "Title (Z→A)"),
+            ("priority",   "asc",  "Priority (Critical→Low)"),
+            ("priority",   "desc", "Priority (Low→Critical)"),
+            ("status",     "asc",  "Status (A→Z)"),
+            ("targetdate", "asc",  "Due (earliest first)"),
+            ("targetdate", "desc", "Due (latest first)"),
+        };
+        var activeSortLabel = sortLabels.FirstOrDefault(s =>
+            string.Equals(s.Col, Model.SortBy, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(s.Dir, Model.SortDir, StringComparison.OrdinalIgnoreCase)).Label ?? "Default";
+        <div class="dropdown d-md-none">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle tp-mobile-sort-btn"
+                    type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                    aria-label="Sort tasks">
+                <i class="bi bi-arrow-down-up me-1"></i>Sort: @activeSortLabel
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="@Url.Page("/Tasks/Index", FilterRoute(sortOverride: ("", "")))">Default</a></li>
+                @foreach (var s in sortLabels)
+                {
+                    var isActive = string.Equals(s.Col, Model.SortBy, StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(s.Dir, Model.SortDir, StringComparison.OrdinalIgnoreCase);
+                    <li><a class="dropdown-item @(isActive ? "active" : "")"
+                           href="@Url.Page("/Tasks/Index", FilterRoute(sortOverride: (s.Col, s.Dir)))">@s.Label</a></li>
+                }
+            </ul>
+        </div>
+    }
     @* View toggle is display mode only: List | Board. Incomplete is a filter chip above. *@
     <div class="tp-view-toggle btn-group ms-auto" role="group">
         <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "list"))"
@@ -224,12 +260,11 @@
         else
         {
             <div class="tp-card">
-                <div class="tp-table-scroll">
                 <table class="tp-table">
                     <thead>
                         <tr>
                             @{
-                                Microsoft.AspNetCore.Html.IHtmlContent SortableHeader(string label, string column)
+                                Microsoft.AspNetCore.Html.IHtmlContent SortHeader(string label, string column, string extraClasses = "")
                                 {
                                     var (sortOverride, ariaSort, icon) = HeaderSortState(column);
                                     var href = Url.Page("/Tasks/Index", FilterRoute(sortOverride: sortOverride));
@@ -240,39 +275,43 @@
                                         "descending" => $"Sort by {label}, currently descending. Click to remove sort.",
                                         _ => $"Sort by {label}"
                                     };
-                                    var html = $@"<th aria-sort=""{ariaSort}"" class=""tp-sortable-th{(active ? " tp-sortable-active" : "")}"">
+                                    var iconHtml = active ? $@"<i class=""bi {icon} ms-1""></i>" : "";
+                                    var html = $@"<th aria-sort=""{ariaSort}"" class=""tp-sortable-th{(active ? " tp-sortable-active" : "")} {extraClasses}"">
     <a href=""{href}"" class=""tp-sortable-link"" aria-label=""{aLabel}"">
         <span>{System.Net.WebUtility.HtmlEncode(label)}</span>
-        <i class=""bi {icon} ms-1""></i>
+        {iconHtml}
     </a>
 </th>";
                                     return new Microsoft.AspNetCore.Html.HtmlString(html);
                                 }
                             }
-                            @SortableHeader("Title", "title")
-                            @SortableHeader("Area", "area")
-                            @SortableHeader("Type", "type")
-                            @SortableHeader("Priority", "priority")
-                            @SortableHeader("Status", "status")
-                            @SortableHeader("Due", "targetdate")
-                            <th>Tags</th>
-                            <th></th>
+                            @* Per WIREFRAMES Page 3 responsive table: Title/Priority/Status/Due always visible.
+                               Area + Tags + Edit hidden < md (768). Type hidden < lg (992). Mobile uses
+                               CSS-Grid reflow on the tr (see app.css .tp-table at @media max-width 639.98). *@
+                            @SortHeader("Title", "title")
+                            @SortHeader("Area", "area", "d-none d-md-table-cell")
+                            @SortHeader("Type", "type", "d-none d-lg-table-cell")
+                            @SortHeader("Priority", "priority")
+                            @SortHeader("Status", "status")
+                            @SortHeader("Due", "targetdate")
+                            <th class="d-none d-md-table-cell">Tags</th>
+                            <th class="d-none d-md-table-cell"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var task in Model.Tasks)
                         {
                             <tr>
-                                <td>
+                                <td data-label="Title">
                                     <a href="/tasks/@task.Id" class="text-decoration-none fw-medium">
                                         @task.Title
                                     </a>
                                 </td>
-                                <td>@Html.Raw(AreaBadge(task.Area))</td>
-                                <td><span class="text-muted small">@(task.TaskTypeName ?? "—")</span></td>
-                                <td>@Html.Raw(PriorityBadge(task.Priority))</td>
-                                <td>@Html.Raw(StatusBadge(task.Status))</td>
-                                <td>
+                                <td class="d-none d-md-table-cell" data-label="Area">@Html.Raw(AreaBadge(task.Area))</td>
+                                <td class="d-none d-lg-table-cell" data-label="Type"><span class="text-muted small">@(task.TaskTypeName ?? "—")</span></td>
+                                <td data-label="Priority">@Html.Raw(PriorityBadge(task.Priority))</td>
+                                <td data-label="Status">@Html.Raw(StatusBadge(task.Status))</td>
+                                <td data-label="Due">
                                     @if (task.TargetDate.HasValue)
                                     {
                                         var isOverdue = task.TargetDate.Value < nowUtc
@@ -285,13 +324,13 @@
                                         }
                                     }
                                 </td>
-                                <td>
+                                <td class="d-none d-md-table-cell" data-label="Tags">
                                     @foreach (var tag in task.Tags)
                                     {
                                         <span class="badge" style="background-color:@tag.Color;font-size:11px">@tag.Name</span>
                                     }
                                 </td>
-                                <td class="text-end">
+                                <td class="d-none d-md-table-cell text-end">
                                     <a href="/tasks/@task.Id" class="btn btn-sm btn-outline-secondary">
                                         <i class="bi bi-pencil"></i>
                                     </a>
@@ -300,7 +339,6 @@
                         }
                     </tbody>
                 </table>
-                </div>
             </div>
         }
     }

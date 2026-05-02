@@ -282,7 +282,7 @@ Line 2 (indented to align with title):
 - Visual indicator next to the header label:
   - Active asc: `bi-chevron-up`, `--color-text-primary`, `icon-sm`.
   - Active desc: `bi-chevron-down`, `--color-text-primary`, `icon-sm`.
-  - Inactive but sortable: `bi-chevron-expand`, `--color-text-tertiary` at 60% opacity, `icon-sm` — signals "click me".
+  - Inactive but sortable: **no chevron rendered**. Cursor-pointer + label color shifting to `--color-text-primary` on hover signals clickability. (Earlier prototypes rendered a tertiary `bi-chevron-expand` here; it added ~90 px of total width across six columns and caused the table to overflow at desktop viewports — see DESIGN-SYSTEM §9.6 "Why no inactive chevron".)
 - `aria-sort="ascending" | "descending" | "none"` on the active `<th>`. `aria-label` on the click target reads, e.g., "Sort by Priority, ascending" / "Sort by Priority, descending" / "Sort by Priority".
 - Tap target ≥ 32px tall on mobile; entire header cell (label + chevron + padding) is clickable.
 - Sortable columns: **Title**, **Area**, **Type**, **Priority**, **Status**, **Due**. Not sortable: **Tags** (multi-valued), the trailing edit-button column.
@@ -297,27 +297,69 @@ Line 2 (indented to align with title):
 - Mobile (≤640px): the pill collapses to a small red dot (●, 8px, `--color-error-icon`) prefixing the title on Line 1, paired with `<sr-only>Overdue</sr-only>` for screen readers.
 - Always paired with a non-color signal (the word "Overdue" on desktop/tablet, or `<sr-only>` text on mobile) — a11y requirement: never color-alone.
 
-### Tablet Layout
-- Sidebar collapsed to icon rail
-- Area segmented control: full width of content area
-- Filter bar: Status, Priority, Type, Tags filters collapse into a single `[Filters ▼]` dropdown button to save horizontal space; active filter count badge shown on button. **Both chips (Incomplete + Overdue) and the view toggle (`list | board`) remain visible outside the dropdown** — they're primary controls for this release. The Incomplete chip is also reachable from inside the `[Filters ▼]` drawer for users who prefer that surface.
-- Task row: single line; omit TaskType label if viewport < 800px; truncate tag pills to 1 + overflow count
-- Row-level Overdue pill: shown to the right of date as on desktop
-- Sortable column headers: same desktop behaviour. Chevron icons stay visible alongside the column label (the inactive chevron is `--color-text-tertiary` at 60% opacity to keep the visual noise low on tighter widths).
+### Responsive Strategy — single DOM, Bootstrap utilities + one CSS Grid override
 
-### Mobile Layout
+**Rule (from `ux-designer.md` §6):** one `<table class="tp-table">` renders at every breakpoint. No parallel "desktop table + mobile cards" markup paths. Bootstrap responsive utilities hide/show columns; a single bespoke `@media` block reflows `<tr>` into a card-like Grid layout at mobile widths.
+
+**Bootstrap → TaskPilot breakpoint mapping**
+
+| TaskPilot tier | Width      | Bootstrap utility used |
+|----------------|------------|------------------------|
+| Mobile         | ≤ 639 px   | default (no `d-*-…`)   |
+| Tablet         | 640–1023 px| `d-md-*` (Bootstrap md = 768 — close enough; minor cells we'd rather hide below 768 use `d-md-table-cell`) |
+| Desktop        | ≥ 1024 px  | `d-lg-*` (Bootstrap lg = 992 — within 32 px of 1024, acceptable; alternatively override `$grid-breakpoints` SCSS) |
+
+When the 32 px gap between Bootstrap `lg` (992) and TaskPilot Desktop (1024) matters for a specific cell, use a custom `tp-show-1024` utility — but document why in the spec, don't just sprinkle media queries.
+
+**Per-column visibility**
+
+| Column     | Mobile (≤639) | Tablet (640–1023) | Desktop (≥1024) | Bootstrap classes on `<th>`/`<td>` |
+|------------|---------------|-------------------|-----------------|--------------------------------------|
+| Title      | ✅            | ✅                | ✅              | (none — always visible)              |
+| Priority   | ✅ (dot)      | ✅ (badge)        | ✅ (badge)      | (none — always visible)              |
+| Status     | ✅ (badge)    | ✅                | ✅              | (none — always visible)              |
+| Due        | ✅            | ✅                | ✅              | (none — always visible)              |
+| Tags       | up to 2       | up to 2           | up to 3         | `d-none d-md-table-cell`            |
+| Area       | hidden        | ✅ (badge)        | ✅ (badge)      | `d-none d-md-table-cell`            |
+| Type       | hidden        | hidden ≤ 800 px   | ✅              | `d-none d-lg-table-cell`            |
+| Edit btn   | ✅ (target row tap) | ✅ (button)  | ✅ (button)     | `d-none d-md-table-cell`            |
+
+Title, Priority, Status, Due are **always** present so no column is information-only-on-desktop. The hidden cells (Area badge, Type label, Tags) are duplicative of information available elsewhere or filterable, so hiding them on mobile is acceptable.
+
+**Mobile reflow — single justified `@media (max-width: 639.98px)` block in `app.css`**
+
+`tp-table` switches `<tr>` from a table-row to `display: grid` with `grid-template-columns: auto 1fr auto` and `grid-template-areas: "check title meta" "check tags  date"`. `<thead>` is hidden — the equivalent Sort affordance is a single Bootstrap `dropdown` (`Sort ▼`) in the filter row, visible only `d-md-none`, that emits the same `?sortBy=…&sortDir=…` URL as the column-header click. **One sort UI, two surfaces.** No bottom-sheet, no parallel cards markup, no separate JS.
+
+This is the **one** custom `@media` block in this feature. Justification: Bootstrap has no out-of-the-box "table → card stack" utility (its `.table-responsive` adds horizontal scroll, which violates WCAG 1.4.10 — the very thing we're fixing). The reflow is one rule set, not many, and it's adjacent to the `tp-table` definition in `app.css` so the relationship is obvious.
+
+### Mobile Layout (≤640 px) — designed first
 - No sidebar; bottom tab bar
-- Area segmented control: full width, above search bar
-- Search bar full width below area control
-- View toggle on mobile: `list` only (board hidden — kanban doesn't fit). The Incomplete chip handles the "show me only what's open" intent that the old `incomplete` toggle option served.
-- Filter bar: tap `[Filters ▼]` to open bottom-sheet drawer with all filter options (Status, Priority, Type, Tags, **Incomplete**, **Overdue**) — chips render as full-width toggle rows inside the drawer
-- Task row simplified — two sub-lines:
-  - Line 1: [checkbox] [● red dot if overdue] [priority dot] [title] [Area badge]
-  - Line 2 (indented): [tag pills, max 2] [date]
-- Overdue indicator collapses to the red dot prefix on Line 1, with `<sr-only>Overdue</sr-only>` companion text
-- **Sortable column headers do not apply on mobile** — the row is rendered as a card stack, not a table. Mobile sort instead falls back to a single `Sort▼` button at the top of the list (existing convention) that opens a sheet with the same six sort options as desktop column headers.
-- Swipe right: green overlay with ✓ icon → complete
-- Swipe left: red overlay with 🗑 icon → soft-delete
+- Area segmented control: full-width, above search bar
+- Search bar: full-width below area control, **44 px tall** (tap target)
+- View toggle (`list | board`): `list` only on phones (board kanban doesn't fit). Server suppresses the toggle below 640 px or renders it disabled with a tooltip — TBD per implementation.
+- Filter chip row: horizontally scrollable strip ABOVE the table — chips never wrap and never trigger horizontal page scroll because the strip itself is `overflow-x: auto` inside its own container (this is a chip-strip pattern, not a content-width pattern, so no WCAG 1.4.10 violation). Chips: `[Status ▼] [Priority ▼] [Type ▼] [Tags ▼] [Filters ▼ (3)] [☑ Incomplete] [⚠ Overdue]`. Each chip ≥ 44 px tall.
+- **Sort ▼** Bootstrap dropdown button (44 px) in the filter row, visible `d-md-none`. Opens a standard Bootstrap dropdown with the six sort options — same six as desktop column headers, same URL params, same reducer.
+- Task row: single `<tr>` rendered via CSS Grid as a 2-line card-like block (~72 px tall). Entire `<tr>` is the tap target — opens task detail. Checkbox (≥ 44 px tap target including padding) lives on the left and uses `event.stopPropagation()` so checking doesn't navigate.
+  - **Line 1**: `[checkbox]` `[priority dot 8 px]` `[title (bold, truncate)]` `[Status badge — right]`
+  - **Line 2**: `[tag pills max 2, +N overflow]` `[Due date (red if overdue) — right]`
+- Row-level Overdue indicator: full pill with the word "Overdue" remains. The earlier "red dot prefix on Line 1" idea is dropped — pill at right of the date is more discoverable and the pill itself is a non-color signal.
+- Swipe right: green overlay with ✓ → complete; swipe left: red overlay with 🗑 → soft-delete (44 px swipe distance trigger per `ux-designer.md` §4).
+
+### Tablet Layout (641–1024 px) — progressive enhancement of mobile
+- Sidebar collapsed to icon rail (60 px)
+- Area segmented control: full width of content area
+- Filter bar: Status / Priority / Type / Tags filters collapse into `[Filters ▼]` dropdown to save horizontal space; active count badge on button. Both chips (Incomplete + Overdue) and the view toggle remain visible outside the dropdown. Sort ▼ dropdown is hidden (`d-md-none`) — column-header sort takes over.
+- `<thead>` becomes visible via the Bootstrap utilities (table layout from `md` up) — Title, Priority, Status, Due, Tags, Area, Edit columns render as a normal `<table>`.
+- Sortable column headers visible. Inactive chevron remains hidden (DESIGN-SYSTEM §9.6) — only the active sort column shows asc/desc. Hover indicates clickability.
+- Type column hidden until ≥ 1024 px (uses `d-none d-lg-table-cell`).
+- Row-level Overdue pill: shown to the right of date as on desktop.
+
+### Desktop Layout (≥1025 px) — densest variant
+- All filter chips visible inline (no `[Filters ▼]` collapse).
+- Full table: Title, Area, Type, Priority, Status, Due, Tags, Edit.
+- Tag pills: up to 3 visible, then `+N` overflow.
+- Sortable column headers as previously specified.
+- Sort ▼ dropdown hidden.
 
 ---
 
