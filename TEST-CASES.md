@@ -775,15 +775,69 @@ Test plan for the Health subsystem (ARCHITECTURE.md §12). All test IDs prefixed
 
 | # | Test Name | File | Notes |
 |---|-----------|------|------|
-| E2E-IV-001 | `Dashboard_IncompleteCard_NavigatesToFilteredTasksView` | `Dashboard/DashboardTests.cs` | Quick-add a task, click NotStarted sub-tile, assert URL |
-| E2E-IV-002 | `Dashboard_OverdueCard_NavigatesToOverdueIncompleteView` | `Dashboard/DashboardTests.cs` | Click `.tp-stat-card-link` → `?view=incomplete&overdue=true` |
-| E2E-IV-003 | `TasksPage_IncompleteView_FiltersOutCompletedAndCancelled` | `Tasks/TaskLifecycleTests.cs` | Open `?view=incomplete`, assert Status select is hidden |
-| E2E-IV-004 | `TasksPage_OverdueChip_TogglesAndUpdatesUrl` | `Tasks/TaskLifecycleTests.cs` | Click chip, assert `aria-pressed="true"` and URL `?overdue=true` |
+| E2E-IV-001 | `Dashboard_IncompleteCard_NavigatesToFilteredTasksView` | `Dashboard/DashboardTests.cs` | Quick-add a task, click NotStarted sub-tile, assert URL contains `?show=active&status=NotStarted` |
+| E2E-IV-002 | `Dashboard_OverdueCard_NavigatesToOverdueActiveView` | `Dashboard/DashboardTests.cs` | Click `.tp-stat-card-link` → assert URL contains `?show=active&overdue=true` |
+| E2E-IV-003 | `TasksPage_DefaultLoad_ShowsActiveTasksOnly` | `Tasks/TaskLifecycleTests.cs` | Cold load `/tasks` (no query string); assert Completed/Cancelled tasks not present; assert Active segment has `aria-pressed="true"` |
+| E2E-IV-004 | `TasksPage_ShowSegment_Completed_ShowsOnlyTerminalStatuses` | `Tasks/TaskLifecycleTests.cs` | Navigate to `?show=completed`; assert only Completed/Cancelled rows visible; assert Completed segment selected |
+| E2E-IV-005 | `TasksPage_ShowSegment_All_ShowsAllStatuses` | `Tasks/TaskLifecycleTests.cs` | Navigate to `?show=all`; assert tasks of every status are present |
+| E2E-IV-006 | `TasksPage_BoardView_ActiveShow_OnlyOpenColumns` | `Tasks/TaskLifecycleTests.cs` | Open board view with default show=active; assert only Not Started / In Progress / Blocked columns rendered |
+| E2E-IV-007 | `TasksPage_BoardView_CompletedShow_OnlyTerminalColumns` | `Tasks/TaskLifecycleTests.cs` | Open `?view=board&show=completed`; assert Completed and Cancelled columns present, open columns absent |
+| E2E-IV-008 | `TasksPage_OverdueChip_TogglesAndUpdatesUrl` | `Tasks/TaskLifecycleTests.cs` | Click Overdue chip, assert `aria-pressed="true"` and URL `?overdue=true`; click again, assert removed |
+| E2E-IV-009 | `TasksPage_FilterPersistence_SidebarAwayAndBack` | `Tasks/TaskLifecycleTests.cs` | Apply show=all + area=Work; navigate to Dashboard via sidebar; navigate back via sidebar; assert both filters restored (sidebar link href rewrite path) |
+| E2E-IV-010 | `TasksPage_FilterPersistence_AddressBarRehydrate` | `Tasks/TaskLifecycleTests.cs` | Apply filters; navigate to bare `/tasks` in address bar same tab; assert `location.replace` fires and filters are restored |
+| E2E-IV-011 | `TasksPage_FilterPersistence_BackButton_NoLoop` | `Tasks/TaskLifecycleTests.cs` | Navigate from filtered Tasks to Dashboard; press back; assert lands on previous page (Dashboard), not in a redirect loop |
+| E2E-IV-012 | `TasksPage_ResetFilters_ClearsSessionStorageAndNavigates` | `Tasks/TaskLifecycleTests.cs` | Apply filters; click Reset filters link; assert sessionStorage key removed; assert URL is `/tasks?show=active` |
+| E2E-IV-013 | `TasksPage_NewSession_StartsWithActiveDefault` | `Tasks/TaskLifecycleTests.cs` | Close browser context (new Playwright context = clean sessionStorage); navigate to `/tasks`; assert Active segment selected, no rehydration |
 | E2E-TAG-001 | `Settings_EditTag_RenameAndRecolor_PersistsAcrossPages` | `Settings/SettingsTests.cs` | Rename via inline edit row, assert original gone, renamed visible |
 | E2E-TAG-002 | `Settings_EditTag_DuplicateName_ShowsInlineError` | `Settings/SettingsTests.cs` | Try renaming B → A; assert "already exists" in page; row stays open |
 | E2E-TAG-003 | `Settings_EditTag_KeyboardOnly_CompletesEdit` | `Settings/SettingsTests.cs` | Focus pencil → Enter → type → Enter; renamed visible |
 
 > All Playwright tests in this suite require an app running at `http://localhost:5125`. Run via `dotnet run --project src` in one terminal and `dotnet test tests/TaskPilot.Tests.E2E` in another. Smoke tests under `Smoke/DeploymentSmokeTests.cs` follow the same pattern with `SMOKE_BASE_URL`.
+
+---
+
+## 19. v1.12 — Tasks Page `show=` Filter (Active / Completed / All)
+
+**Shipped in v1.12.** The `?incomplete=true` chip was removed and replaced by a Bootstrap segmented control (`Active` / `Completed` / `All`) driven by `?show=active|completed|all` (default: `active`). Filter state persists via `sessionStorage` (key `tp_tasks_filter`).
+
+### 19.1 Integration Tests — Tasks Razor Page (`Tasks/TasksShowParamTests.cs`)
+
+Tests hit the Razor Page `/tasks` endpoint (not the REST API) with cookie auth and verify HTML content.
+
+| # | Test Name | Scenario | Expected |
+|---|-----------|----------|----------|
+| I-SHW-001 | `GetTasksPage_NoParams_DefaultsToActiveStatusesOnly` | 5 tasks (one per status); GET `/tasks` | Active tasks (0/1/2) appear; Completed/Cancelled do not |
+| I-SHW-002 | `GetTasksPage_ShowCompleted_ReturnsOnlyTerminalStatuses` | 5 tasks; GET `/tasks?show=completed` | Done/Cancelled appear; NotStarted/InProgress/Blocked do not |
+| I-SHW-003 | `GetTasksPage_ShowAll_ReturnsAllFiveStatuses` | 5 tasks; GET `/tasks?show=all` | All five task titles appear in HTML |
+| I-SHW-004 | `GetTasksPage_ShowActiveAndOverdue_ReturnsOnlyOverdueActiveTasks` | overdue/future/no-date mix; GET `/tasks?show=active&overdue=true` | Only overdue active task appears |
+| I-SHW-005 | `GetTasksPage_ShowActiveAndPriority_ReturnsOnlyMatchingPriorityActiveTasks` | Critical active + Critical completed + Medium active; GET `/tasks?show=active&priority=3` | Only Critical-active task appears |
+| I-SHW-006 | `GetTasksPage_UnknownShowParam_TreatedAsActive` | 5 tasks; GET `/tasks?show=bogus` | Treated as active: no terminal statuses |
+
+### 19.2 E2E Tests — `show=` Segmented Control and sessionStorage Persistence (`Tasks/TaskLifecycleTests.cs`)
+
+These tests implement E2E-IV-003 through E2E-IV-013 from the 18.7 table above. E2E-IV-008 was renamed to `TasksPage_ShowSegment_Switching_UpdatesUrl` (covers segment cycling, not just the overdue chip).
+
+**Deviations from spec:**
+- E2E-IV-008: Original spec described Overdue chip toggle (which exists as `TasksPage_OverdueChip_TogglesAndUpdatesUrl`). Renamed to test segmented control switching to avoid collision.
+- E2E-IV-011 back-button assertion: uses URL-contains check rather than exact navigation because `location.replace()` removes the bare `/tasks` entry; the exact resulting URL depends on navigation history order.
+- E2E-IV-012 sessionStorage assertion: after reset, page re-saves `show=active` to sessionStorage automatically; test asserts old non-default value (`show=completed`) is absent, not that key is null.
+
+**Existing tests updated for v1.12 (old `?incomplete=true` UI removed):**
+- `TasksPage_IncompleteView_FiltersOutCompletedAndCancelled` — updated to use `?show=active` (marked `[Obsolete]`)
+- `TasksPage_IncompleteChip_TogglesAndUpdatesUrl` — updated to use segmented control (marked `[Obsolete]`)
+- `TasksPage_BoardViewWithIncompleteChip_HidesCompletedAndCancelledColumns` — updated to assert 3-column board at default show=active (marked `[Obsolete]`)
+- `TasksPage_ColumnHeaderSort_PreservesActiveFilters` — updated `?incomplete=true` to `?show=active` in seed URL
+- `Dashboard_IncompleteCard_NavigatesToFilteredTasksView` — updated URL assertion to `?show=active&status=NotStarted`
+- `Dashboard_OverdueCard_NavigatesToOverdueIncompleteView` — updated URL assertion to `?show=active&overdue=true`
+
+### 19.3 Security Validation — sessionStorage Round-trip
+
+| Check | Finding |
+|-------|---------|
+| XSS via sessionStorage → location.replace | **PASS** — `location.replace('/tasks?' + saved)` cannot execute JS; value is appended as a URL query string, not injected into DOM or eval'd |
+| XSS via sessionStorage → setAttribute href | **PASS** — sidebar rewrite uses `link.setAttribute('href', '/tasks?' + saved)`; prefix `/tasks?` ensures same-origin URL |
+| sessionStorage value injection | **PASS** — save script reads only curated keys via `URLSearchParams`; values cannot inject new keys outside the allowed set |
+| Server-side `show` param injection | **PASS** — `show` is switch-validated on the server; unrecognized values default to "active"; no SQL or reflection involved |
 
 ---
 

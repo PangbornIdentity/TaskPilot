@@ -5,7 +5,7 @@
     ViewData["Title"] = "Tasks";
     var isBoard = Model.View == "board";
     var nowUtc = DateTime.UtcNow;
-    var isIncomplete = Model.IncompleteFilter;
+    var show = Model.Show;
 
     // Build a route-values dict that preserves every active filter, plus any per-link overrides.
     // sortOverride is tri-state:
@@ -15,9 +15,9 @@
     // Url.Page emits properly URL-encoded query strings AND collapses null values automatically.
     object FilterRoute(
         string? viewOverride = null,
+        string? showOverride = null,
         Area? areaOverride = null,
         bool keepArea = true,
-        bool? incompleteOverride = null,
         bool? overdueOverride = null,
         (string? by, string? dir)? sortOverride = null)
     {
@@ -37,18 +37,20 @@
             sortDir = Model.SortDir;
         }
 
+        // Emit the effective show value. "active" is the default — omit it to keep URLs clean.
+        var showValue = (showOverride ?? show);
+        var showParam = showValue == "active" ? null : showValue;
+
         return new
         {
             view = viewOverride ?? Model.View,
+            show = showParam,
             search = Model.Search,
             status = Model.StatusFilter,
             priority = Model.PriorityFilter,
             area = keepArea ? (areaOverride ?? Model.AreaFilter) : areaOverride,
             taskTypeId = Model.TaskTypeIdFilter,
             tagIds = Model.TagIdFilter,
-            // Emit lowercase string literals so the URL is consistent regardless of Url.Page's
-            // default Boolean serialization (which is TitleCase). Browser bookmarks stay tidy.
-            incomplete = (incompleteOverride ?? Model.IncompleteFilter) ? "true" : null,
             overdue = (overdueOverride ?? Model.OverdueFilter) ? "true" : null,
             sortBy = sortBy,
             sortDir = sortDir
@@ -72,6 +74,22 @@
     }
 }
 
+@* Inline rehydrate script — MUST be in <head>, before body paint, to avoid flash of default view.
+   Reads tp_tasks_filter from sessionStorage and replaces the bare /tasks URL with the saved state.
+   Only fires when there is no search string in the current URL (explicit URL always wins). *@
+@section Head {
+<script>
+(function () {
+  if (location.pathname.replace(/\/$/, '') !== '/tasks') return;
+  if (location.search) return;  // explicit URL wins
+  try {
+    var saved = sessionStorage.getItem('tp_tasks_filter');
+    if (saved) location.replace('/tasks?' + saved);
+  } catch (e) { /* private mode or quota — fall through to default */ }
+})();
+</script>
+}
+
 <div class="tp-page-header">
     <div>
         <h1 class="tp-page-title">Tasks</h1>
@@ -80,6 +98,35 @@
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#taskModal">
         <i class="bi bi-plus-lg me-1"></i> New Task
     </button>
+</div>
+
+@* Segmented control: Active / Completed / All.
+   URL param: ?show=active|completed|all. "active" is the default and is omitted from clean URLs. *@
+<div class="tp-show-control btn-group mb-3" role="group" aria-label="Task scope">
+    <input type="radio" class="btn-check" name="showScope" id="showActive" autocomplete="off"
+           @(show == "active" ? "checked" : "") />
+    <label class="btn btn-sm btn-outline-secondary"
+           for="showActive"
+           onclick="location.assign('@Url.Page("/Tasks/Index", FilterRoute(showOverride: "active"))')"
+           aria-pressed="@(show == "active" ? "true" : "false")">
+        Active
+    </label>
+    <input type="radio" class="btn-check" name="showScope" id="showCompleted" autocomplete="off"
+           @(show == "completed" ? "checked" : "") />
+    <label class="btn btn-sm btn-outline-secondary"
+           for="showCompleted"
+           onclick="location.assign('@Url.Page("/Tasks/Index", FilterRoute(showOverride: "completed"))')"
+           aria-pressed="@(show == "completed" ? "true" : "false")">
+        Completed
+    </label>
+    <input type="radio" class="btn-check" name="showScope" id="showAll" autocomplete="off"
+           @(show == "all" ? "checked" : "") />
+    <label class="btn btn-sm btn-outline-secondary"
+           for="showAll"
+           onclick="location.assign('@Url.Page("/Tasks/Index", FilterRoute(showOverride: "all"))')"
+           aria-pressed="@(show == "all" ? "true" : "false")">
+        All
+    </label>
 </div>
 
 <!-- Area filter -->
@@ -108,6 +155,11 @@
 
     <form id="filterForm" method="get" action="/tasks" class="d-flex gap-2 align-items-center flex-wrap">
         <input type="hidden" name="view" value="@Model.View" />
+        @* Preserve show scope across filter form submits. *@
+        @if (show != "active")
+        {
+            <input type="hidden" name="show" value="@show" />
+        }
         @if (Model.AreaFilter.HasValue)
         {
             <input type="hidden" name="area" value="@((int)Model.AreaFilter.Value)" />
@@ -163,16 +215,7 @@
                 </div>
             </div>
         }
-        @* Incomplete chip — toggle button. Submits the form with incomplete=true on, removes the param off.
-           Status filter (above) stays visible regardless of chip state — the chip restricts to
-           {NotStarted, InProgress, Blocked} and Status= further narrows within that set. *@
-        <button type="submit" name="incomplete" value="@(Model.IncompleteFilter ? "false" : "true")"
-                class="btn btn-sm tp-chip-toggle @(Model.IncompleteFilter ? "tp-incomplete-chip-on" : "btn-outline-secondary")"
-                aria-pressed="@(Model.IncompleteFilter ? "true" : "false")"
-                title="@(Model.IncompleteFilter ? "Click to remove the Incomplete filter" : "Show only incomplete tasks")">
-            <i class="bi bi-check2-square me-1"></i>Incomplete
-        </button>
-        @* Overdue chip — toggle button, same shape as Incomplete. *@
+        @* Overdue chip — toggle button, orthogonal to the show segmented control. *@
         <button type="submit" name="overdue" value="@(Model.OverdueFilter ? "false" : "true")"
                 class="btn btn-sm tp-chip-toggle @(Model.OverdueFilter ? "tp-overdue-chip-on" : "btn-outline-secondary")"
                 aria-pressed="@(Model.OverdueFilter ? "true" : "false")"
@@ -217,7 +260,7 @@
             </ul>
         </div>
     }
-    @* View toggle is display mode only: List | Board. Incomplete is a filter chip above. *@
+    @* View toggle is display mode only: List | Board. *@
     <div class="tp-view-toggle btn-group ms-auto" role="group">
         <a href="@Url.Page("/Tasks/Index", FilterRoute(viewOverride: "list"))"
            class="btn btn-sm @(!isBoard ? "btn-secondary" : "btn-outline-secondary")" title="List view">
@@ -230,6 +273,19 @@
     </div>
 </div>
 
+@* Reset filters link — visible when any non-default filter is active or sessionStorage has saved state.
+   Clears sessionStorage and navigates to /tasks?show=active (clean default). *@
+@if (Model.HasActiveFilters)
+{
+    <div class="mb-2">
+        <a href="#" class="small text-muted text-decoration-none tp-reset-filters"
+           onclick="event.preventDefault(); try { sessionStorage.removeItem('tp_tasks_filter'); } catch(e){} location.assign('/tasks?show=active');"
+           aria-label="Reset all filters and return to active tasks">
+            <i class="bi bi-x-circle me-1"></i>Reset filters
+        </a>
+    </div>
+}
+
 <div id="task-container">
     @if (!isBoard)
     {
@@ -239,15 +295,23 @@
             <div class="tp-card">
                 <div class="tp-empty">
                     <div class="tp-empty-icon"><i class="bi bi-clipboard"></i></div>
-                    @if (isIncomplete && Model.OverdueFilter)
+                    @if (show == "active" && Model.OverdueFilter)
                     {
                         <div class="tp-empty-title">Nothing overdue. Nice.</div>
-                        <div class="tp-empty-text">All your incomplete tasks are still on time.</div>
+                        <div class="tp-empty-text">All your active tasks are still on time.</div>
                     }
-                    else if (isIncomplete)
+                    else if (show == "active")
                     {
-                        <div class="tp-empty-title">No incomplete tasks match these filters.</div>
-                        <div class="tp-empty-text">Try clearing a filter, or check the dashboard for what's left.</div>
+                        <div class="tp-empty-title">All clear. Nothing on your plate.</div>
+                        <div class="tp-empty-text">
+                            <a href="#" onclick="event.preventDefault(); document.getElementById('taskModal').dispatchEvent(new Event('show-modal'));"
+                               data-bs-toggle="modal" data-bs-target="#taskModal" class="btn btn-primary btn-sm mt-2">Add task</a>
+                        </div>
+                    }
+                    else if (show == "completed")
+                    {
+                        <div class="tp-empty-title">No completed tasks yet.</div>
+                        <div class="tp-empty-text">Completed and Cancelled tasks will appear here.</div>
                     }
                     else
                     {
@@ -537,6 +601,29 @@ if (new URLSearchParams(location.search).get('action') === 'new') {
     new bootstrap.Modal(document.getElementById('taskModal')).show();
     history.replaceState({}, '', '/tasks');
 }
+
+// ── sessionStorage filter persistence ───────────────────────────────────────
+// Save the current filter state on every /tasks render.
+// Curated keys: view, show, status, priority, area, taskTypeId, tagIds, overdue, sortBy, sortDir.
+// Excluded: search (transient) and page (resets on filter change).
+(function saveFilterState() {
+    try {
+        var params = new URLSearchParams(location.search);
+        var saveKeys = ['view','show','status','priority','area','taskTypeId','tagIds','overdue','sortBy','sortDir'];
+        var saved = new URLSearchParams();
+        saveKeys.forEach(function(k) {
+            var vals = params.getAll(k);
+            vals.forEach(function(v) { saved.append(k, v); });
+        });
+        var qs = saved.toString();
+        if (qs) {
+            sessionStorage.setItem('tp_tasks_filter', qs);
+        }
+        // If qs is empty we are on the bare show=active default — do NOT overwrite
+        // saved state with nothing, so navigating away and back restores the last
+        // explicit filter choice rather than resetting.
+    } catch (e) { /* private mode or quota — ignore */ }
+})();
 
 function selectTagColor(swatch) {
     document.querySelectorAll('#newTagColorSwatches .tp-color-swatch').forEach(s => s.classList.remove('selected'));

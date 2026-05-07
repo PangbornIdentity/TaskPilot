@@ -125,7 +125,15 @@ Authentication: `X-Api-Key: <your-key>` header
 | `sortBy` | string | `title`, `area`, `type`, `priority`, `status`, `targetDate`, `createdDate`, `lastModifiedDate`. The first six are exposed via clickable column headers in the web UI's list view; the last two are reachable via the desktop `Sort▼` menu. |
 | `sortDir` | string | `asc`, `desc` |
 
-> **v1.11 note**: the web UI uses `?incomplete=true` as a shorter page-URL alias for the API's `?includeOnlyIncomplete=true`. They map to the same repository filter. API consumers should keep using `includeOnlyIncomplete` — it matches the C# property name and the existing integration-test contract.
+#### Web UI-only query parameters (Tasks page, not on the REST API)
+
+| Param | Values | Description |
+|-------|--------|-------------|
+| `show` | `active` (default), `completed`, `all` | Scopes the task list. `active` = NotStarted/InProgress/Blocked (server default when omitted). `completed` = Completed/Cancelled. `all` = no status restriction. Does NOT affect the REST API — use `includeOnlyIncomplete` there. |
+| `view` | `list` (default), `board` | Display mode. Board renders a kanban layout; the columns shown depend on `show`. |
+| `overdue` | `true` | Filter to tasks with a past non-null target date that are not complete. Composes with `show`. |
+
+> **v1.11 note**: the web UI previously used `?incomplete=true` as a page-URL alias. This was replaced in v1.12 by `?show=active`. The REST API continues to use `?includeOnlyIncomplete=true` — that parameter is unchanged.
 
 ### Response envelope
 

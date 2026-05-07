@@ -7,6 +7,71 @@
 
 ---
 
+## 2026-05-07 — v1.12 QA: integration + E2E tests for show= param and sessionStorage persistence (v1.12)
+
+### Test
+
+Added 6 new integration tests (`tests/TaskPilot.Tests.Integration/Tasks/TasksShowParamTests.cs`) covering the Razor Page `/tasks` endpoint with `?show=active|completed|all`, overdue+show composition, priority+show composition, and unknown-show fallback.
+
+Added 11 new E2E Playwright tests to `tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs` (E2E-IV-003 through E2E-IV-013) covering the segmented control, board-view column counts, filter persistence via sessionStorage (address-bar rehydrate path and sidebar smart-link path), reset filters behavior, and multi-context isolation.
+
+Updated 6 existing E2E tests that referenced the removed `?incomplete=true` / `button[name='incomplete']` UI: `TasksPage_IncompleteView_FiltersOutCompletedAndCancelled`, `TasksPage_IncompleteChip_TogglesAndUpdatesUrl`, `TasksPage_BoardViewWithIncompleteChip_HidesCompletedAndCancelledColumns`, `TasksPage_ColumnHeaderSort_PreservesActiveFilters`, `Dashboard_IncompleteCard_NavigatesToFilteredTasksView`, `Dashboard_OverdueCard_NavigatesToOverdueIncompleteView`.
+
+Performed security review of sessionStorage round-trip (no XSS vectors found).
+
+Updated `TEST-CASES.md` with Section 19 (v1.12 test cases).
+
+**Files affected:**
+- `tests/TaskPilot.Tests.Integration/Tasks/TasksShowParamTests.cs` (new)
+- `tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs` (modified)
+- `tests/TaskPilot.Tests.E2E/Dashboard/DashboardTests.cs` (modified)
+- `TEST-CASES.md` (modified)
+
+**Test counts:** Unit 170, Integration 97 (non-smoke), E2E 106 — all green.
+
+---
+
+## 2026-05-06 — Tasks page: default to active tasks + session-scoped filter persistence (v1.12)
+
+### Feature | Active / Completed / All segmented control replaces Incomplete chip
+
+- **`src/Pages/Tasks/Index.cshtml.cs`**: Replaced `IncompleteFilter bool` with `Show string` (`"active"` / `"completed"` / `"all"`). Server default is `"active"` when the query param is absent. The `Show` value is translated to `IncludeOnlyIncomplete: true` for the `"active"` scope (reuses the existing repository flag unchanged). For `"completed"` scope, a post-query filter at the page-model layer narrows `allFetched` to `Completed` and `Cancelled` — no new repository parameter needed. `HasActiveFilters` property drives the Reset filters link visibility. `BuildKanbanColumns()` is now a private method that switches on `Show` to produce the correct column set for board view: three open columns for `"active"`, two terminal columns for `"completed"`, all five for `"all"`.
+- **`src/Pages/Tasks/Index.cshtml`**: Removed the Incomplete chip. Added a Bootstrap 5 `btn-group` with `btn-check` radios for Active / Completed / All above the area filter. Labels use `onclick="location.assign(...)"` rather than form submit so the navigation is a clean GET. `aria-pressed` attributes keep screen readers informed of the selected state. `FilterRoute` helper updated: `incompleteOverride` parameter removed; new `showOverride` parameter emits `null` for `"active"` (omitted from URL to keep it clean) and the literal string for other values. The `show` hidden input is included in the filter form when non-default to preserve scope across dropdown/tag filter submits. Board view column composition now delegates to the server-computed `KanbanColumns` dict.
+- Dashboard drill-through URLs in `src/Pages/Index.cshtml` updated from `?incomplete=true&…` to `?show=active&…`. Overdue card and all three Incomplete-by-Status sub-tiles use the new param. `aria-label` text updated to remove "incomplete view" wording.
+
+### Feature | Session-scoped filter persistence via sessionStorage
+
+- **`src/Pages/Tasks/Index.cshtml` (Scripts section)**: After every /tasks render an IIFE reads `location.search`, strips excluded keys (`search`, `page`), and writes the curated querystring to `sessionStorage` under the key `tp_tasks_filter`. A bare render (qs empty after curation) does NOT overwrite saved state, so navigating away from the default active view and back does not erase a previously saved state.
+- **`src/Pages/Tasks/Index.cshtml` (Head section — new `@section Head`)**: Inline IIFE in `<head>` reads `tp_tasks_filter` from sessionStorage. If present and the current URL has no search string, it calls `location.replace('/tasks?' + saved)` — `replace` is critical (not `assign`) to avoid a back-button redirect loop.
+- **`src/Pages/Shared/_Layout.cshtml`**: Added `@await RenderSectionAsync("Head", required: false)` inside `<head>` so pages can inject pre-paint scripts. Added a `rewriteTasksSidebarLink` IIFE at the bottom of the layout script block: reads `tp_tasks_filter` and rewrites the sidebar Tasks `<a>` href so sidebar clicks land on the rehydrated URL without a redirect round-trip.
+- Reset filters link: rendered when `Model.HasActiveFilters` is true; on click removes `tp_tasks_filter` from sessionStorage and navigates to `/tasks?show=active`. No server round-trip needed.
+
+### Design | Empty states per show-mode
+
+- Active + zero results: "All clear. Nothing on your plate." with an "Add task" button that opens the new task modal.
+- Active + Overdue chip + zero results: "Nothing overdue. Nice. / All your active tasks are still on time."
+- Completed + zero results: "No completed tasks yet."
+- All + zero results: unchanged global empty state.
+
+### Docs | Release artifacts
+
+- `CHANGELOG.md` (this entry) — (v1.12)
+- `src/app-changelog.json` — new top entry `version: "1.12.0"`, `versionType: "minor"`, `releaseDate: "2026-05-06"`
+- `src/TaskPilot.csproj` — version bumped to `1.12.0`
+- `README.md` — query-param table: `show` added (web UI only section), `?incomplete=true` alias noted as removed
+- `WIREFRAMES.md` — toolbar layout updated (segmented control replaces Incomplete chip, Reset filters link documented)
+- `USER-FLOWS.md` — default landing flow updated; new filter-persistence flow added; URL parameter table updated
+- `TEST-CASES.md` — new Playwright test cases enumerated for QA follow-up
+
+### Deviations / follow-up notes
+
+- **Count badges on segmented control deferred**: the brief allowed punting per-segment live counts ("acceptable to leave unbadged if a clean implementation isn't obvious"). Implementing three-bucket counts requires either three DB queries or a status-grouped aggregate query that the current `TaskQueryParams` / repository contract doesn't support without a new return type. Deferred to a follow-up; noted here per the brief's instruction.
+- **`?incomplete=true` removed, not shimmed**: the shim shipped in v1.11 and was documented as "one minor release then cleanup." This is that cleanup release. Any in-flight links using `?incomplete=true` will land on `/tasks` with `show=active` (server default) — correct behavior, since `incomplete=true` was exactly `show=active`.
+
+Files affected: `src/Pages/Tasks/Index.cshtml`, `src/Pages/Tasks/Index.cshtml.cs`, `src/Pages/Shared/_Layout.cshtml`, `src/Pages/Index.cshtml`, `src/app-changelog.json`, `src/TaskPilot.csproj`, `README.md`, `CHANGELOG.md`, `WIREFRAMES.md`, `USER-FLOWS.md`, `TEST-CASES.md`
+
+---
+
 ## 2026-05-01 — Tasks page polish: view/filter separation + sortable column headers (v1.11)
 
 ### Design + Fix | Mobile-first responsive Tasks list (single DOM, CSS Grid + Bootstrap utilities)

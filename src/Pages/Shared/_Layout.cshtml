@@ -10,6 +10,7 @@
     <link href="/lib/bootstrap/css/bootstrap.min.css" rel="stylesheet" />
     <link href="/lib/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet" />
     <link rel="stylesheet" href="/css/app.css" />
+    @await RenderSectionAsync("Head", required: false)
 </head>
 <body class="tp-app">
 
@@ -156,6 +157,18 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 });
+
+// Smart sidebar Tasks link — rewrite href to restore saved filter state so clicking
+// Tasks in the sidebar doesn't bounce through bare /tasks before the inline head
+// script can redirect. sessionStorage is per-tab so multi-tab isolation is preserved.
+(function rewriteTasksSidebarLink() {
+    try {
+        var saved = sessionStorage.getItem('tp_tasks_filter');
+        if (!saved) return;
+        var link = document.querySelector('a.tp-nav-link[href="/tasks"]');
+        if (link) link.setAttribute('href', '/tasks?' + saved);
+    } catch (e) { /* private mode — leave href as-is */ }
+})();
 </script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>

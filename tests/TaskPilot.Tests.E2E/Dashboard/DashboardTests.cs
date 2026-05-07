@@ -83,9 +83,13 @@ public class DashboardTests(PlaywrightFixture fixture)
             new() { Timeout = 10000 });
         Assert.NotNull(tile);
         await tile!.ClickAsync();
-        await page.WaitForURLAsync("**/tasks?incomplete=true&status=NotStarted", new() { Timeout = 10000 });
-        Assert.Contains("incomplete=true", page.Url);
+        // v1.12: dashboard tiles now link to ?show=active&status=NotStarted
+        await page.WaitForURLAsync("**/tasks**status=NotStarted**", new() { Timeout = 10000 });
         Assert.Contains("status=NotStarted", page.Url);
+        // show=active is the default (omitted) OR explicitly present; either is correct
+        Assert.True(
+            page.Url.Contains("show=active") || !page.Url.Contains("show="),
+            $"Expected show=active or omitted (default), but got URL: {page.Url}");
     }
 
     [Fact]
@@ -96,8 +100,12 @@ public class DashboardTests(PlaywrightFixture fixture)
 
         await page.WaitForSelectorAsync(".tp-stat-card-link", new() { Timeout = 10000 });
         await page.ClickAsync(".tp-stat-card-link");
-        await page.WaitForURLAsync("**/tasks?incomplete=true&overdue=true", new() { Timeout = 10000 });
-        Assert.Contains("incomplete=true", page.Url);
+        // v1.12: dashboard overdue card links to ?show=active&overdue=true
+        await page.WaitForURLAsync("**/tasks**overdue=true**", new() { Timeout = 10000 });
         Assert.Contains("overdue=true", page.Url);
+        // show=active is the default (omitted) OR explicitly present; either is correct
+        Assert.True(
+            page.Url.Contains("show=active") || !page.Url.Contains("show="),
+            $"Expected show=active or omitted (default), but got URL: {page.Url}");
     }
 }

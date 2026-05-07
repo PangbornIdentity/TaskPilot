@@ -421,26 +421,26 @@
 
 ---
 
-## Flow 15: Check What's Left to Do (Incomplete by Status)
+## Flow 15: Check What's Left to Do (Active by Status)
 
 **Trigger:** User opens TaskPilot and wants to see what's still on their plate, broken down by status.
 
 1. User lands on **Dashboard** (`/`)
-2. Below the Summary Cards row, the user sees the new **Incomplete by Status** card. Header shows "Incomplete by Status" and "Total: 14".
+2. Below the Summary Cards row, the user sees the **Incomplete by Status** card. Header shows "Incomplete by Status" and "Total: 14".
 3. Card body shows three sub-tiles, each with a label and count:
    - `Not Started — 8`
    - `In Progress — 4`
    - `Blocked   — 2`
 4. User clicks the **Blocked** sub-tile (it's the smallest count and feels like "what needs unsticking first")
-5. **System:** Navigates to `/tasks?incomplete=true&status=Blocked`
-6. The Tasks page loads with the **Incomplete** filter chip lit (`aria-pressed="true"`) and the **Status** dropdown pre-set to `Blocked`. Header reads "2 tasks found". The view-mode toggle stays at whatever the user had it at — list (default) or board.
+5. **System:** Navigates to `/tasks?show=active&status=Blocked`
+6. The Tasks page loads with the **Active** segment selected in the show control and the **Status** dropdown pre-set to `Blocked`. Header reads "2 tasks found". The view-mode toggle stays at whatever the user had it at — list (default) or board.
 7. On `list` view: a flat single-column list of the two Blocked tasks. Default sort is priority asc (Critical → Low) then targetDate asc nulls-last. Clickable column headers (Title, Area, Type, Priority, Status, Due) re-sort the list — see Flow 18.
 8. User reviews the two blocked tasks. They click into one, write a comment in the description, change status to `InProgress`, and save.
 9. User uses browser **back** to return to the Dashboard. The Incomplete card recounts: `Not Started — 8`, `In Progress — 5`, `Blocked — 1`. `aria-live="polite"` announces the In Progress and Blocked counts changing.
 
 **Edge cases:**
 - All counts zero: card body collapses to a single centered line "Nothing incomplete — you're caught up." Sub-tiles and arrows hidden. Total pill reads "Total: 0".
-- One sub-tile is zero (e.g., no Blocked tasks): the tile is rendered but still clickable (lands on an empty Incomplete view filtered to that status with the standard empty state).
+- One sub-tile is zero (e.g., no Blocked tasks): the tile is rendered but still clickable (lands on an active view filtered to that status with the standard empty state).
 - Keyboard: each sub-tile is reachable by Tab, activated by Enter or Space, focus ring visible (`--color-primary-300`).
 - Mobile (≤320px): sub-tiles stack vertically with horizontal separators; tap targets remain ≥56px tall.
 
@@ -451,31 +451,64 @@
 **Trigger:** User notices their inbox or calendar slipped and wants to see exactly what's overdue right now.
 
 1. User lands on **Dashboard**
-2. The existing **Overdue** summary card (in the Summary Cards row) shows `Overdue — 7`. The card visibly looks clickable now (the cursor changes to pointer on hover; the card border deepens). `aria-label="Overdue tasks: 7. Open the incomplete view filtered to overdue."`
+2. The existing **Overdue** summary card (in the Summary Cards row) shows `Overdue — 7`. The card visibly looks clickable (cursor changes to pointer on hover; card border deepens). `aria-label="Overdue tasks: 7. Open active tasks filtered to overdue."`
 3. User clicks the Overdue card
-4. **System:** Navigates to `/tasks?incomplete=true&overdue=true`
-5. The Tasks page loads with both the **Incomplete** chip and the **Overdue** chip lit (filled `--color-info-bg` and `--color-error-bg` respectively, both `aria-pressed="true"`). Header reads "7 tasks found". View-mode toggle unchanged from the user's previous preference.
+4. **System:** Navigates to `/tasks?show=active&overdue=true`
+5. The Tasks page loads with the **Active** segment selected in the show control and the **Overdue** chip lit (filled `--color-error-bg`, `aria-pressed="true"`). Header reads "7 tasks found". View-mode toggle unchanged from the user's previous preference.
 6. Each row in the list shows the row-level **Overdue** pill to the right of its target date (background `--color-error-bg`, text "Overdue"). On mobile, the pill collapses to a small red dot prefixing the title with `<sr-only>Overdue</sr-only>`.
 7. User picks the task with the earliest target date, opens it, sets a new target date, saves, and returns
 8. The row is no longer overdue, so it disappears from the filtered list. Header recounts to "6 tasks found". `aria-live` announces the new total.
-9. User toggles the Overdue chip off. URL updates to `/tasks?incomplete=true`. The list expands to all 14 incomplete tasks. The Overdue pills disappear from the rows that are no longer in the past.
-10. User clicks **Clear filters** to return to the default tasks page (chips off, no status, no area).
+9. User toggles the Overdue chip off. URL updates to `/tasks` (bare — show=active is the default). The list expands to all 14 active tasks. The Overdue pills disappear from the rows that are no longer in the past.
+10. User clicks **Reset filters** to return to the default tasks page.
 
 **Edge cases:**
-- Zero overdue items: Incomplete view with Overdue chip on shows the empty state "Nothing overdue. Nice." (instead of the generic "No incomplete tasks match these filters.").
+- Zero overdue items: active view with Overdue chip on shows the empty state "Nothing overdue. Nice. / All your active tasks are still on time."
 - Tasks with no `TargetDate` are never overdue (overdue requires `TargetDate < UtcNow AND TargetDate IS NOT NULL`).
 - Composing the Overdue chip with other filters (e.g., `area=Work`) narrows further; counts and chip state both reflect the combined filter.
-- Browser back from a deep link restores all filter chips and the Overdue chip state (URL is the source of truth).
+- Browser back from a deep link restores the show segment and Overdue chip state (URL is the source of truth).
 
 **URL parameter mapping:**
 | Filter | URL param | Value |
 |--------|-----------|-------|
+| Show scope | `?show=active` (default, omitted) / `?show=completed` / `?show=all` | Controls which status bucket is visible. `active` = NotStarted/InProgress/Blocked; `completed` = Completed/Cancelled; `all` = no restriction |
 | View: list / board | `?view=list` / `?view=board` | display mode (defaults to `list`) |
-| Incomplete filter | `?incomplete=true` | boolean (omitted = false) — restricts status to NotStarted/InProgress/Blocked |
-| Overdue filter | `?overdue=true` | boolean (omitted = false) — restricts to past `TargetDate` non-null AND incomplete status |
-| Status sub-filter (from dashboard drill-through) | `?incomplete=true&status=Blocked` | enum, intersects with the incomplete set |
+| Overdue filter | `?overdue=true` | boolean (omitted = false) — restricts to past `TargetDate` non-null AND non-terminal status. Composes with all show-modes |
+| Status sub-filter (from dashboard drill-through) | `?show=active&status=Blocked` | enum, intersects with the active set |
 
-**Back-compat (one-release shim, deprecated):** old URLs that still use `?view=incomplete` continue to work — the page model treats them as `?incomplete=true&view=list` and emits a deprecation log. Bookmarks and shared links from earlier releases will not break. The shim is retained for at least one minor release.
+**Session-scoped filter persistence (v1.12):**
+- Filter state is saved to `sessionStorage` key `tp_tasks_filter` after every /tasks render.
+- Saved keys: `view, show, status, priority, area, taskTypeId, tagIds, overdue, sortBy, sortDir`. Excluded: `search` (transient) and `page` (always resets on filter change).
+- Rehydration is **client-side only** via an inline `<script>` in `<head>` (before body paint). When bare `/tasks` is loaded with no query string, the script reads sessionStorage and redirects via `location.replace` (not `assign` — avoids back-button loop). Explicit URLs with query strings always win and bypass rehydration.
+- The sidebar Tasks link is rewritten by a layout script to point at the saved filter state, so sidebar clicks land on the rehydrated URL without a redirect round-trip.
+- Scope is **per-tab, per-browser-session** — tab close clears state. Opening incognito, a new tab, or a new browser session always starts with the `show=active` server default. This is intentional: session-scoped is the correct mental model for incidental filter choices.
+- **Reset filters** link (visible when any non-default filter is active): clears sessionStorage and navigates to `/tasks?show=active`.
+
+---
+
+## Flow 15b: Navigate Away and Back — Filters Restored (session persistence)
+
+**Trigger:** User is on /tasks with filters applied, navigates to another page, then returns to Tasks.
+
+1. User is on `/tasks?show=all&area=1&priority=High` (All tasks, Work area, High priority).
+2. **System:** Saves `show=all&area=1&priority=High` to `sessionStorage` under `tp_tasks_filter`. Also rewrites the sidebar Tasks `<a>` href to `/tasks?show=all&area=1&priority=High`.
+3. User clicks **Dashboard** in the sidebar.
+4. User clicks **Tasks** in the sidebar.
+5. **System:** Sidebar link href was `/tasks?show=all&area=1&priority=High` (not `/tasks`), so navigation goes directly to that URL without a redirect round-trip.
+6. Tasks page loads with all three filters restored. The show segmented control shows "All" selected; Area filter shows "Work"; Priority dropdown shows "High". Header subtitle reflects the filtered count.
+
+**Back-button variant:**
+7. Instead of step 4 above, user presses the browser back button from Dashboard.
+8. Browser navigates to the previous history entry — which was the filtered Tasks URL (not bare `/tasks`). No redirect needed; URL is the source of truth.
+
+**Address-bar variant (tab stays open):**
+7. User manually types `/tasks` in the address bar of the same tab and presses Enter.
+8. **System:** Bare `/tasks` loads. The inline `<head>` script fires before body paint, reads `tp_tasks_filter` from sessionStorage, and calls `location.replace('/tasks?show=all&area=1&priority=High')`. History entry is replaced, so pressing back goes to the previous page before `/tasks`, not into a loop.
+9. Page renders with filters restored.
+
+**New tab / incognito / new session:**
+7. User opens a new tab and navigates to `/tasks`. sessionStorage is isolated per tab — no saved state. Page loads with `show=active` default.
+8. User opens incognito. sessionStorage doesn't exist. Page loads with `show=active` default.
+9. JS disabled: rehydration script is absent; page loads with `show=active` server default. Acceptable degraded state.
 
 ---
 
@@ -535,7 +568,7 @@
 |------|-----------|-------|
 | Sort by | `?sortBy=…` | one of `title`, `area`, `type`, `priority`, `status`, `targetdate`, `createddate`, `lastmodifieddate` (the first six are exposed via column-header clicks; the latter two are reachable via the desktop `Sort▼` menu and the mobile sheet) |
 | Sort direction | `?sortDir=asc` / `?sortDir=desc` | omitted = default |
-| Default sort | (`sortBy` omitted) | priority asc + sortOrder asc; or priority asc + targetDate-nulls-last + sortOrder when `?incomplete=true` |
+| Default sort | (`sortBy` omitted) | priority asc + sortOrder asc; or priority asc + targetDate-nulls-last + sortOrder when `?show=active` (the default) |
 
 ---
 

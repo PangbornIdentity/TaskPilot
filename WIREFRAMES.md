@@ -251,30 +251,29 @@ Line 2 (indented to align with title):
 - **Area segmented control**: full-width of filter area on mobile; auto-width on desktop/tablet. Both segments inactive = no area filter applied.
 - **Type dropdown** (filter mode, `sm` size, 32px height): options from `GET /api/v1/task-types`; first option "All types" (value `""`) clears the filter.
 - **Tags multi-select dropdown** (filter mode): renders a popover with tag checkboxes; active selected tags shown as filter chips. Tag filter logic: **AND** — tasks must have ALL selected tags.
-- **Status dropdown**: stays visible in every view — never hidden by the Incomplete chip. The user can always narrow further on top of an incomplete-status filter.
-- **View toggle** (`list | board`): two-segment control for **display mode only**. `list` and `board` retain their current rendering behaviour. State persists in `?view=…`. The Incomplete option is **not** a view — see the Incomplete chip below.
-- **Incomplete chip**: a button (not a dropdown) in the filter row, sibling of the Overdue chip. Two visual states:
-  - Off (default): outline button, `--color-text-secondary`, label "☑ Incomplete".
-  - On: filled background `--color-info-bg`, text `--color-info-text`, border `--color-info-border`, label unchanged.
-  - Toggle behavior: clicking flips `?incomplete=true` ⇄ removed. `aria-pressed` reflects state.
-  - Composes with all other filters (area, type, tags, search, status, overdue) AND with both view modes (list and board). On board view, when the chip is on, the kanban renders only the `Not Started` / `In Progress` / `Blocked` columns — the `Completed` and `Cancelled` columns are hidden.
-- **Overdue chip**: same shape as Incomplete, in the same row. Two visual states:
+- **Status dropdown**: stays visible in all show-modes. The user can always narrow further by status regardless of the Active / Completed / All segmented control.
+- **Show segmented control** (`Active | Completed | All`): Bootstrap 5 `btn-group` / `btn-check` radios, rendered above the area filter. Controls which status bucket is visible. URL param: `?show=active|completed|all`. `active` is the server default and is omitted from clean URLs.
+  - `Active` (default): tasks in {NotStarted, InProgress, Blocked} only. Server default when `?show` is absent.
+  - `Completed`: tasks in {Completed, Cancelled} only.
+  - `All`: no status restriction; every task is eligible.
+  - Board view: `active` shows only the three open columns; `completed` shows only Completed + Cancelled; `all` shows all five columns.
+  - `aria-pressed` on each label reflects the selected state.
+- **View toggle** (`list | board`): two-segment control for **display mode only**. `list` and `board` retain their current rendering behaviour. State persists in `?view=…`.
+- **Overdue chip**: a button (not a dropdown) in the filter row. Two visual states:
   - Off (default): outline button, `--color-text-secondary`, label "⚠ Overdue".
   - On: filled background `--color-error-bg`, text `--color-error-text`, border `--color-error-border`, label unchanged.
   - Toggle behavior: clicking flips `?overdue=true` ⇄ removed. `aria-pressed` reflects state.
-  - Composes with everything, including the Incomplete chip. With both chips on: tasks whose status ∈ {NotStarted, InProgress, Blocked} AND whose `TargetDate < UtcNow` AND `TargetDate IS NOT NULL`.
-- Active filter chips: each shows `× [label]` and removes that filter when clicked. "Clear filters" removes all (including Incomplete and Overdue).
+  - Orthogonal to the show segmented control — composes with any show-mode and all other filters.
+- **Reset filters link**: rendered only when `HasActiveFilters` is true (any non-default filter is applied). Small link, muted color, `× Reset filters`. On click: clears `sessionStorage` `tp_tasks_filter` key, then navigates to `/tasks?show=active`.
 
-**Why view ≠ filter:** `list`/`board` are *display modes* (how rows are rendered). `incomplete` is a *filter* (which rows are shown). The two compose orthogonally. Earlier prototypes conflated them into one three-segment toggle (`list | board | incomplete`); that was wrong UX — pressing "Incomplete" while on Board would silently drop you to List, and `Board + Incomplete` (kanban with only the three open columns) was unreachable. The chip pattern lets either combination work.
+**Show scope (URL: `?show=active|completed|all`):**
+- `active` restricts the result set to status ∈ {`NotStarted`, `InProgress`, `Blocked`}. This is the server default. Empty state: "All clear. Nothing on your plate." with a primary "Add task" button.
+- `completed` restricts to {`Completed`, `Cancelled`}. Empty state: "No completed tasks yet."
+- `all` applies no status restriction. Empty state: existing global empty state.
+- The Overdue chip composes with all three: e.g., `show=active&overdue=true` shows only active-status tasks that are past due.
+- Dashboard drill-through links use `?show=active&…`: `/tasks?show=active&status=Blocked` (per-status sub-tile) and `/tasks?show=active&overdue=true` (Overdue card click).
 
-**Back-compat (one-release shim):** old URLs that still use `?view=incomplete` continue to work — the page model treats them as `?incomplete=true&view=list` and emits a deprecation log line. The shim ships in v1.11 and is retained for at least one minor release before any cleanup PR.
-
-**Incomplete filter (URL: `?incomplete=true`):**
-- Restricts the result set to status ∈ {`NotStarted`, `InProgress`, `Blocked`}.
-- When applied with `view=list` (default), the result is a flat list (no kanban). Default sort is the same as before: priority asc (Critical → Low) then targetDate asc nulls-last, then SortOrder. `Sort▼` and clickable column headers (see below) still override.
-- When applied with `view=board`, the kanban renders three columns (`Not Started` / `In Progress` / `Blocked`) only. Completed and Cancelled columns hidden.
-- Empty state when zero rows after filters: `tp-empty` block with copy "No incomplete tasks match these filters." When the Overdue chip is **also** on and zero rows match, copy is "Nothing overdue. Nice."
-- Dashboard drill-through links use the chip URL: `/tasks?incomplete=true&status=Blocked` (per-status drill-through) and `/tasks?incomplete=true&overdue=true` (Overdue card click).
+**Back-compat note:** `?incomplete=true` (the v1.11 URL pattern) was removed in v1.12. Old links land on bare `/tasks` which defaults to `show=active` — equivalent behavior.
 
 **Sortable column headers (new — list view only):**
 - Each sortable `<th>` is a click target (semantic: `<button type="button">` inside the `<th>`, OR the `<th>` itself with `role="columnheader"` and `aria-sort`).
@@ -286,7 +285,7 @@ Line 2 (indented to align with title):
 - `aria-sort="ascending" | "descending" | "none"` on the active `<th>`. `aria-label` on the click target reads, e.g., "Sort by Priority, ascending" / "Sort by Priority, descending" / "Sort by Priority".
 - Tap target ≥ 32px tall on mobile; entire header cell (label + chevron + padding) is clickable.
 - Sortable columns: **Title**, **Area**, **Type**, **Priority**, **Status**, **Due**. Not sortable: **Tags** (multi-valued), the trailing edit-button column.
-- URL: `?sortBy=title&sortDir=asc` etc. The list/board toggle, area chips, all filter dropdowns, and the Incomplete/Overdue chips all preserve `sortBy`/`sortDir` via `Url.Page` + the existing `FilterRoute` helper.
+- URL: `?sortBy=title&sortDir=asc` etc. The list/board toggle, show segmented control, area chips, all filter dropdowns, and the Overdue chip all preserve `sortBy`/`sortDir` via `Url.Page` + the existing `FilterRoute` helper.
 - Default behaviour (no `sortBy` set) is unchanged.
 - Filter-from-header is **not** part of this spec — clicking a header sorts only. The existing dropdown filters in the filter row remain the only way to filter by Status/Priority/Type/Tag/Area.
 
@@ -337,7 +336,7 @@ This is the **one** custom `@media` block in this feature. Justification: Bootst
 - Area segmented control: full-width, above search bar
 - Search bar: full-width below area control, **44 px tall** (tap target)
 - View toggle (`list | board`): `list` only on phones (board kanban doesn't fit). Server suppresses the toggle below 640 px or renders it disabled with a tooltip — TBD per implementation.
-- Filter chip row: horizontally scrollable strip ABOVE the table — chips never wrap and never trigger horizontal page scroll because the strip itself is `overflow-x: auto` inside its own container (this is a chip-strip pattern, not a content-width pattern, so no WCAG 1.4.10 violation). Chips: `[Status ▼] [Priority ▼] [Type ▼] [Tags ▼] [Filters ▼ (3)] [☑ Incomplete] [⚠ Overdue]`. Each chip ≥ 44 px tall.
+- Filter chip row: horizontally scrollable strip ABOVE the table — chips never wrap and never trigger horizontal page scroll because the strip itself is `overflow-x: auto` inside its own container (this is a chip-strip pattern, not a content-width pattern, so no WCAG 1.4.10 violation). Chips: `[Status ▼] [Priority ▼] [Type ▼] [Tags ▼] [Filters ▼ (3)] [⚠ Overdue]`. Each chip ≥ 44 px tall. The show segmented control (Active / Completed / All) renders above the filter row on mobile.
 - **Sort ▼** Bootstrap dropdown button (44 px) in the filter row, visible `d-md-none`. Opens a standard Bootstrap dropdown with the six sort options — same six as desktop column headers, same URL params, same reducer.
 - Task row: single `<tr>` rendered via CSS Grid as a 2-line card-like block (~72 px tall). Entire `<tr>` is the tap target — opens task detail. Checkbox (≥ 44 px tap target including padding) lives on the left and uses `event.stopPropagation()` so checking doesn't navigate.
   - **Line 1**: `[checkbox]` `[priority dot 8 px]` `[title (bold, truncate)]` `[Status badge — right]`
@@ -392,7 +391,7 @@ This is the **one** custom `@media` block in this feature. Justification: Bootst
 **Column width:** Equal distribution. Min 200px per column. Horizontal scroll if needed.
 **Card:** `--radius-lg`, `--shadow-sm`, 12px padding. Shows: priority badge, Area badge (top-right corner, `label-sm`), title, TaskType label (`label-sm`, `--color-text-secondary`), tag pills (Display variant, up to 3; +N overflow), target date.
 
-**Composition with the Incomplete chip:** When the **Incomplete** filter chip is on (URL `?view=board&incomplete=true`), the kanban renders only the three "open" columns — `Not Started`, `In Progress`, `Blocked`. The `Completed` and `Cancelled` columns are hidden entirely (not just emptied). This is the canonical "show me what I need to work on, kanban-style" view; it was unreachable in earlier prototypes that conflated view-mode with the incomplete filter.
+**Composition with the show segmented control (board view):** The board column set is determined by the `?show=…` parameter. `show=active` (default) renders only the three open columns — `Not Started`, `In Progress`, `Blocked`. `show=completed` renders only `Completed` and `Cancelled`. `show=all` renders all five columns. This replaced the v1.11 Incomplete chip pattern; the same canonical "show me what I need to work on, kanban-style" view is now at `?view=board` (default show=active).
 
 **Composition with the Overdue chip:** Each column's row count and card list filter further to overdue tasks only (`TargetDate < UtcNow AND TargetDate IS NOT NULL` AND incomplete status). Useful for triage — board view + Overdue chip surfaces only the overdue work, grouped by status.
 
