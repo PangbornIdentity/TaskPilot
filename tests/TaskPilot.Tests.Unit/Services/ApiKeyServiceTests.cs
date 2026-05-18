@@ -88,11 +88,12 @@ public class ApiKeyServiceTests
         _apiKeyRepoMock.Setup(r => r.GetByHashAsync(hash, default)).ReturnsAsync(apiKey);
         _apiKeyRepoMock.Setup(r => r.UpdateLastUsedAsync(apiKey.Id, default)).Returns(Task.CompletedTask);
 
-        var (isValid, keyName, userId) = await _service.ValidateKeyAsync(plainText);
+        var (isValid, keyName, userId, apiKeyId) = await _service.ValidateKeyAsync(plainText);
 
         Assert.True(isValid);
         Assert.Equal("Test Key", keyName);
         Assert.Equal("user1", userId);
+        Assert.Equal(apiKey.Id, apiKeyId);
     }
 
     [Fact]
@@ -113,11 +114,12 @@ public class ApiKeyServiceTests
 
         _apiKeyRepoMock.Setup(r => r.GetByHashAsync(hash, default)).ReturnsAsync(apiKey);
 
-        var (isValid, keyName, userId) = await _service.ValidateKeyAsync(plainText);
+        var (isValid, keyName, userId, apiKeyId) = await _service.ValidateKeyAsync(plainText);
 
         Assert.False(isValid);
         Assert.Null(keyName);
         Assert.Null(userId);
+        Assert.Null(apiKeyId);
     }
 
     [Fact]
@@ -128,10 +130,11 @@ public class ApiKeyServiceTests
 
         _apiKeyRepoMock.Setup(r => r.GetByHashAsync(hash, default)).ReturnsAsync((ApiKey?)null);
 
-        var (isValid, keyName, userId) = await _service.ValidateKeyAsync(plainText);
+        var (isValid, keyName, userId, apiKeyId) = await _service.ValidateKeyAsync(plainText);
 
         Assert.False(isValid);
         Assert.Null(keyName);
+        Assert.Null(apiKeyId);
         Assert.Null(userId);
     }
 

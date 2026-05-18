@@ -69,16 +69,16 @@ public class ApiKeyService(IApiKeyRepository apiKeyRepository, IConfiguration co
         return true;
     }
 
-    public async Task<(bool IsValid, string? KeyName, string? UserId)> ValidateKeyAsync(string plainTextKey, CancellationToken cancellationToken = default)
+    public async Task<(bool IsValid, string? KeyName, string? UserId, Guid? ApiKeyId)> ValidateKeyAsync(string plainTextKey, CancellationToken cancellationToken = default)
     {
         var keyHash = ComputeHmacHash(plainTextKey);
         var apiKey = await apiKeyRepository.GetByHashAsync(keyHash, cancellationToken);
 
         if (apiKey is null || !apiKey.IsActive)
-            return (false, null, null);
+            return (false, null, null, null);
 
         _ = apiKeyRepository.UpdateLastUsedAsync(apiKey.Id, cancellationToken);
-        return (true, apiKey.Name, apiKey.UserId);
+        return (true, apiKey.Name, apiKey.UserId, apiKey.Id);
     }
 
     private string ComputeHmacHash(string plainTextKey)

@@ -322,8 +322,11 @@ When the 32 px gap between Bootstrap `lg` (992) and TaskPilot Desktop (1024) mat
 | Area       | hidden        | ✅ (badge)        | ✅ (badge)      | `d-none d-md-table-cell`            |
 | Type       | hidden        | hidden ≤ 800 px   | ✅              | `d-none d-lg-table-cell`            |
 | Edit btn   | ✅ (target row tap) | ✅ (button)  | ✅ (button)     | `d-none d-md-table-cell`            |
+| Clone btn  | ✅ (overflow in row tap → Detail) | ✅ (button) | ✅ (button) | `d-none d-md-table-cell`            |
 
 Title, Priority, Status, Due are **always** present so no column is information-only-on-desktop. The hidden cells (Area badge, Type label, Tags) are duplicative of information available elsewhere or filterable, so hiding them on mobile is acceptable.
+
+**Trailing-actions cell (new — v1.13):** The single trailing edit button is replaced by a two-button action group rendered inside the same `<td>` (`d-none d-md-table-cell text-end`). Order, left to right: **Clone** (`bi-files`, `btn btn-sm btn-outline-secondary`, `aria-label="Clone task '{title}'"`, `title="Clone task"`), then **Edit** (`bi-pencil`, existing). 4 px gap (`gap-1`) between buttons. Both buttons share the same `sm` size (32 px height, 32 px width — pure icon, square) so the cell column width does not grow. No kebab/three-dots menu is introduced; with only two row actions the inline pattern stays scannable and avoids an extra click. Mobile (≤ 640 px): the trailing-actions cell is hidden entirely (existing behaviour); clone on mobile is reached via the Task Detail page (see Page 6).
 
 **Mobile reflow — single justified `@media (max-width: 639.98px)` block in `app.css`**
 
@@ -532,7 +535,7 @@ Area segmented control full width. Tag multi-select dropdown opens as a bottom-s
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ SIDEBAR  │  [← Back to Tasks]                    [Edit Task]    │
+│ SIDEBAR  │  [← Back to Tasks]    [✓ Complete] [⎘ Clone] [🗑 Delete] │
 │          │────────────────────────────────────────────────────── │
 │          │                                                        │
 │          │  Fix login bug                           ● Critical  │
@@ -569,9 +572,18 @@ Area segmented control full width. Tag multi-select dropdown opens as a bottom-s
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+**Header action row (v1.13 — Clone added):** The top-right cluster of action buttons on the Detail page. Left-to-right order, deliberate:
+1. **✓ Complete** — `btn btn-success`. Only rendered when `Task.Status != Completed`. Existing behaviour, unchanged.
+2. **⎘ Clone** (new) — `btn btn-outline-secondary`, icon `bi-files`, visible label "Clone". `aria-label="Clone task"`. Always rendered (cloning is valid for tasks in any status, including Completed/Cancelled — the clone always starts as NotStarted per architect spec). Placed AFTER Complete because Complete is the more frequent action; placed BEFORE Delete so the destructive action stays rightmost (preserves the bottom-right danger-avoidance rule for the desktop header). Triggers Flow C (see USER-FLOWS Flow 19).
+3. **🗑 Delete** — `btn btn-outline-danger`. Existing behaviour, unchanged. Stays rightmost.
+
+Gap between buttons: 8 px (`gap-2` matches the existing cluster). All three buttons share the default `md` size (40 px height) from the existing pattern. No new visual tokens — composes existing `btn-success` / `btn-outline-secondary` / `btn-outline-danger` variants. Loading state during clone request: button text replaced by `<span class="spinner-border spinner-border-sm" role="status">` + label remains "Clone"; button is `aria-disabled="true"` while in flight (the same htmx `hx-disabled-elt="this"` + `htmx-request` class pattern used elsewhere).
+
+**Tablet/Mobile header:** Same three-button cluster, same order. On mobile the row wraps below the back link (the existing layout already wraps via `d-flex flex-wrap gap-2`). All three buttons remain ≥ 44 px tall on mobile (the default `btn` size hits this). Mobile is the primary entry point for clone since the Tasks list row has no inline clone button on phones — see the trailing-actions cell spec under Page 3.
+
 **Detail grid:** 2-column key-value pairs. Key: `label` style, 120px wide, secondary text. Value: `body` style.
 **Result Analysis:** Card with dashed border if empty, solid border if filled. Prompt text: "How did it go? What would you do differently?"
-**Activity log:** Chronological (newest first). Each entry: timestamp (caption, tertiary), author, change description (body-sm).
+**Activity log:** Chronological (newest first). Each entry: timestamp (caption, tertiary), author, change description (body-sm). The first entry on a cloned task reads, e.g., "Just now · user:rpang — Task created (Cloned from {sourceId})" — sourced from the single ActivityLog row the architect specified (`FieldChanged = "Created"`, `NewValue = "Cloned from {sourceId:D}"`).
 
 ### Mobile Layout
 - All sections stack vertically

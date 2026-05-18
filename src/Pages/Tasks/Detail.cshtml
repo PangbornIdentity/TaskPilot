@@ -32,6 +32,13 @@
                 </button>
             </form>
         }
+        <button type="button"
+                class="btn btn-outline-secondary tp-clone-detail-btn"
+                aria-label="Clone task"
+                title="Clone task"
+                data-clone-url="/api/v1/tasks/@Model.Task.Id/clone">
+            <i class="bi bi-files me-1"></i>Clone
+        </button>
         <form method="post" asp-page-handler="Delete"
               onsubmit="return confirm('Delete this task?')">
             <button type="submit" class="btn btn-outline-danger">
@@ -218,6 +225,98 @@
 
 @section Scripts {
 <script>
+// ── Focus h1 on page load (clone navigation) + show success toast from sessionStorage ──
+(function() {
+    var msg = sessionStorage.getItem("tp_clone_toast");
+    if (msg) {
+        sessionStorage.removeItem("tp_clone_toast");
+        var container = document.getElementById("tp-toast-region");
+        if (!container) {
+            container = document.createElement("div");
+            container.id = "tp-toast-region";
+            container.className = "position-fixed bottom-0 end-0 p-3";
+            container.style.zIndex = "9999";
+            document.body.appendChild(container);
+        }
+        var toast = document.createElement("div");
+        toast.className = "toast show align-items-center text-bg-success border-0 mb-2";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
+        toast.innerHTML = "<div class=\"d-flex\"><div class=\"toast-body\">" + msg +
+            "</div><button type=\"button\" class=\"btn-close btn-close-white me-2 m-auto\" aria-label=\"Close\"></button></div>";
+        toast.querySelector(".btn-close").onclick = function() { toast.remove(); };
+        container.appendChild(toast);
+        setTimeout(function() { if (toast.parentNode) toast.remove(); }, 5000);
+        // Focus h1 for screen-reader announcement
+        var h1 = document.querySelector("h1.tp-page-title");
+        if (h1) { h1.setAttribute("tabindex", "-1"); h1.focus(); h1.addEventListener("blur", function() { h1.removeAttribute("tabindex"); }, { once: true }); }
+    }
+})();
+
+// ── Clone from Detail page ────────────────────────────────────────────────────
+(function() {
+    var btn = document.querySelector(".tp-clone-detail-btn");
+    if (!btn) return;
+    btn.addEventListener("click", function() {
+        cloneDetailTask(btn, btn.dataset.cloneUrl);
+    });
+})();
+
+async function cloneDetailTask(btn, cloneUrl) {
+    var icon = btn.querySelector("i");
+    var origClass = icon ? icon.className : null;
+    if (icon) { icon.className = "spinner-border spinner-border-sm me-1"; icon.setAttribute("role", "status"); }
+    btn.setAttribute("aria-disabled", "true");
+    btn.disabled = true;
+
+    try {
+        var resp = await fetch(cloneUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}"
+        });
+        if (resp.status === 201) {
+            var data = await resp.json();
+            var newId = data && data.data && data.data.id;
+            sessionStorage.setItem("tp_clone_toast", "Task cloned. You're now viewing the copy.");
+            window.location.href = "/tasks/" + newId;
+        } else if (resp.status === 404) {
+            showDetailCloneToast("This task can't be cloned. It may have been deleted.", "error");
+            if (icon && origClass) icon.className = origClass;
+            btn.removeAttribute("aria-disabled"); btn.disabled = false;
+        } else {
+            showDetailCloneToast("Couldn't clone the task. Please try again.", "error");
+            if (icon && origClass) icon.className = origClass;
+            btn.removeAttribute("aria-disabled"); btn.disabled = false;
+        }
+    } catch (err) {
+        showDetailCloneToast("Couldn't clone the task. Please try again.", "error");
+        if (icon && origClass) icon.className = origClass;
+        btn.removeAttribute("aria-disabled"); btn.disabled = false;
+    }
+}
+
+function showDetailCloneToast(message, type) {
+    var container = document.getElementById("tp-toast-region");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "tp-toast-region";
+        container.className = "position-fixed bottom-0 end-0 p-3";
+        container.style.zIndex = "9999";
+        document.body.appendChild(container);
+    }
+    var isError = (type === "error");
+    var toast = document.createElement("div");
+    toast.className = "toast show align-items-center border-0 mb-2 " + (isError ? "text-bg-danger" : "text-bg-success");
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    toast.innerHTML = "<div class=\"d-flex\"><div class=\"toast-body\">" + message +
+        "</div><button type=\"button\" class=\"btn-close btn-close-white me-2 m-auto\" aria-label=\"Close\"></button></div>";
+    toast.querySelector(".btn-close").onclick = function() { toast.remove(); };
+    container.appendChild(toast);
+    setTimeout(function() { if (toast.parentNode) toast.remove(); }, isError ? 8000 : 5000);
+}
+
 function selectDetailTagColor(swatch) {
     document.querySelectorAll('#detailNewTagColorSwatches .tp-color-swatch').forEach(s => s.classList.remove('selected'));
     swatch.classList.add('selected');

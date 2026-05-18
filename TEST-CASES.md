@@ -25,6 +25,8 @@
 15. [Integrations Page and Swagger Link](#15-integrations-page-and-swagger-link)
 16. [Mobile Layout Tests](#16-mobile-layout-tests)
 17. [Health & Diagnostics Tests](#17-health--diagnostics-tests)
+18. [v1.12 — Tasks Page `show=` Filter (Active / Completed / All)](#19-v112--tasks-page-show-filter-active--completed--all)
+19. [v1.13 — Clone Task (`POST /api/v1/tasks/{id}/clone`)](#20-v113--clone-task-post-apiv1tasksidclone)
 
 **Naming convention:** `MethodName_Scenario_ExpectedResult`
 **Pattern:** Arrange–Act–Assert, one logical assertion per test
@@ -838,6 +840,261 @@ These tests implement E2E-IV-003 through E2E-IV-013 from the 18.7 table above. E
 | XSS via sessionStorage → setAttribute href | **PASS** — sidebar rewrite uses `link.setAttribute('href', '/tasks?' + saved)`; prefix `/tasks?` ensures same-origin URL |
 | sessionStorage value injection | **PASS** — save script reads only curated keys via `URLSearchParams`; values cannot inject new keys outside the allowed set |
 | Server-side `show` param injection | **PASS** — `show` is switch-validated on the server; unrecognized values default to "active"; no SQL or reflection involved |
+
+---
+
+## 20. v1.13 — Clone Task (`POST /api/v1/tasks/{id}/clone`)
+
+**Shipped in v1.13 (in flight).** A new endpoint duplicates any owned task, resets its status to `NotStarted`, and writes a single `ActivityLog` entry on the clone. The UX affordance is a one-click `bi-files` button on list rows (desktop/tablet ≥ 768 px) and on the Task Detail header (all breakpoints); after success the browser navigates to `/tasks/{newId}`.
+
+Architecture spec: `ARCHITECTURE.md §3.1b`. UX spec: `WIREFRAMES.md` Pages 3 & 6. Interaction model: `USER-FLOWS.md` Flow 19 (19a list, 19b detail, 19c keyboard).
+
+Test file targets:
+- Unit: `tests/TaskPilot.Tests.Unit/Services/TaskServiceCloneTests.cs` (new file)
+- Validator unit: `tests/TaskPilot.Tests.Unit/Validators/CloneTaskRequestValidatorTests.cs` (new file)
+- Integration: `tests/TaskPilot.Tests.Integration/Tasks/CloneTaskEndpointTests.cs` (new file)
+- E2E: `tests/TaskPilot.Tests.E2E/Tasks/CloneTaskTests.cs` (new file)
+
+---
+
+### 20.1 Unit Tests — `TaskService.CloneTaskAsync`
+
+**Project:** `TaskPilot.Tests.Unit/Services/TaskServiceCloneTests.cs`
+**Setup:** Moq + SQLite in-memory EF. Each test creates its own `DbContext` and `TaskService` instance. Helper factory builds a fully-populated `TaskItem` with tags, activityLogs, recurrence fields, and a non-null `CompletedDate`/`ResultAnalysis` on demand.
+
+#### Happy path — field mapping
+
+| # | Test Name | Arrange | Act | Assert |
+|---|-----------|---------|-----|--------|
+| U-CL-T-001 | `CloneTaskAsync_HappyPath_ReturnsNonNullResponse` | Source task in DB, valid userId | `CloneTaskAsync(sourceId, new CloneTaskRequest(), userId, modifiedBy)` | Returns non-null `TaskResponse` |
+| U-CL-T-002 | `CloneTaskAsync_HappyPath_NewIdDiffersFromSource` | Source task in DB | `CloneTaskAsync` | `result.Id != sourceId` |
+| U-CL-T-003 | `CloneTaskAsync_HappyPath_DefaultTitleHasCopySuffix` | Source `Title = "Prepare slides"`, no `Title` override | `CloneTaskAsync(…, new CloneTaskRequest())` | `result.Title == "Prepare slides (copy)"` |
+| U-CL-T-004 | `CloneTaskAsync_HappyPath_DescriptionCopiedVerbatim` | Source `Description = "Some notes"` | `CloneTaskAsync` | `result.Description == "Some notes"` |
+| U-CL-T-005 | `CloneTaskAsync_HappyPath_TaskTypeIdCopiedVerbatim` | Source has `TaskTypeId = 3` | `CloneTaskAsync` | `result.TaskTypeId == 3` |
+| U-CL-T-006 | `CloneTaskAsync_HappyPath_AreaCopiedVerbatim` | Source `Area = Work` | `CloneTaskAsync` | `result.Area == Work` |
+| U-CL-T-007 | `CloneTaskAsync_HappyPath_PriorityCopiedVerbatim` | Source `Priority = High` | `CloneTaskAsync` | `result.Priority == High` |
+| U-CL-T-008 | `CloneTaskAsync_HappyPath_StatusForcedToNotStarted` | Source `Status = InProgress` | `CloneTaskAsync` | `result.Status == NotStarted` |
+| U-CL-T-009 | `CloneTaskAsync_SourceCompleted_StatusForcedToNotStarted` | Source `Status = Completed`, `CompletedDate` set | `CloneTaskAsync` | `result.Status == NotStarted` |
+| U-CL-T-010 | `CloneTaskAsync_SourceCancelled_StatusForcedToNotStarted` | Source `Status = Cancelled` | `CloneTaskAsync` | `result.Status == NotStarted` |
+| U-CL-T-011 | `CloneTaskAsync_HappyPath_CompletedDateIsNull` | Source `CompletedDate = DateTime.UtcNow` | `CloneTaskAsync` | `result.CompletedDate == null` |
+| U-CL-T-012 | `CloneTaskAsync_HappyPath_ResultAnalysisIsNull` | Source `ResultAnalysis = "Went well"` | `CloneTaskAsync` | `result.ResultAnalysis == null` |
+| U-CL-T-013 | `CloneTaskAsync_HappyPath_IsDeletedFalseOnClone` | Source `IsDeleted = false` | `CloneTaskAsync` | Clone entity `IsDeleted == false` (verify in DB) |
+| U-CL-T-014 | `CloneTaskAsync_HappyPath_RecurrencePatternCopied` | Source `IsRecurring = true`, `RecurrencePattern = Weekly` | `CloneTaskAsync` | `result.IsRecurring == true`, `result.RecurrencePattern == Weekly` |
+| U-CL-T-015 | `CloneTaskAsync_SourceNotRecurring_RecurrencePatternNullOnClone` | Source `IsRecurring = false`, `RecurrencePattern = null` | `CloneTaskAsync` | `result.IsRecurring == false`, `result.RecurrencePattern == null` |
+
+#### Target-date handling
+
+| # | Test Name | Arrange | Act | Assert |
+|---|-----------|---------|-----|--------|
+| U-CL-T-016 | `CloneTaskAsync_NeitherOverrideNorClear_TargetDateCopiedVerbatim` | Source `TargetDate = May 30`, `CloneTaskRequest()` default | `CloneTaskAsync` | `result.TargetDate == May 30` |
+| U-CL-T-017 | `CloneTaskAsync_TargetDateOverride_UsesOverrideDate` | Source `TargetDate = May 30`, request `TargetDate = June 15`, `ClearTargetDate = false` | `CloneTaskAsync` | `result.TargetDate == June 15` |
+| U-CL-T-018 | `CloneTaskAsync_ClearTargetDateTrue_TargetDateIsNull` | Source `TargetDate = May 30`, request `ClearTargetDate = true` | `CloneTaskAsync` | `result.TargetDate == null` |
+| U-CL-T-019 | `CloneTaskAsync_ClearTargetDateTrueWithOverride_OverrideIgnoredDateIsNull` | Source `TargetDate = May 30`, request `TargetDate = June 15`, `ClearTargetDate = true` | `CloneTaskAsync` | `result.TargetDate == null` (clear flag wins) |
+| U-CL-T-020 | `CloneTaskAsync_SourceHasNoTargetDate_CloneAlsoHasNone` | Source `TargetDate = null`, default request | `CloneTaskAsync` | `result.TargetDate == null` |
+| U-CL-T-021 | `CloneTaskAsync_TargetDateTypeCopiedVerbatim` | Source `TargetDateType = ThisWeek` | `CloneTaskAsync` | `result.TargetDateType == ThisWeek` |
+
+#### Title override
+
+| # | Test Name | Arrange | Act | Assert |
+|---|-----------|---------|-----|--------|
+| U-CL-T-022 | `CloneTaskAsync_TitleOverrideSupplied_UsesOverride` | Source `Title = "Foo"`, request `Title = "Bar"` | `CloneTaskAsync` | `result.Title == "Bar"` |
+| U-CL-T-023 | `CloneTaskAsync_TitleOverrideNull_UsesCopySuffix` | Source `Title = "Foo"`, request `Title = null` | `CloneTaskAsync` | `result.Title == "Foo (copy)"` |
+| U-CL-T-024 | `CloneTaskAsync_TitleOverrideWhitespaceOnly_UsesCopySuffix` | Source `Title = "Foo"`, request `Title = "   "` | `CloneTaskAsync` | `result.Title == "Foo (copy)"` (whitespace treated as absent) |
+| U-CL-T-025 | `CloneTaskAsync_TitleOverrideEmptyString_UsesCopySuffix` | Source `Title = "Foo"`, request `Title = ""` | `CloneTaskAsync` | `result.Title == "Foo (copy)"` |
+| U-CL-T-026 | `CloneTaskAsync_DoubleClone_ProducesCopyCopySuffix` | Source `Title = "Foo (copy)"`, no override | `CloneTaskAsync` | `result.Title == "Foo (copy) (copy)"` (no deduplication in v1) |
+
+#### Tags
+
+| # | Test Name | Arrange | Act | Assert |
+|---|-----------|---------|-----|--------|
+| U-CL-T-027 | `CloneTaskAsync_TagsCopied_CountMatchesSource` | Source has 3 tags | `CloneTaskAsync` | Clone in DB has 3 `TaskTag` rows |
+| U-CL-T-028 | `CloneTaskAsync_TagsCopied_TagIdsMatchSource` | Source has tags T1, T2 | `CloneTaskAsync` | Clone's `TaskTag.TagId` set = `{T1, T2}` |
+| U-CL-T-029 | `CloneTaskAsync_SourceHasNoTags_CloneHasNoTags` | Source has 0 tags | `CloneTaskAsync` | Clone has 0 `TaskTag` rows |
+
+#### SortOrder
+
+| # | Test Name | Arrange | Act | Assert |
+|---|-----------|---------|-----|--------|
+| U-CL-T-030 | `CloneTaskAsync_SortOrderIsMaxPlusOne` | User has 3 tasks with SortOrder 1, 2, 3 | `CloneTaskAsync` | Clone `SortOrder == 4` |
+| U-CL-T-031 | `CloneTaskAsync_NoExistingTasks_SortOrderIsOne` | User has no other tasks | `CloneTaskAsync` | Clone `SortOrder == 1` (or whatever `GetMaxSortOrderAsync` returns for an empty set + 1) |
+
+#### ActivityLog
+
+| # | Test Name | Arrange | Act | Assert |
+|---|-----------|---------|-----|--------|
+| U-CL-T-032 | `CloneTaskAsync_ActivityLog_ExactlyOneEntryOnClone` | Source task exists | `CloneTaskAsync` | Clone has exactly 1 `TaskActivityLog` row |
+| U-CL-T-033 | `CloneTaskAsync_ActivityLog_FieldChangedIsCreated` | Source task exists | `CloneTaskAsync` | Clone's log entry `FieldChanged == "Created"` |
+| U-CL-T-034 | `CloneTaskAsync_ActivityLog_NewValueContainsSourceId` | Source `Id = {guid}` | `CloneTaskAsync` | Clone's log `NewValue == $"Cloned from {sourceId:D}"` (lowercase 36-char GUID) |
+| U-CL-T-035 | `CloneTaskAsync_ActivityLog_OldValueIsNull` | Source task exists | `CloneTaskAsync` | Clone's log entry `OldValue == null` |
+| U-CL-T-036 | `CloneTaskAsync_ActivityLog_ChangedByIsModifiedBy` | `modifiedBy = "user:alice"` | `CloneTaskAsync` | Clone's log `ChangedBy == "user:alice"` |
+| U-CL-T-037 | `CloneTaskAsync_ActivityLog_ApiCaller_ChangedByIsApiKeyName` | `modifiedBy = "api:Claude-Work"` | `CloneTaskAsync` | Clone's log `ChangedBy == "api:Claude-Work"` |
+
+#### Source immutability
+
+| # | Test Name | Arrange | Act | Assert |
+|---|-----------|---------|-----|--------|
+| U-CL-T-038 | `CloneTaskAsync_SourceTask_NoActivityLogAdded` | Source has 1 existing log entry | `CloneTaskAsync` | Source still has exactly 1 log entry after operation |
+| U-CL-T-039 | `CloneTaskAsync_SourceTask_LastModifiedDateUnchanged` | Record source `LastModifiedDate` before clone | `CloneTaskAsync` | Source `LastModifiedDate` unchanged (within 1ms tolerance) |
+| U-CL-T-040 | `CloneTaskAsync_SourceTask_StatusUnchanged` | Source `Status = Completed` | `CloneTaskAsync` | Source `Status` still `Completed` after clone |
+
+#### 404 / authorization
+
+| # | Test Name | Arrange | Act | Assert |
+|---|-----------|---------|-----|--------|
+| U-CL-T-041 | `CloneTaskAsync_MissingId_ReturnsNull` | No task with given `sourceId` | `CloneTaskAsync` | Returns `null` |
+| U-CL-T-042 | `CloneTaskAsync_SoftDeletedSource_ReturnsNull` | Source has `IsDeleted = true` | `CloneTaskAsync` | Returns `null` (global query filter excludes it) |
+| U-CL-T-043 | `CloneTaskAsync_CrossUserSource_ReturnsNull` | Source `UserId = userA`; call with `userId = userB` | `CloneTaskAsync` | Returns `null` |
+
+#### LastModifiedBy
+
+| # | Test Name | Arrange | Act | Assert |
+|---|-----------|---------|-----|--------|
+| U-CL-T-044 | `CloneTaskAsync_LastModifiedBy_UserCaller_FormattedCorrectly` | `modifiedBy = "user:alice"` | `CloneTaskAsync` | Clone `LastModifiedBy == "user:alice"` |
+| U-CL-T-045 | `CloneTaskAsync_LastModifiedBy_ApiKeyCaller_FormattedCorrectly` | `modifiedBy = "api:MyKey"` | `CloneTaskAsync` | Clone `LastModifiedBy == "api:MyKey"` |
+
+---
+
+### 20.2 Unit Tests — `CloneTaskRequestValidator`
+
+**Project:** `TaskPilot.Tests.Unit/Validators/CloneTaskRequestValidatorTests.cs`
+
+| # | Test Name | Input | Expected |
+|---|-----------|-------|----------|
+| U-CL-V-001 | `Validate_EmptyRequest_Passes` | `new CloneTaskRequest()` (all defaults) | Valid — no errors |
+| U-CL-V-002 | `Validate_EmptyBody_Passes` | `{}` deserialized to default `CloneTaskRequest` | Valid |
+| U-CL-V-003 | `Validate_TitleNull_Passes` | `Title = null` | Valid (null means "use default") |
+| U-CL-V-004 | `Validate_TitleWhitespaceOnly_Passes` | `Title = "   "` | Valid (whitespace treated as absent by service; validator does not reject it) |
+| U-CL-V-005 | `Validate_TitleExactly200Chars_Passes` | `Title` = 200-char string | Valid |
+| U-CL-V-006 | `Validate_Title201Chars_FailsWithMessage` | `Title` = 201-char string | Invalid, error on `Title`: "Title must not exceed 200 characters" |
+| U-CL-V-007 | `Validate_ClearTargetDateFalse_Passes` | `ClearTargetDate = false` | Valid |
+| U-CL-V-008 | `Validate_ClearTargetDateTrue_Passes` | `ClearTargetDate = true` | Valid |
+| U-CL-V-009 | `Validate_TargetDateSupplied_ClearFalse_Passes` | `TargetDate = DateTime.UtcNow.AddDays(7)`, `ClearTargetDate = false` | Valid |
+| U-CL-V-010 | `Validate_TargetDateSupplied_ClearTrue_Passes` | `TargetDate = DateTime.UtcNow`, `ClearTargetDate = true` | Valid (conflict resolved by service, not validator) |
+
+---
+
+### 20.3 Integration Tests — `POST /api/v1/tasks/{id}/clone`
+
+**Project:** `TaskPilot.Tests.Integration/Tasks/CloneTaskEndpointTests.cs`
+**Setup:** `WebApplicationFactory<Program>` with fresh SQLite in-memory DB per test class. Helpers: `CreateCookieAuthClient()`, `CreateApiKeyClient(string name)`, `SeedTask(HttpClient client, ...)`.
+
+#### Happy path
+
+| # | Test Name | Setup | Request | Expected |
+|---|-----------|-------|---------|----------|
+| I-CL-001 | `CloneTask_ValidId_Returns201` | Seed 1 task, cookie auth | POST `/api/v1/tasks/{id}/clone` empty body `{}` | 201 Created |
+| I-CL-002 | `CloneTask_ValidId_ResponseIsStandardEnvelope` | Seed 1 task | POST clone | Body is `ApiResponse<TaskResponse>`; `data` present; `meta.requestId` is non-empty GUID |
+| I-CL-003 | `CloneTask_ValidId_LocationHeaderPointsToNewTask` | Seed 1 task | POST clone | `Location` header = `/api/v1/tasks/{newId}` |
+| I-CL-004 | `CloneTask_ValidId_NewTaskExistsInDb` | Seed 1 task | POST clone | GET `/api/v1/tasks/{newId}` returns 200 |
+| I-CL-005 | `CloneTask_DefaultTitle_HasCopySuffix` | Seed task `Title = "My Task"`, empty body | POST clone | `data.title == "My Task (copy)"` |
+| I-CL-006 | `CloneTask_TitleOverride_UsesProvidedTitle` | Seed task, body `{ "title": "New Title" }` | POST clone | `data.title == "New Title"` |
+| I-CL-007 | `CloneTask_StatusIsAlwaysNotStarted` | Seed `Status = InProgress` task | POST clone | `data.status == "NotStarted"` |
+| I-CL-008 | `CloneTask_CompletedSource_StatusIsNotStarted` | Seed `Status = Completed` task | POST clone | `data.status == "NotStarted"` |
+| I-CL-009 | `CloneTask_CompletedSource_CompletedDateIsNull` | Seed completed task with `CompletedDate` set | POST clone | `data.completedDate == null` |
+| I-CL-010 | `CloneTask_CompletedSource_ResultAnalysisIsNull` | Seed completed task with `ResultAnalysis = "text"` | POST clone | `data.resultAnalysis == null` |
+| I-CL-011 | `CloneTask_TagsCopiedToClone` | Seed task with 2 tags | POST clone | `data.tags` array length = 2; tag names match source |
+| I-CL-012 | `CloneTask_TargetDateCopiedWhenNoOverride` | Seed task `TargetDate = "2026-06-01"` | POST clone empty body | `data.targetDate == "2026-06-01"` |
+| I-CL-013 | `CloneTask_TargetDateOverride_AppliesOverride` | Seed task `TargetDate = "2026-06-01"`, body `{ "targetDate": "2026-07-15" }` | POST clone | `data.targetDate == "2026-07-15"` |
+| I-CL-014 | `CloneTask_ClearTargetDate_SetsNull` | Seed task `TargetDate = "2026-06-01"`, body `{ "clearTargetDate": true }` | POST clone | `data.targetDate == null` |
+| I-CL-015 | `CloneTask_SourceHasNoTargetDate_CloneAlsoHasNone` | Seed task `TargetDate = null` | POST clone empty body | `data.targetDate == null` |
+| I-CL-016 | `CloneTask_ActivityLog_OneEntryOnClone` | Seed 1 task | POST clone | GET `/api/v1/tasks/{newId}/activity` → `data` has exactly 1 entry |
+| I-CL-017 | `CloneTask_ActivityLog_FieldChangedIsCreated` | Seed 1 task | POST clone | Activity log entry `fieldChanged == "Created"` |
+| I-CL-018 | `CloneTask_ActivityLog_NewValueContainsSourceId` | Seed task with known `id` | POST clone | Activity log `newValue == $"Cloned from {sourceId:D}"` |
+| I-CL-019 | `CloneTask_SourceTask_ActivityLogUnchanged` | Seed task with 1 pre-existing log entry | POST clone | GET source activity log → still exactly 1 entry |
+| I-CL-020 | `CloneTask_EmptyBody_IsAccepted` | Seed 1 task | POST with no body (`Content-Length: 0`) | 201 Created |
+| I-CL-021 | `CloneTask_RecurringSource_RecurrenceCopied` | Seed `IsRecurring = true`, `RecurrencePattern = Weekly` | POST clone | `data.isRecurring == true`, `data.recurrencePattern == "Weekly"` |
+
+#### Auth
+
+| # | Test Name | Setup | Request | Expected |
+|---|-----------|-------|---------|----------|
+| I-CL-022 | `CloneTask_Unauthenticated_Returns401` | No auth client | POST clone | 401, standard error envelope |
+| I-CL-023 | `CloneTask_CookieAuth_Returns201` | Cookie-authenticated client | POST clone | 201 |
+| I-CL-024 | `CloneTask_ApiKeyAuth_Returns201` | X-Api-Key authenticated client | POST clone | 201 |
+| I-CL-025 | `CloneTask_ApiKeyAuth_LastModifiedByIsApiKeyName` | API key named "Claude-Work" | POST clone | `data.lastModifiedBy == "api:Claude-Work"` |
+| I-CL-026 | `CloneTask_CookieAuth_LastModifiedByIsUsername` | Cookie auth as "testuser" | POST clone | `data.lastModifiedBy == "user:testuser"` |
+
+#### Errors
+
+| # | Test Name | Setup | Request | Expected |
+|---|-----------|-------|---------|----------|
+| I-CL-027 | `CloneTask_MissingId_Returns404` | No task with given ID | POST `/api/v1/tasks/{randomGuid}/clone` | 404, `error.code == "NOT_FOUND"` |
+| I-CL-028 | `CloneTask_SoftDeletedSource_Returns404` | Seed task, then DELETE it | POST clone against original ID | 404, `error.code == "NOT_FOUND"` |
+| I-CL-029 | `CloneTask_SoftDeletedSource_SameBodyAsMissing` | Seed + delete task | Compare 404 body from I-CL-028 to I-CL-027 | Response body structure and `error.code` are identical (no info disclosure) |
+| I-CL-030 | `CloneTask_AnotherUsersTask_Returns404` | Seed task for user A; authenticate as user B | POST clone | 404 (not 403 — no cross-user data leakage) |
+| I-CL-031 | `CloneTask_TitleExceeds200Chars_Returns400` | Valid task | POST clone body `{ "title": "<201-char string>" }` | 400, `error.code == "VALIDATION_ERROR"`, `details` contains `title` field error |
+
+#### Audit middleware
+
+| # | Test Name | Setup | Request | Expected |
+|---|-----------|-------|---------|----------|
+| I-CL-032 | `CloneTask_ApiKeyAuth_AuditLogEntryCreated` | API key auth | POST clone (success) | GET `/api/v1/audit` → new entry with `method = "POST"` and path containing `/clone` |
+| I-CL-033 | `CloneTask_CookieAuth_NoAuditLogEntry` | Cookie auth | POST clone (success) | `ApiAuditLog` count unchanged (cookie auth not audited) |
+
+#### Atomicity
+
+| # | Test Name | Setup | Request | Expected |
+|---|-----------|-------|---------|----------|
+| I-CL-034 | `CloneTask_SaveFailure_NoPartialRowsInDb` | Inject a `DbContext` wrapper that throws after entity attach but before `SaveChangesAsync` completes (e.g., by seeding a tag with a duplicate-key constraint that fires mid-transaction, or by replacing `ApplicationDbContext` with a subclass that overrides `SaveChangesAsync` to throw) | POST clone | 500 response; zero new `TaskItem` rows; zero new `TaskTag` rows; zero new `TaskActivityLog` rows for the attempted clone |
+
+_Implementation note for fullstack-dev: the recommended injection point is a test-specific `ApplicationDbContext` subclass registered via `WebApplicationFactory.WithWebHostBuilder` that overrides `SaveChangesAsync` to throw an `InvalidOperationException` on first call when a feature flag (e.g., `IOptions<TestOptions>.ThrowOnSave`) is set. This mirrors the pattern used by other atomicity tests in the codebase._
+
+---
+
+### 20.4 E2E Tests — Clone Task (`Tasks/CloneTaskTests.cs`)
+
+**Project:** `TaskPilot.Tests.E2E/Tasks/CloneTaskTests.cs`
+**Tag:** `[Trait("Category", "E2E")]`
+**Pattern:** xUnit `[Collection("Playwright")]`, shared `PlaywrightFixture`. Each test authenticates, seeds a task, then exercises the clone affordance.
+**Verbatim toast strings (assert these exactly):**
+- Success: `"Task cloned. You're now viewing the copy."`
+- 404 error: `"This task can't be cloned. It may have been deleted."`
+- 5xx/network error: `"Couldn't clone the task. Please try again."`
+
+#### Desktop / Tablet — Tasks list (viewport ≥ 768 px)
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| E-CL-001 | `TaskList_Desktop_CloneButton_IsVisible` | Authenticate at 1280 px; navigate to `/tasks`; create a task | `.btn[aria-label^="Clone task"]` or `button[aria-label^="Clone task"]` is visible in the list row |
+| E-CL-002 | `TaskList_Desktop_CloneRow_NavigatesToNewTask` | Create task "Orignal Task"; click Clone on its row | URL changes to `/tasks/{newId}` (not the source ID) |
+| E-CL-003 | `TaskList_Desktop_CloneRow_TitleHasCopySuffix` | Create task "Alpha Task"; click Clone on its row | New Detail page `h1` or title field contains `"Alpha Task (copy)"` |
+| E-CL-004 | `TaskList_Desktop_CloneRow_StatusPillIsNotStarted` | Create InProgress task; click Clone | New task's status indicator shows "Not Started" (or "NotStarted") |
+| E-CL-005 | `TaskList_Desktop_CloneRow_TagsInherited` | Create task with tag "urgent"; click Clone | New Detail page shows tag "urgent" |
+| E-CL-006 | `TaskList_Desktop_CloneRow_SuccessToastShownVerbatim` | Create task; click Clone | Toast with text `"Task cloned. You're now viewing the copy."` is visible (success variant — green) |
+
+#### Detail page (all breakpoints)
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| E-CL-007 | `TaskDetail_CloneButton_AlwaysRendered` | Navigate to any task detail page (desktop 1280 px) | `button[aria-label^="Clone task"]` or equivalent is present in the header action row |
+| E-CL-008 | `TaskDetail_CloneButton_RenderedForCompletedTask` | Complete a task; navigate to its detail page | Clone button is still rendered (not hidden for terminal-status tasks) |
+| E-CL-009 | `TaskDetail_CloneButton_NavigatesToNewTask` | Navigate to task detail; click Clone | URL changes to `/tasks/{newId}` |
+| E-CL-010 | `TaskDetail_CloneButton_SuccessToastShownVerbatim` | Navigate to task detail; click Clone | Toast text is exactly `"Task cloned. You're now viewing the copy."` |
+| E-CL-011 | `TaskDetail_CloneCompletedTask_CloneShowsNotStarted` | Complete task; navigate to detail; click Clone | New task page shows "Not Started" status, not "Completed" |
+
+#### Keyboard-only path (Flow 19c)
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| E-CL-012 | `TaskList_KeyboardOnly_TabToCloneAndActivate` | Navigate to `/tasks`; Tab through list row to reach Clone button; press Enter | Page navigates to new task URL; no mouse interaction used |
+| E-CL-013 | `TaskDetail_KeyboardOnly_TabToCloneAndActivate` | Navigate to `/tasks/{id}`; Tab to Clone button in header; press Enter | Page navigates to `/tasks/{newId}` |
+| E-CL-014 | `TaskDetail_KeyboardOnly_FocusLandsOnH1AfterNavigation` | Navigate to detail; Tab to Clone; Enter | After navigation, focused element is the new Detail page's `<h1>` or title heading (`document.activeElement` is within the heading) |
+
+#### Mobile viewport (≤ 640 px)
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| E-CL-015 | `TaskList_Mobile_CloneButtonNotRendered` | Authenticate at 390 px viewport; navigate to `/tasks` | No `button[aria-label^="Clone task"]` visible in task list rows (clone is mobile detail-only) |
+| E-CL-016 | `TaskDetail_Mobile_CloneButtonIsRendered` | Authenticate at 390 px; navigate to a task's detail page | Clone button is present in the Detail header action row |
+| E-CL-017 | `TaskDetail_Mobile_CloneNavigatesCorrectly` | 390 px viewport; Detail page; click Clone | URL changes to `/tasks/{newId}` |
+
+#### Error states
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| E-CL-018 | `CloneTask_404Error_ShowsVerboseToastAndNoNavigation` | Seed a task; delete it; using the stale source ID attempt a clone (e.g., via the second-tab pattern: Tab A has the Detail page open before deletion; Tab B deletes; Tab A clicks Clone) | Toast text is exactly `"This task can't be cloned. It may have been deleted."`; URL remains on the pre-clone page; Clone button is re-enabled after toast |
+| E-CL-019 | `CloneTask_404Error_ToastDismissesAfter8Seconds` | Trigger 404 error state | Toast is visible immediately; assert toast no longer visible after 9 s (8 s auto-dismiss) |
+| E-CL-020 | `CloneTask_CompletedSource_SucceedsAndShowsNotStarted` | Create and complete a task; navigate to `/tasks`; click Clone on the completed task | No error; navigates to `/tasks/{newId}`; clone shows "Not Started" status |
 
 ---
 

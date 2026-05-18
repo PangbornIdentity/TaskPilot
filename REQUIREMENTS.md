@@ -374,6 +374,7 @@ A self-describing diagnostic surface so that any deployed instance can be inspec
 | PATCH | /api/v1/tasks/{id} | Partial update (changed fields only) |
 | DELETE | /api/v1/tasks/{id} | Soft-delete |
 | POST | /api/v1/tasks/{id}/complete | Mark complete. Optional: `{ "resultAnalysis": "..." }` |
+| POST | /api/v1/tasks/{id}/clone | Duplicate a task. Body optional (`{}` valid). Allowed overrides: `title`, `targetDate`, `clearTargetDate`. New task starts in `NotStarted` with same tags, same TaskType/Area/Priority/TargetDateType/IsRecurring/RecurrencePattern. `CompletedDate` and `ResultAnalysis` are cleared. One activity log entry written to the clone with `NewValue = "Cloned from {sourceId}"`. Soft-deleted or other users' tasks → 404. See [ARCHITECTURE.md §3.1b](./ARCHITECTURE.md#31b-clone-task-endpoint). |
 | GET | /api/v1/tasks/stats | Aggregated stats |
 
 **GET /api/v1/tasks query params:** `status`, `taskTypeId` (int), `area` (enum: `Personal`, `Work`), `priority`, `search`, `tags` (comma-sep tag names, AND logic), `isRecurring`, `page`, `pageSize`, `sortBy`, `sortDir`

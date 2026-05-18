@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaskPilot.Services.Interfaces;
 using TaskPilot.Models.Tasks;
+using TaskPilot.Models.Common;
 
 namespace TaskPilot.Controllers;
 
@@ -82,5 +83,34 @@ public class TasksController(ITaskService taskService, IValidator<CreateTaskRequ
         var deleted = await taskService.DeleteTaskAsync(id, UserId, ModifiedBy, cancellationToken);
         if (!deleted) return NotFound(NotFoundError("Task"));
         return NoContent();
+    }
+
+    /// <summary>
+    /// Clones an existing task. The body is optional — an empty body <c>{}</c> is valid.
+    /// Returns 201 with the new task and a Location header pointing to it, 404 if the
+    /// source is missing/soft-deleted/cross-user, or 400 if validation fails.
+    /// </summary>
+    [HttpPost("{id:guid}/clone")]
+    public async Task<IActionResult> CloneTask(
+        Guid id,
+        [FromBody] CloneTaskRequest? request,
+        [FromServices] IValidator<CloneTaskRequest> validator,
+        CancellationToken cancellationToken)
+    {
+        request ??= new CloneTaskRequest();
+
+        var validation = await validator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            var details = validation.Errors
+                .Select(e => new FieldError(e.PropertyName, e.ErrorMessage))
+                .ToList();
+            return BadRequest(ValidationError("Validation failed.", details));
+        }
+
+        var result = await taskService.CloneTaskAsync(id, request, UserId, ModifiedBy, cancellationToken);
+        if (result is null) return NotFound(NotFoundError("Task"));
+
+        return CreatedAtAction(nameof(GetTask), new { id = result.Id }, Envelope(result));
     }
 }

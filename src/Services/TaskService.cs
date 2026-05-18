@@ -257,6 +257,66 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         return logs;
     }
 
+    /// <summary>
+    /// Duplicates an existing task owned by <paramref name="userId"/>.
+    /// Returns null when the source is not found, soft-deleted, or belongs to a different user.
+    /// </summary>
+    public async Task<TaskResponse?> CloneTaskAsync(
+        Guid sourceId,
+        CloneTaskRequest request,
+        string userId,
+        string modifiedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var source = await taskRepository.GetByIdWithTagsAsync(sourceId, userId, cancellationToken);
+        if (source is null) return null;
+
+        var sortOrder = await taskRepository.GetMaxSortOrderAsync(userId, cancellationToken) + 1;
+
+        var effectiveTitle = string.IsNullOrWhiteSpace(request.Title)
+            ? $"{source.Title} (copy)"
+            : request.Title;
+
+        DateTime? effectiveTargetDate = request.ClearTargetDate
+            ? null
+            : request.TargetDate ?? source.TargetDate;
+
+        var clone = new TaskItem
+        {
+            Title = effectiveTitle,
+            Description = source.Description,
+            TaskTypeId = source.TaskTypeId,
+            Area = source.Area,
+            Priority = source.Priority,
+            Status = TaskStatus.NotStarted,
+            TargetDateType = source.TargetDateType,
+            TargetDate = effectiveTargetDate,
+            CompletedDate = null,
+            ResultAnalysis = null,
+            IsRecurring = source.IsRecurring,
+            RecurrencePattern = source.RecurrencePattern,
+            SortOrder = sortOrder,
+            UserId = userId,
+            LastModifiedBy = modifiedBy,
+            TaskTags = source.TaskTags.Select(tt => new TaskTag { TagId = tt.TagId }).ToList()
+        };
+
+        clone.ActivityLogs.Add(new TaskActivityLog
+        {
+            TaskId = clone.Id,
+            Timestamp = DateTime.UtcNow,
+            FieldChanged = "Created",
+            OldValue = null,
+            NewValue = $"Cloned from {sourceId:D}",
+            ChangedBy = modifiedBy
+        });
+
+        await taskRepository.AddAsync(clone, cancellationToken);
+        await taskRepository.SaveChangesAsync(cancellationToken);
+
+        return MapToResponse(clone);
+    }
+
     private static TaskResponse MapToResponse(TaskItem task) => new(
         task.Id,
         task.Title,

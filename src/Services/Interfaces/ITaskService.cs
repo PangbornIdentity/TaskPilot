@@ -13,4 +13,15 @@ public interface ITaskService
     Task<TaskResponse?> CompleteTaskAsync(Guid id, CompleteTaskRequest request, string userId, string modifiedBy, CancellationToken cancellationToken = default);
     Task<bool> DeleteTaskAsync(Guid id, string userId, string modifiedBy, CancellationToken cancellationToken = default);
     Task<bool> UpdateSortOrderAsync(Guid id, int sortOrder, string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Duplicates an existing task owned by <paramref name="userId"/>.
+    /// Returns null when the source does not exist, is soft-deleted, or belongs to a different user.
+    /// </summary>
+    Task<TaskResponse?> CloneTaskAsync(
+        Guid sourceId,
+        CloneTaskRequest request,
+        string userId,
+        string modifiedBy,
+        CancellationToken cancellationToken = default);
 }
