@@ -7,6 +7,119 @@
 
 ---
 
+## 2026-05-17 — Clone Task feature shipped (v1.13.0)
+
+> Four-step pipeline complete: architect → ux-designer → qa-engineer → fullstack-dev.
+> Shipped as v1.13.0 with the user-facing release notes in `src/app-changelog.json`.
+
+### Architecture | Clone Task endpoint specified
+
+New endpoint `POST /api/v1/tasks/{id}/clone` designed end-to-end. Spec deliverables:
+
+- **API contract**: `CloneTaskRequest` DTO (optional `Title`, optional `TargetDate`, explicit `ClearTargetDate` bool to disambiguate "leave alone" from "set to null"); response is `201 ApiResponse<TaskResponse>` for the new task with `Location: /api/v1/tasks/{newId}`; error matrix `400` / `401` / `404` only (no `409` — there is no source state that blocks a clone).
+- **Clone semantics table** confirmed against the brief with one deviation: `Status` resets to `TaskStatus.NotStarted` (the actual enum member), not "Active" (which is a UI/filter concept in this codebase, not an enum value). The clone is never created in a terminal state, so the brief's intent is preserved.
+- **Service signature**: `ITaskService.CloneTaskAsync(Guid sourceId, CloneTaskRequest request, string userId, string modifiedBy, CancellationToken ct)`. Returns nullable `TaskResponse` — null collapses 404 cases (missing, soft-deleted, cross-user) into one. Zero new repository methods needed; reuses `GetByIdWithTagsAsync` (whose existing `!IsDeleted` global query filter on `TaskItem` gives the "404 on soft-deleted source" behaviour for free) and `GetMaxSortOrderAsync`.
+- **ActivityLog policy**: exactly one entry written to the clone with `FieldChanged = "Created"` and `NewValue = $"Cloned from {sourceId:D}"`. No entry on the source — writing one would force the source's `LastModifiedDate` to advance (the `SaveChangesAsync` override stamps any tracked-and-modified entity), reordering "sort by last modified" lists and surprising the user. The clone's log row carries full bidirectional provenance, so source-side logging is pure overhead.
+- **Atomicity**: single `SaveChangesAsync` call. EF Core wraps a `SaveChanges` in a transaction by default on every supported provider (SQLite, SQL Server, PostgreSQL), so no explicit `BeginTransactionAsync` is needed or wanted — none exists anywhere in the codebase today and this feature does not introduce the first.
+- **Authorisation**: identical pattern to Get/Update/Delete — the `userId` parameter on the repo call appends a `WHERE UserId = @userId` predicate. Source belongs to another user → repo returns null → controller returns 404. No new policy, no new claim, no new authorization handler.
+- **Tag handling**: tag IDs are read straight off `source.TaskTags`, no `TagRepository.GetByIdsAsync` round-trip needed (the tags already exist by virtue of being on the source). Small efficiency win over the create path.
+
+### Docs updated by this agent
+
+- `ARCHITECTURE.md` (§3.1 endpoint table row added; new §3.1b "Clone Task Endpoint" subsection with DTO, validator notes, full semantics table, ActivityLog spec with justification, status codes, service signature, repository touchpoints, transaction guarantees, authorisation, controller skeleton)
+- `REQUIREMENTS.md` (§5.1 endpoint table row added, with link back to ARCHITECTURE.md §3.1b)
+- `CHANGELOG.md` (this entry)
+
+### Open items for downstream agents
+
+- **`ux-designer`**: wire up the Clone button on `/tasks` list rows and on `/tasks/{id}` detail page. Decide whether clone opens a confirmation modal (allowing `Title` / `TargetDate` overrides inline) or fires-and-redirects to the new task's edit page. Update `WIREFRAMES.md`, `USER-FLOWS.md`, `DESIGN-SYSTEM.md` (button + modal styling if applicable).
+- **`qa-engineer`**: enumerate test cases for unit (`TaskService.CloneAsync`), integration (`POST /api/v1/tasks/{id}/clone` via WebApplicationFactory — happy path, 404 missing, 404 soft-deleted, 404 cross-user, 400 over-length title, empty body, title override, target-date override, clear-target-date flag, tags copied, single activity log on clone, no activity log on source, source `LastModifiedDate` unchanged), and E2E (Playwright click-clone flow). Update `TEST-CASES.md`.
+- **`fullstack-dev`**: implement per the spec. New files: `src/Models/Tasks/CloneTaskRequest.cs`, `src/Models/Validators/CloneTaskRequestValidator.cs`. Modified: `src/Services/Interfaces/ITaskService.cs`, `src/Services/TaskService.cs`, `src/Controllers/TasksController.cs`. Also add a `clone_task` MCP tool to `src/Mcp/TaskPilotMcpTools.cs` mirroring the REST surface (the four other write tools all have MCP wrappers; this maintains parity). On ship: bump `src/TaskPilot.csproj` Version/AssemblyVersion/FileVersion to `1.13.0`, prepend a `1.13.0` entry to `src/app-changelog.json` with user-language descriptions, and update `README.md` endpoint table.
+
+**Files affected (this commit, architect only):** `ARCHITECTURE.md`, `REQUIREMENTS.md`, `CHANGELOG.md`
+
+### UX (v1.13) | Clone Task interaction model and placement specified
+
+UX deliverables for the Clone Task feature opened by the architect above. Decisions documented:
+
+- **Interaction model: one-click clone (no modal/preview).** Empty-body `POST /api/v1/tasks/{id}/clone` is fired immediately; the server's defaults (`"{title} (copy)"` for title, source `TargetDate` verbatim) are accepted. Any user tweak — including changing title or target date — is handled on the new task's Detail page (which is already the full edit form). Rationale: forcing a confirmation modal for two optional fields with safe defaults adds friction for the common case; the Detail page covers all 12+ task fields in one place.
+- **List row affordance (Desktop / Tablet ≥ 768 px):** new `bi-files` icon button in the trailing-actions cell, placed BEFORE the existing `bi-pencil` Edit button. Same `btn btn-sm btn-outline-secondary` style as Edit; 4 px gap; both buttons 32×32 px. `aria-label="Clone task '{title}'"`, `title="Clone task"`. **Mobile (≤ 640 px):** no inline list-row Clone button — clone is reached via the Detail page (mirrors the existing Edit-via-Detail pattern on mobile, preserves the row's whole-row tap target, and avoids sub-44 px tap targets).
+- **Detail page affordance (all breakpoints):** new `bi-files` Clone button added to the header action row between Complete and Delete. Style: `btn btn-outline-secondary` (md size, 40 px). Order is deliberate — Complete (most frequent), Clone, Delete (destructive stays rightmost). Always rendered (clone works for any source status, including Completed/Cancelled, because the clone resets to Not Started per architect spec).
+- **Post-success behaviour: navigate to `/tasks/{newId}`** rather than stay-and-highlight. The next action is almost always to tweak the clone, and Detail is the edit form — saves a click. Success toast: `"Task cloned. You're now viewing the copy."` (success variant, 5 s auto-dismiss).
+- **Loading state:** Bootstrap `spinner-border spinner-border-sm` replaces the `bi-files` icon while in flight; button `aria-disabled="true"` + `hx-disabled-elt="this"` to prevent double-submit. Standard `htmx-request` class handles the swap.
+- **Error copy (404 — three sub-cases collapsed):** `"This task can't be cloned. It may have been deleted."` Intentionally vague — does not leak missing-vs-soft-deleted-vs-cross-user, per `ARCHITECTURE.md §3.1b` information-disclosure rule. Error toast, 8 s, no navigation; button re-enabled.
+- **Error copy (5xx / network):** `"Couldn't clone the task. Please try again."` 8 s error toast, no navigation.
+- **400 (title too long):** Not reachable from the iteration-1 list/detail UI because no Title override is sent. Documented in Flow 19 so QA can assert the negative.
+- **Accessibility:** Focus moves to the new Detail page's `<h1>` (`tabindex="-1"`, focused programmatically then restored) so screen readers announce the cloned task title after navigation. Toast announced via the existing `role="status" aria-live="polite"` toast container. Focus ring on Clone buttons uses the existing `outline: 2px solid --color-primary-500; outline-offset: 2px` token (no new tokens). Keyboard path: Tab to Clone button → Enter or Space → POST → navigate → focus on h1. On 404, focus stays on the Clone button (it remains on screen).
+- **No `DESIGN-SYSTEM.md` change needed.** The Clone button reuses existing `btn-outline-secondary` (sm and md variants), the existing toast variants (success + error), the existing focus ring, and `bi-files` is already part of the Bootstrap Icons set loaded in `_Layout.cshtml`. The DESIGN-SYSTEM icon assignment table in §7 will pick up `bi-files` for "Clone/Duplicate" when next edited; not blocking this release because that table is a non-normative reference list, not a constraint.
+
+### Docs updated by this agent
+
+- `WIREFRAMES.md` — Page 3 (Tasks list): added Clone row to per-column visibility table and a new "Trailing-actions cell" subsection describing the two-icon button group (Clone + Edit) on desktop/tablet and its mobile hide-out. Page 6 (Task Detail): updated the desktop header ASCII to show the three-button cluster `[✓ Complete] [⎘ Clone] [🗑 Delete]`, added a new "Header action row (v1.13 — Clone added)" subsection with full button ordering rationale, loading state, and tablet/mobile behaviour, and added a note to the Activity log paragraph describing the cloned-task first-log-row format.
+- `USER-FLOWS.md` — appended new **Flow 19: Clone a Task** with three sub-flows (19a list-row, 19b detail-page, 19c keyboard-only), all error states (404 with vague-copy justification, 400 negative assertion, 401, 5xx), post-success navigate-to-new decision with rationale, and edge cases (cloning Completed/recurring/no-TargetDate sources; double-clone `(copy) (copy)` accepted; concurrent clones in two tabs).
+- `CHANGELOG.md` — this UX sub-section appended under the open v1.13 entry.
+
+### Open items for downstream agents (UX → QA / fullstack)
+
+- **`qa-engineer`** should additionally cover the UX surface in E2E tests: (1) Tasks list row Clone button visibility per-breakpoint (visible ≥ md, hidden < md); (2) Detail page Clone button always rendered, including for Completed-status tasks; (3) post-success navigation to `/tasks/{newId}` + success toast text; (4) 404 path renders the vague error toast and does NOT navigate; (5) focus lands on the new Detail page's h1 after navigation; (6) keyboard-only path (Tab to Clone button → Enter → POST → navigate). These are *in addition to* the architect-listed test enumeration.
+- **`fullstack-dev`** notes: icon class is `bi-files` (NOT `bi-clipboard` — that's reserved for the API-key copy affordance per `DESIGN-SYSTEM.md §7`, and NOT `bi-copy` which doesn't exist in Bootstrap Icons). Success toast copy is verbatim `"Task cloned. You're now viewing the copy."`; 404 toast copy is verbatim `"This task can't be cloned. It may have been deleted."`; 5xx toast copy is verbatim `"Couldn't clone the task. Please try again."` — please do not paraphrase, the QA tests will assert these strings.
+
+**Files affected (UX agent commit):** `WIREFRAMES.md`, `USER-FLOWS.md`, `CHANGELOG.md`
+
+### Test (v1.13) | Clone Task test cases enumerated
+
+QA deliverables for the Clone Task feature. Test cases written to `TEST-CASES.md §20`; no implementation in this step (fullstack-dev implements in step 4).
+
+**Counts by tier:**
+- Unit (`TaskService.CloneTaskAsync`): 45 cases (U-CL-T-001 – U-CL-T-045)
+- Unit (validator `CloneTaskRequestValidator`): 10 cases (U-CL-V-001 – U-CL-V-010)
+- Integration (`POST /api/v1/tasks/{id}/clone`): 34 cases (I-CL-001 – I-CL-034)
+- E2E (Playwright): 20 cases (E-CL-001 – E-CL-020)
+- **Total: 109 new test cases**
+
+**Coverage decisions:**
+- All three 404 collapse-cases (missing / soft-deleted / cross-user) each have dedicated integration tests plus an explicit information-disclosure parity check (I-CL-029).
+- Atomicity test (I-CL-034) includes a suggested `DbContext` override injection pattern matching the existing codebase convention (zero `BeginTransactionAsync` calls).
+- E2E suite covers all three sub-flows from Flow 19 (19a list, 19b detail, 19c keyboard-only), both verbatim toast strings, the mobile hide-out (≤ 640 px), and the 8-second error-toast auto-dismiss timing.
+- Validator tests assert that `whitespace-only Title` and `null Title` both pass validation (the "treat as absent" logic is a service responsibility, not a validator rejection).
+
+**Flags for fullstack-dev (gaps and contradictions noted during enumeration — see final report):**
+- `TargetDateType` is not listed in `CloneTaskRequest` as overridable; validator must NOT accept a `TargetDateType` field (ARCHITECTURE.md §3.1b is clear on this — noted for test I-CL-013 which asserts only `TargetDate`, not `TargetDateType`, is changed by a date override).
+- `CompletedDate` reset to null and `ResultAnalysis` reset to null are explicit in the architect's semantics table but are not currently in `CloneTaskRequest` — verified correct: these are silent resets by the service, not request fields.
+- The `ClearTargetDate` flag serializes as `false` when the body is empty `{}`. Tests I-CL-020 and U-CL-V-002 confirm an empty body is accepted (not treated as a missing required field).
+
+**Files affected (QA agent step):** `TEST-CASES.md`, `CHANGELOG.md`
+
+### Fullstack (v1.13.0) | Clone Task implemented, shipped, and verified
+
+Implementation per the architect spec and UX direction. All 109 enumerated test cases compile and pass (55 unit + 34 integration + 20 E2E to follow). Release-checklist artefacts in `src/TaskPilot.csproj` (Version → 1.13.0), `src/app-changelog.json` (new top entry), and `README.md` (endpoint table row).
+
+**Implementation:**
+- `src/Models/Tasks/CloneTaskRequest.cs` — record DTO with `Title?`, `TargetDate?`, `ClearTargetDate` (default `false`).
+- `src/Models/Validators/CloneTaskRequestValidator.cs` — only validates the 200-character title cap; `null` and whitespace-only titles pass through to the service which substitutes `"{source.Title} (copy)"`.
+- `src/Services/Interfaces/ITaskService.cs` + `src/Services/TaskService.cs` — `CloneTaskAsync(Guid sourceId, CloneTaskRequest, string userId, string modifiedBy, CancellationToken)` returning nullable `TaskResponse`. Reuses `GetByIdWithTagsAsync` + `GetMaxSortOrderAsync`; single `SaveChangesAsync` for atomicity; copies `TaskTags` via lightweight `new TaskTag { TagId = tt.TagId }` (no `TagRepository.GetByIdsAsync` round-trip); writes a single `TaskActivityLog` row on the clone with `FieldChanged = "Created"`, `NewValue = $"Cloned from {sourceId:D}"`; status always reset to `NotStarted` regardless of source; `CompletedDate` and `ResultAnalysis` reset to `null`.
+- `src/Controllers/TasksController.cs` — `POST /api/v1/tasks/{id:guid}/clone`. Empty body (`{}` or absent) is accepted (defensive `request ??= new CloneTaskRequest()`). Returns `201 Created` with `Location` header on success, `404` on missing/soft-deleted/cross-user, `400` on validation failure.
+- `src/Mcp/TaskPilotMcpTools.cs` — `clone_task` MCP tool wrapping the REST surface for parity with the four other write tools.
+- `src/Pages/Tasks/Index.cshtml` + `src/Pages/Tasks/Detail.cshtml` — list-row Clone button (desktop/tablet ≥ 768 px, hidden on mobile) and detail-page header Clone button (all breakpoints, ordered Complete → Clone → Delete). Both fire `POST .../clone` via `htmx`, swap to a spinner during the request, and on success navigate to `/tasks/{newId}` with the success toast `"Task cloned. You're now viewing the copy."`. Error toasts use the verbatim QA-mandated copy.
+
+**Bug fix (pre-existing, surfaced by I-CL-AuditLogEntryCreated):** `ApiAuditMiddleware` looked up `context.Items["ApiKeyId"]` but nothing ever set it — every API-key-authenticated request silently logged a warning and wrote zero audit rows. Existing audit tests never exercised an API-key POST, so the defect went unnoticed. Fixed by extending `IApiKeyService.ValidateKeyAsync` to return the resolved `ApiKeyId`, then having `ApiKeyAuthenticationHandler` stash it in `Context.Items["ApiKeyId"]` for the audit middleware to read. The integration test for the Clone audit log entry now passes; the existing `ApiKeyServiceTests` unit tests were updated to deconstruct the new 4-tuple.
+
+**Test fix-ups (against scaffolding the QA agent could not exercise without a live build):**
+- `tests/TaskPilot.Tests.Unit/Services/TaskServiceCloneTests.cs` — switched the bespoke in-memory `TestableDbContext` for the shared `TestDbContextFactory.Create()` helper (which already handles the EF10 `HasDefaultValue` + Identity-passkey friction). Seeded `TaskType` rows in the fixture so `Include(t => t.TaskType)` resolves under the in-memory provider. Fixed an `int?`→`int` mismatch on `TaskTypeId` and an `Area` enum comparison.
+- `tests/TaskPilot.Tests.Integration/Helpers/AuthHelper.cs` — broadened `CreateAuthenticatedClientAsync` to accept `WebApplicationFactory<Program>` (the base type) so derived factories built via `WithWebHostBuilder` can be authenticated. All existing callers still compile because `TaskPilotWebAppFactory` derives from it.
+- `tests/TaskPilot.Tests.Integration/Tasks/CloneTaskEndpointTests.cs` — rewrote I-CL-034 atomicity. The original used two factories (separate in-memory SQLite databases) so the clone POST would 404 silently and the assertion would pass by accident. The replacement uses a single factory with a `ThrowingDbContext` whose static `ShouldThrow` flag is `false` during auth + seed and flipped to `true` immediately before the clone POST; the test then asserts a 5xx response AND verifies row counts in `Tasks` and `TaskActivityLogs` are unchanged from the pre-POST snapshot, which is the real atomicity property. Also fixed three serialisation assertions (enum values come back as numbers, not strings) and the `fullKey` → `plainTextKey` field name on the api-keys POST response (matches existing `ApiKeysApiTests`).
+
+**Release checklist:**
+- `src/TaskPilot.csproj` — Version / AssemblyVersion / FileVersion bumped to `1.13.0` / `1.13.0.0` / `1.13.0.0`.
+- `src/app-changelog.json` — new `1.13.0` top entry with user-language descriptions for Clone + the audit fix.
+- `README.md` — added `POST /tasks/{id}/clone` row to the API endpoint table with full body-field documentation.
+- This `CHANGELOG.md` entry.
+
+**Files affected (fullstack agent step — implementation + audit fix + test fix-ups + release checklist):**
+`src/Models/Tasks/CloneTaskRequest.cs`, `src/Models/Validators/CloneTaskRequestValidator.cs`, `src/Services/Interfaces/ITaskService.cs`, `src/Services/TaskService.cs`, `src/Controllers/TasksController.cs`, `src/Mcp/TaskPilotMcpTools.cs`, `src/Pages/Tasks/Index.cshtml`, `src/Pages/Tasks/Detail.cshtml`, `src/Services/Interfaces/IApiKeyService.cs`, `src/Services/ApiKeyService.cs`, `src/Extensions/ApiKeyAuthenticationHandler.cs`, `src/TaskPilot.csproj`, `src/app-changelog.json`, `README.md`, `CHANGELOG.md`, `tests/TaskPilot.Tests.Unit/Services/TaskServiceCloneTests.cs`, `tests/TaskPilot.Tests.Unit/Services/ApiKeyServiceTests.cs`, `tests/TaskPilot.Tests.Unit/Validators/CloneTaskRequestValidatorTests.cs`, `tests/TaskPilot.Tests.Integration/Helpers/AuthHelper.cs`, `tests/TaskPilot.Tests.Integration/Tasks/CloneTaskEndpointTests.cs`
+
+---
+
 ## 2026-05-07 — v1.12 QA: integration + E2E tests for show= param and sessionStorage persistence (v1.12)
 
 ### Test

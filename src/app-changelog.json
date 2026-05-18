@@ -1,6 +1,17 @@
 {
   "versions": [
     {
+      "version": "1.13.0",
+      "releaseDate": "2026-05-17",
+      "versionType": "minor",
+      "summary": "Clone any task in one click — same details, fresh start.",
+      "changes": [
+        { "type": "Feature", "description": "New Clone button on each task. On the Tasks list (desktop and tablet) a Clone icon sits next to Edit; on a task's Detail page a Clone button sits between Complete and Delete. Click it and you're taken straight to the new copy, ready to tweak. The copy inherits the source task's description, type, area, priority, tags, recurrence, and target date, but always starts as Not Started — even when you clone a Completed or Cancelled task." },
+        { "type": "Feature", "description": "Clone is also exposed as a REST endpoint (POST /api/v1/tasks/{id}/clone) and as a clone_task MCP tool, so anything driving the API or an LLM agent can duplicate a task without re-typing all the fields." },
+        { "type": "Fix", "description": "API-key audit log was silently dropping entries. The audit middleware needed the API key's internal id and the authentication handler never passed it through, so every API-key request logged a warning and wrote zero audit rows. Now every API-key request writes a real audit row — visible on the Audit page." }
+      ]
+    },
+    {
       "version": "1.12.0",
       "releaseDate": "2026-05-06",
       "versionType": "minor",

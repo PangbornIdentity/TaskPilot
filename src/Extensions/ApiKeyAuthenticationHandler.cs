@@ -25,10 +25,15 @@ public class ApiKeyAuthenticationHandler(
         if (string.IsNullOrWhiteSpace(plainTextKey))
             return AuthenticateResult.Fail("API key is empty.");
 
-        var (isValid, keyName, userId) = await apiKeyService.ValidateKeyAsync(plainTextKey);
+        var (isValid, keyName, userId, apiKeyId) = await apiKeyService.ValidateKeyAsync(plainTextKey);
 
-        if (!isValid || keyName is null || userId is null)
+        if (!isValid || keyName is null || userId is null || apiKeyId is null)
             return AuthenticateResult.Fail("Invalid or inactive API key.");
+
+        // Stash the resolved ApiKey row id so ApiAuditMiddleware can write an
+        // audit row with a real FK. Without this, the middleware logs a warning
+        // and silently drops the audit entry.
+        Context.Items["ApiKeyId"] = apiKeyId.Value;
 
         var claims = new[]
         {

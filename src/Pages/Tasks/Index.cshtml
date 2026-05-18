@@ -395,9 +395,18 @@
                                     }
                                 </td>
                                 <td class="d-none d-md-table-cell text-end">
-                                    <a href="/tasks/@task.Id" class="btn btn-sm btn-outline-secondary">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
+                                    <div class="d-flex gap-1 justify-content-end">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-secondary tp-clone-btn"
+                                                aria-label="Clone task '@task.Title'"
+                                                title="Clone task"
+                                                data-clone-url="/api/v1/tasks/@task.Id/clone">
+                                            <i class="bi bi-files"></i>
+                                        </button>
+                                        <a href="/tasks/@task.Id" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -629,6 +638,73 @@ function selectTagColor(swatch) {
     document.querySelectorAll('#newTagColorSwatches .tp-color-swatch').forEach(s => s.classList.remove('selected'));
     swatch.classList.add('selected');
     document.getElementById('newTagColor').value = swatch.dataset.color;
+}
+
+// ── Clone task handler ───────────────────────────────────────────────────────
+document.addEventListener("click", function(e) {
+    var btn = e.target.closest(".tp-clone-btn");
+    if (!btn) return;
+    var cloneUrl = btn.dataset.cloneUrl;
+    if (!cloneUrl) return;
+    cloneTaskFromList(btn, cloneUrl);
+});
+
+async function cloneTaskFromList(btn, cloneUrl) {
+    var icon = btn.querySelector("i");
+    if (icon) { icon.className = "spinner-border spinner-border-sm"; icon.setAttribute("role", "status"); }
+    btn.setAttribute("aria-disabled", "true");
+    btn.disabled = true;
+
+    try {
+        var resp = await fetch(cloneUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}"
+        });
+        if (resp.status === 201) {
+            var data = await resp.json();
+            var newId = data && data.data && data.data.id;
+            sessionStorage.setItem("tp_clone_toast", "Task cloned. You’re now viewing the copy.");
+            window.location.href = "/tasks/" + newId;
+        } else if (resp.status === 404) {
+            showCloneToast("This task can’t be cloned. It may have been deleted.", "error");
+            restoreCloneBtn(btn, icon);
+        } else {
+            showCloneToast("Couldn’t clone the task. Please try again.", "error");
+            restoreCloneBtn(btn, icon);
+        }
+    } catch (err) {
+        showCloneToast("Couldn’t clone the task. Please try again.", "error");
+        restoreCloneBtn(btn, icon);
+    }
+}
+
+function restoreCloneBtn(btn, icon) {
+    if (icon) { icon.className = "bi bi-files"; icon.removeAttribute("role"); }
+    btn.removeAttribute("aria-disabled");
+    btn.disabled = false;
+}
+
+function showCloneToast(message, type) {
+    var container = document.getElementById("tp-toast-region");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "tp-toast-region";
+        container.className = "position-fixed bottom-0 end-0 p-3";
+        container.style.zIndex = "9999";
+        document.body.appendChild(container);
+    }
+    var isError = (type === "error");
+    var toast = document.createElement("div");
+    toast.className = "toast show align-items-center border-0 mb-2 " + (isError ? "text-bg-danger" : "text-bg-success");
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    toast.innerHTML = "<div class=\"d-flex\"><div class=\"toast-body\">" + message +
+        "</div><button type=\"button\" class=\"btn-close btn-close-white me-2 m-auto\" aria-label=\"Close\"></button></div>";
+    toast.querySelector(".btn-close").onclick = function() { toast.remove(); };
+    container.appendChild(toast);
+    var delay = isError ? 8000 : 5000;
+    setTimeout(function() { if (toast.parentNode) toast.remove(); }, delay);
 }
 
 async function createTagInline(btn) {

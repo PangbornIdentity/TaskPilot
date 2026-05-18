@@ -350,6 +350,7 @@ All endpoints: `Content-Type: application/json`, wrapped in the standard respons
 | PATCH | /api/v1/tasks/{id} | Cookie or ApiKey | `PatchTaskRequest` | 200 `ApiResponse<TaskResponse>` | 400, 401, 404 |
 | DELETE | /api/v1/tasks/{id} | Cookie or ApiKey | — | 204 | 401, 404 |
 | POST | /api/v1/tasks/{id}/complete | Cookie or ApiKey | `CompleteTaskRequest` | 200 `ApiResponse<TaskResponse>` | 400, 401, 404, 409 |
+| POST | /api/v1/tasks/{id}/clone | Cookie or ApiKey | `CloneTaskRequest` (body optional — empty `{}` is valid) | 201 `ApiResponse<TaskResponse>` (new task) + `Location: /api/v1/tasks/{newId}` | 400, 401, 404 |
 | GET | /api/v1/tasks/stats | Cookie or ApiKey | Query: date range | 200 `ApiResponse<StatsResponse>` | 401 |
 
 ### 3.1a Task Type Lookup Endpoint
@@ -512,6 +513,175 @@ public record TagTaskCountData(string TagName, int TaskCount);
 
 > `CompletionsByArea` counts all completed tasks for the queried period split by `Area` value.
 > `TopTags` returns the top 5 tags ranked by number of associated tasks (completed + active) within the period.
+
+### 3.1b Clone Task Endpoint
+
+`POST /api/v1/tasks/{id}/clone` duplicates an existing `TaskItem` owned by the caller and returns the newly-created task wrapped in the standard envelope. Same auth schemes as the rest of the Task endpoints (Cookie for the web UI, `X-Api-Key` for REST clients). The caller may pass an empty body (`{}`) for a pure duplicate, or supply allowed overrides on the request.
+
+#### CloneTaskRequest
+
+```csharp
+// src/Models/Tasks/CloneTaskRequest.cs
+public record CloneTaskRequest(
+    string? Title = null,            // override; null = use "<source title> (copy)"
+    DateTime? TargetDate = null,     // override; ignored when ClearTargetDate is true
+    bool ClearTargetDate = false     // if true, new task's TargetDate is set to null regardless of source
+);
+```
+
+Notes:
+- The DTO is deliberately tiny. Any other field the caller wants different on the clone is a `PATCH /api/v1/tasks/{newId}` follow-up. Keeping `CloneTaskRequest` narrow avoids re-implementing the full create/update validation matrix and avoids the "is this a copy or a brand-new task" semantic ambiguity.
+- `Title`: when supplied, used verbatim (still subject to the standard 200-char limit). When null/empty/whitespace, the service produces `"{source.Title} (copy)"`. The service does NOT attempt to detect or increment an existing `(copy)` suffix in iteration 1 — `"Foo (copy) (copy)"` is acceptable on a double clone.
+- `TargetDate` + `ClearTargetDate`: these two fields encode three caller intents on a nullable column:
+  - both unset → copy source's `TargetDate` verbatim
+  - `TargetDate` supplied, `ClearTargetDate = false` → use the supplied date
+  - `ClearTargetDate = true` → force `TargetDate = null` (and `TargetDate` in the request body is ignored)
+
+  Reason for the explicit flag: `TargetDate = null` in JSON is indistinguishable from "field omitted" with a nullable record property, so we cannot use null alone to mean "clear it." This mirrors the discriminator pattern PATCH uses across the codebase.
+- `TargetDateType` is NOT overridable on clone. If the caller passes a `TargetDate` override and the source's `TargetDateType` is `SpecificDay`, the override is honoured as-is. If the source's `TargetDateType` is `ThisWeek` / `ThisMonth`, the override is still stored on `TargetDate` (the field is meaningful for those types per existing semantics) but the type is not changed. Callers needing to switch type should PATCH the clone afterwards.
+
+#### CloneTaskRequest validation (FluentValidation)
+
+```csharp
+// src/Models/Validators/CloneTaskRequestValidator.cs (new)
+// Rules:
+//   - When Title is non-null and not whitespace, it must be <= 200 chars.
+//     (Whitespace-only Title is treated as "use default" — same as omitting the field.)
+//   - No validation on TargetDate (any DateTime is acceptable; semantic interpretation
+//     is the service's job).
+//   - ClearTargetDate has no validation — it's a bool with default false.
+```
+
+Controllers run the validator before calling the service (per the existing `BaseApiController` pattern). Failure returns `400` with the standard `ValidationError` envelope.
+
+#### Clone semantics (authoritative table)
+
+| Source field | Clone behaviour | Override allowed? |
+|---|---|---|
+| `Id` | Fresh `Guid.NewGuid()` (BaseEntity init) | No |
+| `Title` | `"{source.Title} (copy)"` | Yes — `CloneTaskRequest.Title` |
+| `Description` | Copied verbatim | No (PATCH after) |
+| `TaskTypeId` | Copied verbatim | No (PATCH after) |
+| `Area` | Copied verbatim | No (PATCH after) |
+| `Priority` | Copied verbatim | No (PATCH after) |
+| `Status` | Always `TaskStatus.NotStarted` | No — see note |
+| `TargetDateType` | Copied verbatim | No |
+| `TargetDate` | Copied verbatim | Yes — `TargetDate` / `ClearTargetDate` |
+| `CompletedDate` | `null` | No |
+| `ResultAnalysis` | `null` | No |
+| `IsRecurring` | Copied verbatim | No |
+| `RecurrencePattern` | Copied verbatim | No |
+| `SortOrder` | `MaxSortOrder(userId) + 1` (same rule as `CreateTaskAsync`) | No |
+| `IsDeleted` | `false` | No |
+| `DeletedAt` | `null` | No |
+| `UserId` | Copied verbatim from source | No — cross-user clones are not exposed |
+| `TaskTags` | New `TaskTag` rows referencing the same `TagId` set | No (PATCH after) |
+| `ActivityLogs` | NOT copied. Exactly one new entry on the clone (see below). | No |
+| `CreatedDate` / `LastModifiedDate` | Set by `DbContext.SaveChangesAsync` override | n/a |
+| `LastModifiedBy` | Set by service to `modifiedBy` (caller identity) | n/a |
+
+**Deviation from the brief** (one and only one): the brief proposed `Status → reset to Active`. The codebase enum is `TaskPilot.Models.Enums.TaskStatus` with members `NotStarted`, `InProgress`, `Blocked`, `Completed`, `Cancelled` — there is no `Active` member. `Active` in this codebase is a UI/filter concept ("anything not Completed or Cancelled"). The service therefore sets `Status = TaskStatus.NotStarted` on the clone, which is the same default `CreateTaskAsync` uses when no status is supplied and matches the v1.12 "active" view default for newly created tasks. This is documented in REQUIREMENTS.md §5.1 as well.
+
+Cloning a source whose `Status` is `Completed` or `Cancelled` is allowed — the clone simply starts in `NotStarted`. The brief's "never clone Completed/Cancelled" intent is preserved (the clone is never created in a terminal state); we just don't block the operation on the source's state.
+
+#### ActivityLog entry on the clone
+
+Exactly one row is inserted into `TaskActivityLog` against the new task. Source task ActivityLogs are NOT copied. The source task does NOT get a "cloned to" entry — see justification below.
+
+| Field | Value |
+|---|---|
+| `Id` | `Guid.NewGuid()` |
+| `TaskId` | New task's `Id` |
+| `Timestamp` | `DateTime.UtcNow` |
+| `FieldChanged` | `"Created"` (matches the literal used by `CreateTaskAsync` so the activity-log UI renders it identically to a hand-created task) |
+| `OldValue` | `null` |
+| `NewValue` | `$"Cloned from {sourceId:D}"` (lowercase 36-char GUID, no braces — matches the `:D` format used elsewhere) |
+| `ChangedBy` | `modifiedBy` (`"user:{username}"` or `"api:{apiKeyName}"` per `BaseApiController.ModifiedBy`) |
+
+Why not also write a "Cloned to {newId}" log row on the **source** task:
+
+1. **Source immutability**: the clone operation does not modify any field on the source. Adding a child row would force `LastModifiedDate` to advance on the source (the `SaveChangesAsync` override stamps every tracked entity, and child-collection insert marks the parent as `Modified` in EF Core) — that is a behavioural surprise (e.g. it would re-order tasks sorted by "last modified" and bump the source up the list).
+2. **Audit-trail equivalence**: the clone's `NewValue = "Cloned from {sourceId}"` is fully traceable in either direction (the activity-log query API lets the UI render a back-link from clone → source). The source needs no entry to preserve full provenance.
+3. **Cost asymmetry**: source-side logging would require an additional change-tracker write for every clone — wasted I/O for an unused field.
+
+If "see all derivatives of this task" becomes a product requirement later, it should be implemented as a `ParentTaskId` column + index — not as a denormalised activity log entry. That is iteration 2 backlog material; the schema change is **not** part of this feature.
+
+#### Status codes
+
+| Code | When |
+|---|---|
+| `201 Created` | Clone succeeded. Response body = `ApiResponse<TaskResponse>` for the new task. `Location` header = `/api/v1/tasks/{newId}` (use `CreatedAtAction(nameof(GetTask), ...)`, matching `CreateTask`). |
+| `400 Bad Request` | `CloneTaskRequest` failed FluentValidation (e.g. `Title` > 200 chars). Standard `ValidationError` envelope. |
+| `401 Unauthorized` | No auth or invalid auth. Handled by the existing auth pipeline. |
+| `404 Not Found` | Source task does not exist, is soft-deleted (`IsDeleted = true`), or is owned by a different user. All three collapse to the same 404 — we do NOT distinguish "not found" from "not yours" (information-disclosure rule). Standard `NotFoundError("Task")` envelope. |
+
+There is intentionally no `409 Conflict`. There is no state on the source that can cause a clone to be rejected — a Completed/Cancelled source clones just fine into a `NotStarted` clone.
+
+#### Service-layer signature
+
+```csharp
+// src/Services/Interfaces/ITaskService.cs (new method appended)
+Task<TaskResponse?> CloneTaskAsync(
+    Guid sourceId,
+    CloneTaskRequest request,
+    string userId,
+    string modifiedBy,
+    CancellationToken cancellationToken = default);
+```
+
+- Returns `null` if the source is not found / soft-deleted / not owned by `userId`. Controller maps `null` → `404` using the existing `NotFoundError("Task")` helper.
+- Returns the mapped `TaskResponse` for the new task on success. Controller wraps it in `Envelope(...)` and emits `201 CreatedAtAction(nameof(GetTask), new { id = result.Id }, Envelope(result))`.
+
+#### Repository touchpoints
+
+No new repository methods. The service uses only existing methods on `ITaskRepository`:
+
+| Method | Used for |
+|---|---|
+| `GetByIdWithTagsAsync(sourceId, userId, ct)` | Load source with `TaskTags` and `Tag` navigation populated. The global `!IsDeleted` query filter on `TaskItem` makes this return `null` for soft-deleted sources without any extra code — the brief's "404 on soft-deleted source" requirement is satisfied for free. |
+| `GetMaxSortOrderAsync(userId, ct)` | Compute the new task's `SortOrder` (same rule `CreateTaskAsync` uses). |
+| `AddAsync(newTask, ct)` | Insert the new task. EF Core cascades the `TaskTag` and `TaskActivityLog` children automatically because they are added to the parent's collections before `AddAsync`. |
+| `SaveChangesAsync(ct)` | Persist everything in a single `INSERT` batch (see Concurrency below). |
+
+The service does NOT need to call `TagRepository.GetByIdsAsync` — tag IDs are read directly off `source.TaskTags`, so there is no extra round-trip to validate tags exist (they already exist; they were on the source). This is a deliberate efficiency improvement over the `CreateTaskAsync` path, which can't make that assumption.
+
+#### Concurrency / transactional guarantees
+
+The full clone (new `TaskItem` row, N `TaskTag` rows, 1 `TaskActivityLog` row) is wrapped in a **single `SaveChangesAsync` call** on `ApplicationDbContext`. EF Core wraps a single `SaveChanges` in a database transaction by default on every supported provider (SQLite, SQL Server, PostgreSQL), so the insert is atomic without any explicit `BeginTransaction` call.
+
+Pattern, matching `CreateTaskAsync` exactly:
+
+1. Build the new `TaskItem` in-memory with `TaskTags` and `ActivityLogs` populated.
+2. `await taskRepository.AddAsync(newTask, ct);`
+3. `await taskRepository.SaveChangesAsync(ct);`
+
+No explicit transaction scope is required and none should be introduced — adding one would deviate from the established pattern in `CreateTaskAsync`, `UpdateTaskAsync`, `CompleteTaskAsync`, and `DeleteTaskAsync`, and would not change the guarantee. The codebase currently uses zero `BeginTransactionAsync` calls; this feature does not introduce the first.
+
+Concurrency: two simultaneous clones from the same user can both compute the same `MaxSortOrder + 1` and both insert with the same `SortOrder`. This is the same race that exists today on `CreateTaskAsync` and is accepted — `SortOrder` is a display ordering hint, not a uniqueness constraint, and ties are broken deterministically by the existing list-query ordering. No new mitigation introduced for clone.
+
+#### Authorisation
+
+Clone uses the **exact same ownership check** as Get/Update/Delete: the `userId` argument to `ITaskRepository.GetByIdWithTagsAsync(id, userId, ct)` is appended as a `WHERE UserId = @userId` predicate. If the source belongs to a different user, the repository returns `null` and the controller emits `404`. No separate authorization handler / requirement is needed — ownership is encoded in the query predicate, identically to every other Task endpoint.
+
+`userId` is obtained from `BaseApiController.UserId` (which reads `ClaimTypes.NameIdentifier` and works identically under both cookie and `X-Api-Key` schemes). `modifiedBy` is obtained from `BaseApiController.ModifiedBy`. No new claims, no new policies.
+
+There is no separate "can clone" permission. If the caller can read the source (it would appear in a `GET /api/v1/tasks/{id}` response), they can clone it. This matches the existing principle that any reader of a task is also its owner — TaskPilot has no shared/team tasks in iteration 1.
+
+#### Controller skeleton (signature only — no body)
+
+```csharp
+// src/Controllers/TasksController.cs (new action — body to be written by fullstack-dev)
+[HttpPost("{id:guid}/clone")]
+public async Task<IActionResult> CloneTask(
+    Guid id,
+    [FromBody] CloneTaskRequest? request,
+    [FromServices] IValidator<CloneTaskRequest> validator,
+    CancellationToken cancellationToken);
+```
+
+- `request` is nullable so that callers can `POST` with no body or `Content-Length: 0`. Inside the action, `request ??= new CloneTaskRequest();` before validation.
+- Controller follows the standard pattern: validate → call `taskService.CloneTaskAsync(id, request, UserId, ModifiedBy, ct)` → on null return `NotFound(NotFoundError("Task"))` → on success return `CreatedAtAction(nameof(GetTask), new { id = result.Id }, Envelope(result))`.
+- No business logic in the controller.
 
 ### 3.2 Tag Endpoints
 

@@ -257,6 +257,85 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         return logs;
     }
 
+    /// <summary>
+    /// Duplicates an existing task owned by <paramref name="userId"/>.
+    /// Returns null when the source is not found, soft-deleted, or belongs to a different user.
+    /// </summary>
+    public async Task<TaskResponse?> CloneTaskAsync(
+        Guid sourceId,
+        CloneTaskRequest request,
+        string userId,
+        string modifiedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var source = await taskRepository.GetByIdWithTagsAsync(sourceId, userId, cancellationToken);
+        if (source is null) return null;
+
+        var sortOrder = await taskRepository.GetMaxSortOrderAsync(userId, cancellationToken) + 1;
+
+        // TaskItem.Title is constrained to 200 chars at the DB layer (advisory under
+        // SQLite, enforced under Azure SQL/PostgreSQL). The REST validator caps the
+        // request's Title at 200, but the MCP path bypasses it and the default fallback
+        // can exceed 200 even for an in-range source ("source" + " (copy)" = source.Length + 7).
+        // Cap the source portion so the " (copy)" suffix is always preserved.
+        const int titleMaxLength = 200;
+        const string copySuffix = " (copy)";
+
+        string effectiveTitle;
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            var truncatedSource = source.Title.Length <= titleMaxLength - copySuffix.Length
+                ? source.Title
+                : source.Title[..(titleMaxLength - copySuffix.Length)];
+            effectiveTitle = truncatedSource + copySuffix;
+        }
+        else
+        {
+            effectiveTitle = request.Title.Length <= titleMaxLength
+                ? request.Title
+                : request.Title[..titleMaxLength];
+        }
+
+        DateTime? effectiveTargetDate = request.ClearTargetDate
+            ? null
+            : request.TargetDate ?? source.TargetDate;
+
+        var clone = new TaskItem
+        {
+            Title = effectiveTitle,
+            Description = source.Description,
+            TaskTypeId = source.TaskTypeId,
+            Area = source.Area,
+            Priority = source.Priority,
+            Status = TaskStatus.NotStarted,
+            TargetDateType = source.TargetDateType,
+            TargetDate = effectiveTargetDate,
+            CompletedDate = null,
+            ResultAnalysis = null,
+            IsRecurring = source.IsRecurring,
+            RecurrencePattern = source.RecurrencePattern,
+            SortOrder = sortOrder,
+            UserId = userId,
+            LastModifiedBy = modifiedBy,
+            TaskTags = source.TaskTags.Select(tt => new TaskTag { TagId = tt.TagId }).ToList()
+        };
+
+        clone.ActivityLogs.Add(new TaskActivityLog
+        {
+            TaskId = clone.Id,
+            Timestamp = DateTime.UtcNow,
+            FieldChanged = "Created",
+            OldValue = null,
+            NewValue = $"Cloned from {sourceId:D}",
+            ChangedBy = modifiedBy
+        });
+
+        await taskRepository.AddAsync(clone, cancellationToken);
+        await taskRepository.SaveChangesAsync(cancellationToken);
+
+        return MapToResponse(clone);
+    }
+
     private static TaskResponse MapToResponse(TaskItem task) => new(
         task.Id,
         task.Title,

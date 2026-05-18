@@ -165,6 +165,21 @@ public class TaskPilotMcpTools(
         return JsonSerializer.Serialize(new { success = true, id }, JsonOpts);
     }
 
+    [McpServerTool(Name = "clone_task")]
+    [Description("Clone (duplicate) an existing task. The clone starts as NotStarted, inherits all fields except CompletedDate and ResultAnalysis. Optionally override the title or target date.")]
+    public async Task<string> CloneTaskAsync(
+        [Description("The source task GUID to clone")] string id,
+        [Description("Override the clone title. If omitted, uses '<source title> (copy)'")] string? title = null,
+        [Description("Override the clone's target date (ISO 8601). Ignored when clearTargetDate is true")] DateTime? targetDate = null,
+        [Description("Set to true to clear the target date on the clone (overrides any targetDate value)")] bool clearTargetDate = false,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new Models.Tasks.CloneTaskRequest(title, targetDate, clearTargetDate);
+        var result = await taskService.CloneTaskAsync(ParseGuid(id), request, UserId, ModifiedBy, cancellationToken);
+        if (result is null) throw new InvalidOperationException($"Task '{id}' not found or cannot be cloned.");
+        return JsonSerializer.Serialize(result, JsonOpts);
+    }
+
     [McpServerTool(Name = "get_stats")]
     [Description("Get aggregated task statistics: active count, completed today, overdue, in progress, blocked, and completion trends.")]
     public async Task<string> GetStatsAsync(CancellationToken cancellationToken = default)

@@ -102,6 +102,7 @@ Authentication: `X-Api-Key: <your-key>` header
 | `PATCH` | `/tasks/{id}` | Partial update |
 | `DELETE` | `/tasks/{id}` | Soft-delete |
 | `POST` | `/tasks/{id}/complete` | Mark complete (optional result analysis) |
+| `POST` | `/tasks/{id}/clone` | Duplicate a task. Body is optional — empty `{}` is valid. Returns 201 with the new task and a `Location` header. Tags, type, area, priority, recurrence and target date are copied; status resets to `NotStarted`; `CompletedDate` and `ResultAnalysis` reset to null. Optional body fields: `title` (defaults to `"{source.Title} (copy)"`), `targetDate`, and `clearTargetDate: true` to force-null the target date. |
 | `GET` | `/tasks/stats` | Aggregated statistics |
 | `GET` | `/tags` | List tags (response includes `taskCount` per tag) |
 | `POST` | `/tags` | Create a tag |

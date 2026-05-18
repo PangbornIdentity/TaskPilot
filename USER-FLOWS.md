@@ -572,6 +572,101 @@
 
 ---
 
+## Flow 19: Clone a Task
+
+> **v1.13 — in flight.** Architect spec in `ARCHITECTURE.md §3.1b`; UX spec below; QA enumerates test cases; fullstack implements. Until the implementation lands, leave this flow's E2E tests pending.
+
+**Trigger:** User wants to create a near-duplicate of an existing task — same description, type, area, priority, tags, recurrence pattern — typically because they're starting a follow-up to something they just completed, or templating a recurring meeting-style task that the built-in recurrence engine doesn't fit.
+
+**Interaction model — one-click clone, no preview modal.**
+
+Why one-click and not a confirmation modal: `CloneTaskRequest` exposes only two overridable fields (`Title`, `TargetDate`) and both have safe, well-defined defaults (`"<source title> (copy)"` and "copy source's TargetDate"). Forcing a modal for two optional fields adds a click and an extra dialog to dismiss in the common case. After clone, the user is dropped onto the new task's Detail page — which is itself the full edit form — so any tweak the user wants to make (including changing title or target date) is one focus-target away. The 12-other-fields edit surface stays in one place.
+
+---
+
+### Flow 19a: Clone from the Tasks list row (Desktop / Tablet ≥ 768 px)
+
+1. User is on `/tasks` (list view). Each row's trailing actions cell shows two icon buttons: **⎘ Clone** (`bi-files`) and **✎ Edit** (`bi-pencil`), in that order, both `btn-sm btn-outline-secondary` 32×32 px.
+2. User clicks the **⎘ Clone** button on the row for "Prepare Q1 roadmap presentation".
+3. **System:** Button enters the loading state (`htmx-request` class → `bi-files` swapped for `spinner-border spinner-border-sm`, button `aria-disabled="true"`, `hx-disabled-elt="this"` to prevent double-submit). Fires `POST /api/v1/tasks/{sourceId}/clone` with empty body `{}`.
+4. **System (success — 201):** Server responds with the new task envelope + `Location: /api/v1/tasks/{newId}`. Browser navigates to `/tasks/{newId}` (full-page nav, not htmx swap — the next thing the user almost always wants to do is tweak the clone, and Detail is the edit form). On the Detail page load, a success toast renders: `"Task cloned. You're now viewing the copy."` (success variant, 5 s auto-dismiss, see `DESIGN-SYSTEM.md` §8 Toasts). Focus on the new Detail page lands on the page heading (h1, `tabindex="-1"` is applied for one-time focus after navigation, then removed) so screen readers announce the new task title.
+5. The Detail page shows the cloned task: title `"Prepare Q1 roadmap presentation (copy)"`, same description, same area/type/priority/tags/recurrence, same target date, **Status = Not Started**. The Activity Log section already contains one row: `"Just now · user:rpang — Task created (Cloned from {sourceId})"`.
+6. User edits whatever they want — typically the title (remove "(copy)" suffix or restyle) and the target date — via the existing inline edit form on Detail. Save behaves identically to any other edit.
+
+---
+
+### Flow 19b: Clone from the Task Detail page (all breakpoints)
+
+1. User is on `/tasks/{id}` for any task — open, completed, or cancelled.
+2. The header action row shows: `[← Back to Tasks]` on the left; `[✓ Complete]` (only if not already Completed), `[⎘ Clone]`, `[🗑 Delete]` on the right.
+3. User clicks **⎘ Clone**.
+4. **System:** Same loading state as Flow 19a step 3 (spinner replaces icon, button disabled). Same `POST /api/v1/tasks/{id}/clone` with empty body.
+5. **System (success):** Navigates to `/tasks/{newId}`. Same success toast as Flow 19a step 4. Focus lands on the new page heading.
+6. User continues from the new Detail page exactly as in Flow 19a step 6.
+
+> **Why no Clone button on the Tasks list row on mobile (≤ 640 px):** the list row on mobile is the whole-row tap target → opens Detail. Adding a second tappable button inside the row would either steal the row tap (regressing the primary interaction) or sit at < 44 px (failing WCAG 2.5.5). The Detail page Clone button is reachable in one tap from the list row, sits in the thumb-reachable header area, and has the full 44 px tap target. This matches how Edit is already handled on mobile (Edit-via-Detail, not Edit-via-row-button).
+
+---
+
+### Flow 19c: Clone via keyboard only
+
+1. User Tabs through the Tasks list. Each row's interactive elements receive focus in DOM order: row checkbox → row title link → Clone button → Edit button. Focus ring on the Clone button: `outline: 2px solid --color-primary-500; outline-offset: 2px` (existing focus token from `DESIGN-SYSTEM.md` §11).
+2. With focus on **⎘ Clone**, user presses **Enter** (or **Space** — both activate per Bootstrap button semantics).
+3. **System:** Same flow as 19a — POST, loading state, navigate, toast.
+4. After navigation to `/tasks/{newId}`, focus is moved programmatically to the page heading (`document.querySelector('h1').focus()` on the new page; the h1 has `tabindex="-1"` and the inline script removes it after focus is taken). The toast is announced via the existing `role="status" aria-live="polite"` toast container.
+5. User Tabs forward from the heading → next focusable element is the first form field on the Detail page's edit form (or the [← Back to Tasks] link, depending on existing DOM order — match existing behaviour).
+
+> **Detail-page keyboard path** is identical: Tab onto the [⎘ Clone] button in the header action row, Enter to activate, focus lands on h1 of the new task.
+
+---
+
+### Error states (all entry points)
+
+**404 — source not found, soft-deleted, or owned by another user (collapsed per architect spec):**
+- Error toast (error variant, 8 s auto-dismiss): `"This task can't be cloned. It may have been deleted."`
+- **Do NOT** leak which of the three 404 sub-cases triggered — the copy is intentionally vague. (Information-disclosure rule, `ARCHITECTURE.md §3.1b`.)
+- The originating page (list or detail) stays put — no navigation. The Clone button exits the loading state and is re-enabled so the user can retry or move on.
+- Focus stays on the Clone button (it's still on screen). The toast container handles screen-reader announcement.
+- If the source genuinely was just deleted in another tab, the user's next manual refresh will drop the row from the list, which is the natural recovery.
+
+**400 — Title too long (only realistic case — the empty-body path never produces a 400 because the server-generated default `"{source.Title} (copy)"` is bounded by source's max-200-char title plus 7 chars and the validator allows 200; iteration 1 accepts the rare overflow without truncation, per architect §3.1b note about not auto-incrementing `(copy)`):**
+- *This flow never sends a `Title` override*, so iteration-1 paths cannot hit 400 from the list or detail UI. If a future iteration adds a Title input on clone, the error path is: error toast `"Title is too long. Use 200 characters or fewer."`, focus moves to the offending Title input, no navigation.
+- Documented here for completeness so QA can assert "list/detail clone never produces a 400 in iteration 1."
+
+**401 — session expired mid-click:**
+- htmx/Razor's existing global 401 handler redirects to `/login?returnUrl=/tasks/{id}`. No special clone handling. On re-login the user lands back on the originating page; they can click Clone again.
+
+**5xx / network error:**
+- Generic error toast (error variant, 8 s): `"Couldn't clone the task. Please try again."` Button exits loading state. No navigation.
+
+---
+
+### Post-success behaviour: navigate-to-new vs. stay-and-highlight (decision recorded)
+
+**Chosen: navigate to the new task's Detail page** (`/tasks/{newId}`) after success.
+
+Rationale:
+- Detail is the edit form. The most likely next action after cloning is tweaking the new task — usually title and/or target date. Navigating saves a click compared to stay-and-highlight + "Edit" click.
+- Provides immediate visual confirmation that the clone exists and is correctly populated. A row appearing in the list mid-scroll is easier to miss.
+- Toast carries the affordance description (`"You're now viewing the copy."`) — no confusion about where the user is.
+- Consistent with the existing post-create-task flow (which already leaves the user on the new task in some entry points). Inconsistency between create-then-edit and clone-then-edit would be more surprising than the slightly longer back-navigation needed if the user wanted to keep working in the list.
+
+Trade-off considered: power-users who clone repeatedly (e.g., templating five similar meetings) may want stay-and-highlight. Browser back returns them to the list with their filter state intact (Flow 15b / session-scoped filter persistence). Acceptable for iteration 1; if telemetry shows clone-loops dominate, revisit with a "Clone & stay" secondary action.
+
+---
+
+### Edge cases
+
+- **Cloning a Completed task**: succeeds. Clone starts as Not Started (architect §3.1b). `ResultAnalysis` is **not** copied (per the architect's clone-semantics table — only the listed fields are copied; ResultAnalysis is treated as historical and reset to null). The new task's Activity Log records only the clone event.
+- **Cloning a recurring task**: the new task copies `IsRecurring` and `RecurrencePattern` verbatim (per architect spec). It's effectively a new recurrence chain rooted on the clone. No back-link to the original chain.
+- **Cloning a task whose source has no TargetDate**: clone also has no TargetDate. `TargetDateType` is copied verbatim.
+- **Cloning twice in a row**: the second clone produces `"Foo (copy) (copy)"` — architect explicitly accepted this in iteration 1. UX accepts it too; users who clone repeatedly are templating and will rename anyway.
+- **Cloning while offline**: same as any failed POST — generic error toast, button re-enabled, no navigation.
+- **Source task has 50+ tags**: all copied. No UI cap on clone (the list view's `+N` overflow handles display).
+- **Concurrent clone in two tabs from the same source**: both succeed independently and produce two siblings (each gets its own GUID + its own clone-log row). No conflict.
+
+---
+
 ## Interaction Pattern Specifications
 
 ### Slide-Over Panel

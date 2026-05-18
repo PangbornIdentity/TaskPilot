@@ -7,7 +7,7 @@ namespace TaskPilot.Tests.Integration.Helpers;
 public static class AuthHelper
 {
     public static async Task<(HttpClient Client, string UserId)> CreateAuthenticatedClientAsync(
-        TaskPilotWebAppFactory factory)
+        WebApplicationFactory<Program> factory)
     {
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
