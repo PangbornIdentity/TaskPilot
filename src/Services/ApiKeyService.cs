@@ -77,7 +77,11 @@ public class ApiKeyService(IApiKeyRepository apiKeyRepository, IConfiguration co
         if (apiKey is null || !apiKey.IsActive)
             return (false, null, null, null);
 
-        _ = apiKeyRepository.UpdateLastUsedAsync(apiKey.Id, cancellationToken);
+        // Await this rather than fire-and-forget: the scoped ApplicationDbContext is not
+        // thread-safe and forbids overlapping operations, so an unawaited save here can
+        // race with the controller/audit middleware on the same scoped instance. Awaiting
+        // also surfaces failures instead of dropping them silently.
+        await apiKeyRepository.UpdateLastUsedAsync(apiKey.Id, cancellationToken);
         return (true, apiKey.Name, apiKey.UserId, apiKey.Id);
     }
 

@@ -317,6 +317,26 @@ public class TaskServiceCloneTests : IDisposable
         Assert.Equal("Foo (copy) (copy)", result!.Title);
     }
 
+    [Fact]
+    public async Task CloneTaskAsync_MaxLengthSource_CloneTitleFitsLimit()
+    {
+        var source = SeedTask(title: new string('A', 200));
+        var result = await _service.CloneTaskAsync(source.Id, new CloneTaskRequest(), "user1", "user:alice");
+        Assert.True(result!.Title.Length <= 200, $"Clone title was {result.Title.Length} chars, expected <= 200");
+        Assert.EndsWith(" (copy)", result.Title);
+    }
+
+    [Fact]
+    public async Task CloneTaskAsync_TitleOverrideTooLong_TruncatedToLimit()
+    {
+        // Belt-and-braces against the MCP path, which bypasses CloneTaskRequestValidator.
+        var source = SeedTask(title: "Source");
+        var oversized = new string('B', 250);
+        var result = await _service.CloneTaskAsync(source.Id, new CloneTaskRequest(Title: oversized), "user1", "user:alice");
+        Assert.Equal(200, result!.Title.Length);
+        Assert.StartsWith("B", result.Title);
+    }
+
     // ── U-CL-T-027 to U-CL-T-029: Tags ──────────────────────────────────────
 
     [Fact]

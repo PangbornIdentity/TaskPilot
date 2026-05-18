@@ -273,9 +273,28 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
 
         var sortOrder = await taskRepository.GetMaxSortOrderAsync(userId, cancellationToken) + 1;
 
-        var effectiveTitle = string.IsNullOrWhiteSpace(request.Title)
-            ? $"{source.Title} (copy)"
-            : request.Title;
+        // TaskItem.Title is constrained to 200 chars at the DB layer (advisory under
+        // SQLite, enforced under Azure SQL/PostgreSQL). The REST validator caps the
+        // request's Title at 200, but the MCP path bypasses it and the default fallback
+        // can exceed 200 even for an in-range source ("source" + " (copy)" = source.Length + 7).
+        // Cap the source portion so the " (copy)" suffix is always preserved.
+        const int titleMaxLength = 200;
+        const string copySuffix = " (copy)";
+
+        string effectiveTitle;
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            var truncatedSource = source.Title.Length <= titleMaxLength - copySuffix.Length
+                ? source.Title
+                : source.Title[..(titleMaxLength - copySuffix.Length)];
+            effectiveTitle = truncatedSource + copySuffix;
+        }
+        else
+        {
+            effectiveTitle = request.Title.Length <= titleMaxLength
+                ? request.Title
+                : request.Title[..titleMaxLength];
+        }
 
         DateTime? effectiveTargetDate = request.ClearTargetDate
             ? null
