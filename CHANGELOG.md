@@ -7,6 +7,25 @@
 
 ---
 
+## 2026-06-14 — Computable Verifiable State (CVS) bootstrap (no version bump — dev process/infra)
+
+> Adopted Method's `cvs-kit` (Computable Verifiable Requirements) to bind every requirement to a test
+> and gate it in CI. **No user-visible behavior changed**, so `src/TaskPilot.csproj` stays at `1.13.0`
+> and `src/app-changelog.json` is intentionally untouched. This is an engineering/process change.
+
+### Architecture | Test/Docs | CVS bootstrap P0–P5
+
+Ran the kit's bootstrap procedure (P0 inventory → P1 extract-from-tests → P1.5 extract-from-code →
+P2 reconcile-docs → P3 falsifiability + `why` → P5 install gate). Outcome:
+
+- **258 requirement records** authored under `docs/requirements/<AREA>/<ID>.md` across 18 areas (165 from tests, 77 latent from code, 16 from the PRD). All `unratified` pending the P6 human ratification pass. 257 carry a `why:` rationale.
+- **CI gate installed**: `.github/workflows/traceability.yml` runs the vendored `node scripts/cvs/reqindex.mjs --check` on PR/push, blocking new uncovered requirements, broken bindings, orphan IDs, untagged UI/integration tests, grown baselines, or a stale index. Proven: a synthetic uncovered requirement makes the gate fail; removing it restores green.
+- **Baselines seeded (shrink-only)**: 95 accepted coverage gaps (`docs/traceability-baseline.json`) + 234 accepted untagged UI/integration tests (`docs/untagged-test-baseline.json`) — today's debt accepted as tracked, only *new* violations fail. Repo is at the CVS *baseline*; strict CVS is reached when both are empty.
+- **Config**: `.traceability.config.json` maps the three xUnit projects; the Integration/E2E (`requireTagged`) sources carry an explicit `declRegex` for `[Fact]`/`[Theory]` (the kit's `kind`-keyed default would otherwise apply a JS regex to C# and detect zero declarations).
+- **Working artifacts** (not requirements): `docs/cvs/DEFECTS.md` (6 verified code defects + 5 open questions found during extraction) and `docs/cvs/RECONCILIATION-LEDGER.md` (40 source conflicts awaiting the P6 decision pass — overwhelmingly docs that drifted from shipped code).
+
+Files affected: `docs/requirements/**` (258 records, 18 area dirs); `docs/TRACEABILITY.md`, `docs/requirements-index.json`, `docs/traceability-baseline.json`, `docs/untagged-test-baseline.json` (generated); `docs/cvs/DEFECTS.md`, `docs/cvs/RECONCILIATION-LEDGER.md`; `.traceability.config.json`; `.gitattributes`; `.github/workflows/traceability.yml`; `scripts/cvs/*.mjs` (vendored kit); `docs/REQUIREMENTS_CONSTITUTION.md`; `README.md` (cvs-repo block); `CLAUDE.md` (CVS section).
+
 ## 2026-05-17 — Clone Task feature shipped (v1.13.0)
 
 > Four-step pipeline complete: architect → ux-designer → qa-engineer → fullstack-dev.
