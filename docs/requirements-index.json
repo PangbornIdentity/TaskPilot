@@ -1,14 +1,14 @@
 {
   "generatedBy": "reqindex",
   "summary": {
-    "total": 258,
+    "total": 259,
     "covered": 163,
     "manual": 0,
-    "debt": 95,
+    "debt": 96,
     "gapsNew": 0,
     "ratified": 0,
-    "unratified": 258,
-    "withWhy": 257,
+    "unratified": 259,
+    "withWhy": 258,
     "withSource": 0,
     "infraDebt": 0,
     "untaggedDebt": 234,
@@ -561,9 +561,9 @@
       ],
       "source": [],
       "sourceFile": "docs/requirements/STATS/BIZ-STATS-007.md",
-      "statement": "ByPriority groups the user's tasks by priority and reports per-priority breakdown of NotStarted and InProgress counts.",
+      "statement": "ByPriority groups the user's active tasks by priority and reports a per-priority breakdown of NotStarted, InProgress, and Blocked counts.",
       "why": "The priority breakdown shows where high-priority work is piling up versus already moving, guiding what to tackle next.",
-      "contentHash": "sha256:598ba46de763cc55b49ac7be26c41aca28699a92594d54ad1db10482cd03a72b"
+      "contentHash": "sha256:9e2d95e649f1aa3fe7f2fd1f77dce5ee5b9ce271b05689afcfa79e41b659400e"
     },
     {
       "id": "BIZ-STATS-008",
@@ -1155,9 +1155,9 @@
       ],
       "source": [],
       "sourceFile": "docs/requirements/TASKS/BIZ-TASKS-012.md",
-      "statement": "The default sort order for the task listing is priority descending, then target date ascending with null target dates ordered last.",
+      "statement": "The task listing has two default sort orders depending on the active view. For the incomplete-only default view (when no explicit sort column is chosen), tasks are ordered by priority ascending (Critical first, since the Priority enum is 1-based Critical=1..Low=4), then target date ascending with null target dates ordered last, then SortOrder as a stable tie-breaker. For the all-status default view, tasks are ordered by priority ascending then SortOrder, with no target-date term.",
       "why": "Priority-then-due default ordering surfaces the most important and most time-sensitive work first; nulls-last keeps undated tasks from crowding the top.",
-      "contentHash": "sha256:ad3945941399a942760f575e46206f5ff2bc5f31d27df88ac3cffaa6a28dcda9"
+      "contentHash": "sha256:d3684f2c68e056e36b5dcb0d90df680e0526061a025881d9fd1747fc3cfe97ea"
     },
     {
       "id": "BIZ-TASKS-013",
@@ -2615,9 +2615,9 @@
       "tests": [],
       "source": [],
       "sourceFile": "docs/requirements/AUTH/FR-AUTH-008.md",
-      "statement": "On a successful web-UI login, the user is redirected to the supplied returnUrl when one is present, falling back to the site root (\"/\") otherwise; the redirect is performed as a local redirect, so an off-site returnUrl is not honored.",
+      "statement": "On a successful web-UI login, the user is redirected to the supplied returnUrl when one is present, falling back to the site root (\"/\") otherwise. The redirect is performed via LocalRedirect, so an off-site (non-local) returnUrl is rejected rather than followed — LocalRedirect throws (yielding an HTTP 500) rather than silently redirecting to the site root, which prevents open-redirect attacks.",
       "why": "Honoring returnUrl restores the user's intended destination after login, while restricting it to local redirects blocks open-redirect attacks that could send the user to a malicious off-site URL.",
-      "contentHash": "sha256:e58abd20493b3a97f8ca8e1b23270805eb918de55d49043a37ed9b2c642d123d"
+      "contentHash": "sha256:ce3c3cb8d6e6c9236bef84093f6edabd1730a2e2ed0be20d6ed6dcd8cf9e8e97"
     },
     {
       "id": "FR-AUTH-009",
@@ -3088,9 +3088,9 @@
       ],
       "source": [],
       "sourceFile": "docs/requirements/INTEGRATIONS/FR-INTEGRATIONS-002.md",
-      "statement": "The Integrations page documents how to use the API: an API-key / quick-start section, a curl example, a Claude tool definition, an OpenAI function definition, an \"MCP coming soon\" section, and a reference to the Swagger/API docs.",
+      "statement": "The Integrations page documents how to use the API: an API-key / quick-start section, a curl example, a Claude tool definition, an OpenAI function definition, a live MCP integration section (the `/mcp` endpoint, a \"Live\" badge, the available tool count, the listed MCP tools, and a copy-ready Claude Desktop client config block), and a reference to the Swagger/API docs.",
       "why": "Copy-ready quick-start, curl, and per-provider tool definitions give users everything needed to wire an LLM to TaskPilot without leaving the app.",
-      "contentHash": "sha256:2e3608be78a9451a83698515817dc875b6709a04263d50ec812830650b8f9789"
+      "contentHash": "sha256:3f1cd8d5708ef04b61684d11aa7913a0594f9718148ba8a0c63803072851882d"
     },
     {
       "id": "FR-INTEGRATIONS-003",
@@ -5366,6 +5366,24 @@
       "statement": "Every HTTP response carries hardening headers `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: strict-origin-when-cross-origin` (per ARCHITECTURE.md §4.5).",
       "why": "SUGGESTED: Hardening headers mitigate MIME-sniffing, clickjacking, and referrer-leak classes of browser attacks.",
       "contentHash": "sha256:21202cac7db64465b791290b926105ee8ce16e5e33184438580fb50ea6391b23"
+    },
+    {
+      "id": "NFR-SEC-009",
+      "type": "NFR",
+      "area": "SEC",
+      "coverage": "gap",
+      "debt": true,
+      "infraDebt": false,
+      "ratification": "unratified",
+      "provenance": "doc",
+      "verification": "automated",
+      "coveredBy": [],
+      "tests": [],
+      "source": [],
+      "sourceFile": "docs/requirements/SEC/NFR-SEC-009.md",
+      "statement": "The authentication cookie is hardened with HttpOnly, SameSite=Strict, SecurePolicy=Always, a 14-day expiry, and sliding expiration.",
+      "why": "SUGGESTED: Hardened auth-cookie attributes reduce CSRF and cookie-theft risk in production.",
+      "contentHash": "sha256:6192d4971f9c9f0e1196b4f397a443a88c5c322f27ede701c4cb60597912a5c4"
     },
     {
       "id": "NFR-TASKS-001",

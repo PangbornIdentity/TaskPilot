@@ -60,9 +60,9 @@ TaskPilot is a personal productivity web application for managing tasks and todo
 | Id | GUID | Primary key, server-generated |
 | Title | string | Required, max 200 chars |
 | Description | string? | Optional, supports markdown rendering in UI |
-| TaskTypeId | int? | FK to `TaskType` lookup table (§3.7); optional |
+| TaskTypeId | int | FK to `TaskType` lookup table (§3.7); **required**. Non-nullable in the entity, `IsRequired()` in EF config, and the create/update validators enforce `GreaterThan(0)`. A task cannot be created or updated without a valid TaskType. (Default selection in the UI is "Task" = Id 1.) |
 | Area | enum | `Personal=0`, `Work=1` — default `Personal`; required |
-| Priority | enum | `Critical`, `High`, `Medium`, `Low` |
+| Priority | enum | **1-based** numbering: `Critical=1`, `High=2`, `Medium=3`, `Low=4`. NOTE: this enum is 1-based, unlike the other task enums (`Area`, `TaskStatus`, `TargetDateType`, `RecurrencePattern`) which are 0-based. The 1-based ordering is load-bearing: the default task sort is `priority ascending`, which puts `Critical` (1) first. |
 | Status | enum | `NotStarted`, `InProgress`, `Blocked`, `Completed`, `Cancelled` |
 | TargetDateType | enum | `SpecificDay`, `ThisWeek`, `ThisMonth` |
 | TargetDate | DateTime? | Actual target date |
@@ -172,14 +172,14 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 **Summary cards (top row):**
 - Total Active Tasks
 - Completed Today
-- **Overdue** (past target date + not completed) — entire card is now a clickable link to `/tasks?incomplete=true&overdue=true`
+- **Overdue** (past target date + not completed) — entire card is now a clickable link to `/tasks?show=active&overdue=true`
 - In Progress
 - Blocked
 
 **Incomplete by Status card (between summary row and Area Split):**
 - Single full-width card with header "Incomplete by Status" and a `Total: N` pill
 - Three sub-tiles with counts for `Not Started`, `In Progress`, `Blocked`
-- Each sub-tile is a click-through to `/tasks?incomplete=true&status=…`
+- Each sub-tile is a click-through to `/tasks?show=active&status=…`
 - Empty state when total is zero: "Nothing incomplete — you're caught up." (sub-tiles hidden)
 - `aria-live="polite"` on each count for assistive-tech updates after a sibling-tab completion
 - Counts are derived in-memory from existing stat fields (`TotalActive − InProgress − Blocked = NotStarted`); no extra DB round-trip
@@ -196,13 +196,12 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 | Average time-to-completion trend | Line | Time from creation to completion, by week |
 | Completions by Area | Bar | Personal vs Work completion count |
 | Top 5 tags by task count | Bar | All active tasks |
-| Task count by type | Donut | All active tasks grouped by TaskType |
 
 **Quick-add bar:** Persistent at top of every page.
 
 ### 4.2 Task List View
 
-- **Default grouping:** By status, sorted by priority within each group
+- **Default ordering (list view):** by priority (Critical → Low), then target date ascending nulls-last, then `SortOrder`. The list view is a flat, ungrouped table. *By-status grouping describes the board/kanban view*, where tasks are grouped into status columns; it is not the list default.
 - **View toggle (display mode only):** List view (dense table) / Board/Kanban view (columns by status). Two segments — `list` and `board`. The previous three-segment toggle (with "Incomplete" as a third option) was wrong UX (conflated display mode with status filter); the Incomplete behaviour moved to a filter chip in v1.11.
 - **Incomplete filter chip (`?incomplete=true`):** boolean toggle in the filter bar. Restricts results to `Status` ∈ {`NotStarted`, `InProgress`, `Blocked`}. Composes with both display modes — on `list`, results are a flat list; on `board`, the kanban renders only the three "open" columns (Completed and Cancelled hidden). Default sort when chip is on: priority asc (Critical → Low), then target date asc nulls-last, then sortOrder. `aria-pressed` reflects chip state.
 - **Overdue filter chip (`?overdue=true`):** boolean toggle in the filter bar. Restricts to `TargetDate < UtcNow AND TargetDate IS NOT NULL AND Status incomplete`. Composes with all other filters and chips, including the Incomplete chip and both display modes. `aria-pressed` reflects state.
@@ -225,7 +224,7 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 - Opens as a **slide-over panel** from the right (not a separate page)
 - All task fields with appropriate inputs (text, dropdowns, date pickers, tag multi-select)
 - **Area** is a required toggle/select (Personal / Work), defaulting to Personal
-- **TaskType** is an optional dropdown sourced from `GET /api/v1/task-types` (active types only, sorted by `SortOrder`)
+- **TaskType** is a **required** dropdown sourced from `GET /api/v1/task-types` (active types only, sorted by `SortOrder`); it defaults to "Task" (Id 1) and must hold a valid value on save (see §3.1)
 - Tag selector with inline "create new tag" capability (type name, pick color)
 - Tags displayed as coloured pills in the selector and on the saved form
 - **"Save & Create Another"** button for rapid batch entry
@@ -283,13 +282,11 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 - **REST API Reference:** Endpoint table (method, path, description); Swagger link in dev mode only
 - **Claude (Anthropic):** Copy-ready `list_tasks` and `create_task` tool definitions in Anthropic tool-use JSON format
 - **OpenAI / GPT:** Copy-ready `list_tasks` and `create_task` function definitions in OpenAI function-calling JSON format
-- **MCP (Coming Soon):** Informational placeholder; no MCP endpoint is implemented in iteration 1
+- **MCP (Model Context Protocol):** Live in iteration 1. An MCP server is mounted at `/mcp` (SSE/HTTP transport, `ModelContextProtocol` NuGet package) and protected by the same `X-Api-Key` authentication as the REST API. The section documents the endpoint, the available tools, and a copy-ready `claude_desktop_config.json` client config block.
 
 **Access:** Authenticated users only. Unauthenticated users are redirected to login.
 
 **Swagger link visibility:** Link to `/swagger` is shown only in Development environment. In Production a text note is shown instead.
-
-**Future work (Iteration 2):** MCP server at `/mcp` using `ModelContextProtocol` NuGet package, protected by existing API key authentication.
 
 ### 4.8 Interaction & UX Behaviors
 
@@ -377,7 +374,7 @@ A self-describing diagnostic surface so that any deployed instance can be inspec
 | POST | /api/v1/tasks/{id}/clone | Duplicate a task. Body optional (`{}` valid). Allowed overrides: `title`, `targetDate`, `clearTargetDate`. New task starts in `NotStarted` with same tags, same TaskType/Area/Priority/TargetDateType/IsRecurring/RecurrencePattern. `CompletedDate` and `ResultAnalysis` are cleared. One activity log entry written to the clone with `NewValue = "Cloned from {sourceId}"`. Soft-deleted or other users' tasks → 404. See [ARCHITECTURE.md §3.1b](./ARCHITECTURE.md#31b-clone-task-endpoint). |
 | GET | /api/v1/tasks/stats | Aggregated stats |
 
-**GET /api/v1/tasks query params:** `status`, `taskTypeId` (int), `area` (enum: `Personal`, `Work`), `priority`, `search`, `tags` (comma-sep tag names, AND logic), `isRecurring`, `page`, `pageSize`, `sortBy`, `sortDir`
+**GET /api/v1/tasks query params:** `status`, `taskTypeId` (int), `area` (enum: `Personal`, `Work`), `priority`, `search`, `tags` (comma-sep tag names, AND logic), `isRecurring`, `incomplete` (bool — restrict to `NotStarted`/`InProgress`/`Blocked`), `overdue` (bool — restrict to incomplete tasks past their target date), `page`, `pageSize`, `sortBy`, `sortDir`
 
 ### 5.2 TaskType Endpoints
 
@@ -393,6 +390,7 @@ Read-only in iteration 1. No create/update/delete endpoints.
 |--------|----------|-------------|
 | GET | /api/v1/tags | List all tags |
 | POST | /api/v1/tags | Create tag |
+| PUT | /api/v1/tags/{id} | Update tag (name and/or color) |
 | DELETE | /api/v1/tags/{id} | Delete tag (removes from all tasks) |
 
 ### 5.3a Health & Diagnostics Endpoints
@@ -424,8 +422,12 @@ All API responses use the standard envelope. No exceptions.
 ### 5.5 API Behaviors
 
 - All write operations set `LastModifiedBy` to `"api:{apiKeyName}"`
-- All write operations create a `TaskActivityLog` entry
-- **All requests** (read and write) are logged to `ApiAuditLog`
+- **Task** write operations (create / update / patch / complete / clone / soft-delete) create
+  `TaskActivityLog` entries. `TaskActivityLog` is task-scoped by design (it is keyed by `TaskId`); Tag
+  and ApiKey mutations do NOT write activity-log rows.
+- Every `X-Api-Key`-authenticated request to a **non-health** `/api/v1` endpoint is logged to
+  `ApiAuditLog` (HTTP method, endpoint, response status code, duration, API key id/name, user id, and a
+  hash of the request body). Cookie/UI requests and `/api/v1/health/*` requests are NOT audited.
 - API keys stored as HMAC-SHA256 hash — never plaintext. Full key shown ONCE on generation.
 - Swagger UI at `/swagger` in Development, disabled in Production
 - HTTP status codes: 200, 201, 204, 400, 401, 404, 409, 500
@@ -435,7 +437,11 @@ All API responses use the standard envelope. No exceptions.
 
 ## 6. Constraints
 
-1. Every entity MUST have: `CreatedDate`, `LastModifiedDate`, `LastModifiedBy` (via BaseEntity).
+1. Every **domain entity** (i.e. every `BaseEntity` subclass: `TaskItem`, `Tag`, `ApiKey`) MUST have
+   `CreatedDate`, `LastModifiedDate`, `LastModifiedBy` via `BaseEntity`. The append-only **log entities**
+   (`TaskActivityLog`, `ApiAuditLog`) are deliberately exempt — they are immutable records that carry
+   their own `Timestamp`/`ChangedBy` semantics and do not inherit `BaseEntity`. ASP.NET Core **Identity**
+   tables (`AspNetUsers`, etc.) are framework-owned and likewise exempt.
 2. `LastModifiedBy` format: `"user:{username}"` for web UI, `"api:{apiKeyName}"` for API. Non-negotiable.
 3. All REST endpoints under `/api/v1/`.
 4. No business logic in controllers.
@@ -443,7 +449,10 @@ All API responses use the standard envelope. No exceptions.
 6. **Soft delete only.** Never hard-delete from UI or API. `IsDeleted` + `DeletedAt`.
 7. No SQLite-specific features. Must work identically on SQLite, Azure SQL, PostgreSQL.
 8. Standard response envelope on every API response. No exceptions.
-9. DTOs and enums in `TaskPilot.Shared` only.
+9. DTOs and enums live under `TaskPilot.Models.*` (in `src/Models/`) — e.g. `TaskPilot.Models.Tasks`,
+   `TaskPilot.Models.Enums`, `TaskPilot.Models.Common`. There is no separate `TaskPilot.Shared` project
+   or namespace; the solution is a single flat `src/` project (the split server/client/shared layout was
+   abandoned). Matches CLAUDE.md rule #7.
 10. Git initialized. Commit at end of each phase.
 11. Target `net10.0` in all `.csproj` files.
 12. No rate limiting in iteration 1. Document insertion point only.
