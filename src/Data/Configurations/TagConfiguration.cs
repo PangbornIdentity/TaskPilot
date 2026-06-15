@@ -15,7 +15,10 @@ public class TagConfiguration : IEntityTypeConfiguration<Tag>
         builder.Property(t => t.UserId).IsRequired();
         builder.Property(t => t.LastModifiedBy).IsRequired();
 
+        builder.HasQueryFilter(t => !t.IsDeleted);
+
         builder.HasIndex(t => new { t.UserId, t.Name }).IsUnique();
+        builder.HasIndex(t => new { t.UserId, t.IsDeleted });
 
         builder.HasMany(t => t.TaskTags)
             .WithOne(tt => tt.Tag)

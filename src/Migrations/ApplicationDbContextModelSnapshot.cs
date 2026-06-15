@@ -281,7 +281,13 @@ namespace TaskPilot.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("KeyHash")
@@ -319,6 +325,8 @@ namespace TaskPilot.Migrations
 
                     b.HasIndex("UserId");
 
+                    b.HasIndex("UserId", "IsDeleted");
+
                     b.ToTable("ApiKeys");
                 });
 
@@ -335,6 +343,12 @@ namespace TaskPilot.Migrations
 
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("LastModifiedBy")
                         .IsRequired()
@@ -353,6 +367,8 @@ namespace TaskPilot.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsDeleted");
 
                     b.HasIndex("UserId", "Name")
                         .IsUnique();
@@ -524,6 +540,8 @@ namespace TaskPilot.Migrations
 
                     b.HasKey("Id");
 
+                    b.ToTable("TaskTypes", (string)null);
+
                     b.HasData(
                         new
                         {
@@ -567,8 +585,6 @@ namespace TaskPilot.Migrations
                             Name = "Event",
                             SortOrder = 6
                         });
-
-                    b.ToTable("TaskTypes", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

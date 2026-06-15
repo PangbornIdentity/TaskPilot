@@ -59,6 +59,17 @@ The engineering `CHANGELOG.md` alone is **not enough** — users see a separate 
 
 ---
 
+## Requirements as Data
+
+Requirements are documented as structured records under `docs/requirements/<AREA>/<ID>.md` — one atomic,
+falsifiable statement per record, with frontmatter (`id`, `type`, `area`, `provenance`, `status`,
+`verification`, `tests`, `why`). `docs/requirements-index.json` and `docs/TRACEABILITY.md` are generated
+snapshots of these records.
+
+A CI traceability gate was prototyped and removed; reintroducing a small self-owned version is tracked as tech debt.
+
+---
+
 ## Project Overview
 
 **TaskPilot** is a personal productivity web app on .NET 10 (ASP.NET Core Razor Pages, server-rendered).

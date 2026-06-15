@@ -2,6 +2,19 @@ using TaskPilot.Models.Enums;
 
 namespace TaskPilot.Models.Tasks;
 
+/// <summary>
+/// Controls which status bucket the repository targets.
+/// Active   → NotStarted, InProgress, Blocked only (same as IncludeOnlyIncomplete).
+/// Completed → Completed + Cancelled only.
+/// All       → no status restriction (returns every status).
+/// </summary>
+public enum TaskScope
+{
+    All = 0,
+    Active = 1,
+    Completed = 2
+}
+
 public record TaskQueryParams(
     Enums.TaskStatus? Status = null,
     int? TaskTypeId = null,
@@ -15,5 +28,6 @@ public record TaskQueryParams(
     string SortBy = "priority",
     string SortDir = "asc",
     bool IncludeOnlyIncomplete = false,
-    bool OverdueOnly = false
+    bool OverdueOnly = false,
+    TaskScope Scope = TaskScope.All
 );

@@ -8,6 +8,8 @@ public class ApiKey : BaseEntity
     public DateTime? LastUsedDate { get; set; }
     public bool IsActive { get; set; } = true;
     public string UserId { get; set; } = string.Empty;
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
 
     public ICollection<ApiAuditLog> AuditLogs { get; set; } = [];
 }

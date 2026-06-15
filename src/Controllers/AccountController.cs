@@ -30,7 +30,7 @@ public class AccountController(UserManager<IdentityUser> userManager, SignInMana
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        var result = await signInManager.PasswordSignInAsync(request.Email, request.Password, isPersistent: true, lockoutOnFailure: false);
+        var result = await signInManager.PasswordSignInAsync(request.Email, request.Password, isPersistent: true, lockoutOnFailure: true);
 
         if (!result.Succeeded)
             return Unauthorized(new ErrorResponse(new ApiError(Constants.ErrorCodes.Unauthorized, "Invalid credentials.")));

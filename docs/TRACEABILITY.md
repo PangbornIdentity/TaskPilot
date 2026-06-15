@@ -1,0 +1,357 @@
+# Requirement → Test Traceability Matrix
+
+> Requirements traceability (snapshot). Source of truth: the requirement records under `docs/requirements/`.
+
+**Coverage: 170/259** — 170 tested, 0 manual, 89 accepted debt, 0 unbaselined gaps. Ratified: 23/259. Source-mapped: 0/259. Untagged UI/integration tests: 234 debt / 0 new.
+
+Coverage badge: ✅ covered · 🖐 manual · 🔌 infra (covered, but proof not run in standard CI) · 🧱 debt (baseline) · ❌ gap.
+
+## ACTIVITYLOG
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| BIZ-ACTIVITYLOG-001 | ✅ covered | test | unratified | unit | — |
+| FR-ACTIVITYLOG-001 | ✅ covered | test | unratified | integration, unit | — |
+| FR-ACTIVITYLOG-002 | ✅ covered | test | unratified | integration, unit | — |
+| FR-ACTIVITYLOG-003 | ✅ covered | test | unratified | integration | — |
+| FR-ACTIVITYLOG-004 | ✅ covered | test | unratified | integration | — |
+| FR-ACTIVITYLOG-005 | ✅ covered | test | unratified | integration | — |
+| FR-ACTIVITYLOG-006 | 🧱 debt | code | unratified | — | — |
+| FR-ACTIVITYLOG-007 | 🧱 debt | code | unratified | — | — |
+
+## API
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| NFR-API-001 | ✅ covered | test | unratified | integration | — |
+| NFR-API-002 | ✅ covered | test | unratified | integration | — |
+| NFR-API-003 | ✅ covered | test | unratified | integration | — |
+| NFR-API-004 | 🧱 debt | code | unratified | — | — |
+| NFR-API-005 | 🧱 debt | code | unratified | — | — |
+| NFR-API-006 | 🧱 debt | code | unratified | — | — |
+| NFR-API-007 | 🧱 debt | code | unratified | — | — |
+| NFR-API-008 | 🧱 debt | doc | unratified | — | — |
+| NFR-API-009 | 🧱 debt | doc | unratified | — | — |
+
+## APIKEYS
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| BIZ-APIKEYS-001 | ✅ covered | test | unratified | unit | — |
+| BIZ-APIKEYS-002 | ✅ covered | test | unratified | unit | — |
+| BIZ-APIKEYS-003 | 🧱 debt | code | unratified | — | — |
+| BIZ-APIKEYS-004 | 🧱 debt | code | unratified | — | — |
+| FR-APIKEYS-001 | ✅ covered | test | unratified | integration, unit | — |
+| FR-APIKEYS-002 | ✅ covered | test | unratified | integration | — |
+| FR-APIKEYS-003 | ✅ covered | test | unratified | integration | — |
+| FR-APIKEYS-004 | ✅ covered | human | ratified | integration, unit | — |
+| FR-APIKEYS-005 | ✅ covered | human | ratified | integration | — |
+| FR-APIKEYS-006 | 🧱 debt | code | unratified | — | — |
+| FR-APIKEYS-007 | 🧱 debt | code | unratified | — | — |
+| FR-APIKEYS-008 | 🧱 debt | code | unratified | — | — |
+
+## AUDIT
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| BIZ-AUDIT-001 | ✅ covered | test | unratified | unit | — |
+| BIZ-AUDIT-002 | 🧱 debt | code | unratified | — | — |
+| BIZ-AUDIT-003 | 🧱 debt | code | unratified | — | — |
+| FR-AUDIT-001 | ✅ covered | test | unratified | playwright | — |
+| FR-AUDIT-002 | ✅ covered | test | unratified | playwright | — |
+| FR-AUDIT-003 | ✅ covered | test | unratified | playwright | — |
+| FR-AUDIT-004 | ✅ covered | test | unratified | playwright | — |
+| FR-AUDIT-005 | ✅ covered | test | unratified | playwright | — |
+| FR-AUDIT-006 | ✅ covered | test | unratified | playwright | — |
+| FR-AUDIT-007 | ✅ covered | test | unratified | integration, unit | — |
+| FR-AUDIT-008 | ✅ covered | test | unratified | integration, unit | — |
+| FR-AUDIT-009 | 🧱 debt | code | unratified | — | — |
+| FR-AUDIT-010 | 🧱 debt | code | unratified | — | — |
+| FR-AUDIT-011 | 🧱 debt | code | unratified | — | — |
+| FR-AUDIT-013 | 🧱 debt | doc | ratified | — | — |
+
+## AUTH
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| FR-AUTH-001 | ✅ covered | test | unratified | playwright, integration | — |
+| FR-AUTH-002 | ✅ covered | test | unratified | integration | — |
+| FR-AUTH-003 | ✅ covered | test | unratified | playwright, integration | — |
+| FR-AUTH-004 | ✅ covered | test | unratified | playwright, integration | — |
+| FR-AUTH-005 | ✅ covered | test | unratified | playwright, integration | — |
+| FR-AUTH-006 | ✅ covered | test | unratified | integration | — |
+| FR-AUTH-007 | 🧱 debt | code | unratified | — | — |
+| FR-AUTH-008 | 🧱 debt | code | unratified | — | — |
+| FR-AUTH-009 | 🧱 debt | code | unratified | — | — |
+
+## CHANGELOG
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| BIZ-CHANGELOG-001 | ✅ covered | test | unratified | unit | — |
+| BIZ-CHANGELOG-002 | ✅ covered | test | unratified | unit | — |
+| BIZ-CHANGELOG-003 | ✅ covered | test | unratified | unit | — |
+| BIZ-CHANGELOG-004 | ✅ covered | test | unratified | unit | — |
+| FR-CHANGELOG-001 | ✅ covered | test | unratified | playwright, integration | — |
+| FR-CHANGELOG-002 | ✅ covered | test | unratified | playwright | — |
+| FR-CHANGELOG-003 | ✅ covered | test | unratified | playwright, integration | — |
+
+## DASHBOARD
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| FR-DASHBOARD-001 | ✅ covered | test | unratified | playwright | — |
+| FR-DASHBOARD-002 | ✅ covered | test | unratified | playwright | — |
+| FR-DASHBOARD-003 | ✅ covered | test | unratified | playwright | — |
+| FR-DASHBOARD-004 | ✅ covered | test | unratified | playwright | — |
+| FR-DASHBOARD-005 | ✅ covered | test | unratified | playwright | — |
+| FR-DASHBOARD-006 | 🧱 debt | code | unratified | — | — |
+| FR-DASHBOARD-007 | 🧱 debt | code | unratified | — | — |
+
+## DATA
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| NFR-DATA-001 | ✅ covered | human | ratified | unit, integration | — |
+| NFR-DATA-002 | ✅ covered | test | unratified | unit | — |
+| NFR-DATA-003 | 🧱 debt | test | unratified | — | — |
+| NFR-DATA-004 | ✅ covered | test | unratified | unit | — |
+| NFR-DATA-005 | 🧱 debt | code | unratified | — | — |
+| NFR-DATA-006 | 🧱 debt | code | unratified | — | — |
+| NFR-DATA-007 | 🧱 debt | code | unratified | — | — |
+| NFR-DATA-008 | 🧱 debt | doc | unratified | — | — |
+
+## HEALTH
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| BIZ-HEALTH-001 | ✅ covered | test | unratified | unit | — |
+| BIZ-HEALTH-002 | ✅ covered | test | unratified | unit | — |
+| BIZ-HEALTH-003 | ✅ covered | test | unratified | unit | — |
+| BIZ-HEALTH-004 | 🧱 debt | code | unratified | — | — |
+| BIZ-HEALTH-005 | 🧱 debt | code | unratified | — | — |
+| BIZ-HEALTH-006 | 🧱 debt | code | unratified | — | — |
+| FR-HEALTH-001 | ✅ covered | test | unratified | integration | — |
+| FR-HEALTH-002 | ✅ covered | test | unratified | integration | — |
+| FR-HEALTH-003 | ✅ covered | test | unratified | integration | — |
+| FR-HEALTH-004 | ✅ covered | test | unratified | integration | — |
+| FR-HEALTH-005 | ✅ covered | test | unratified | integration | — |
+| FR-HEALTH-006 | ✅ covered | test | unratified | integration | — |
+| FR-HEALTH-007 | ✅ covered | test | unratified | playwright | — |
+| FR-HEALTH-008 | ✅ covered | test | unratified | playwright | — |
+| FR-HEALTH-009 | 🧱 debt | code | unratified | — | — |
+| NFR-HEALTH-001 | ✅ covered | test | unratified | integration | — |
+| NFR-HEALTH-002 | ✅ covered | test | unratified | integration | — |
+
+## INTEGRATIONS
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| FR-INTEGRATIONS-001 | ✅ covered | test | unratified | playwright | — |
+| FR-INTEGRATIONS-002 | ✅ covered | test | unratified | playwright | — |
+| FR-INTEGRATIONS-003 | ✅ covered | test | unratified | playwright | — |
+| FR-INTEGRATIONS-004 | ✅ covered | test | unratified | playwright | — |
+
+## LAYOUT
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| FR-LAYOUT-001 | 🧱 debt | code | unratified | — | — |
+| FR-LAYOUT-002 | 🧱 debt | code | unratified | — | — |
+| FR-LAYOUT-003 | 🧱 debt | code | unratified | — | — |
+| FR-LAYOUT-004 | 🧱 debt | code | unratified | — | — |
+| FR-LAYOUT-005 | 🧱 debt | code | unratified | — | — |
+| FR-LAYOUT-006 | 🧱 debt | code | unratified | — | — |
+| FR-LAYOUT-007 | 🧱 debt | code | unratified | — | — |
+| FR-LAYOUT-008 | 🧱 debt | doc | ratified | — | — |
+| NFR-LAYOUT-001 | ✅ covered | test | unratified | playwright | — |
+| NFR-LAYOUT-002 | ✅ covered | test | unratified | playwright | — |
+| NFR-LAYOUT-003 | ✅ covered | test | unratified | playwright | — |
+
+## MCP
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| FR-MCP-001 | ✅ covered | test | unratified | unit | — |
+| FR-MCP-002 | ✅ covered | test | unratified | unit | — |
+| FR-MCP-003 | ✅ covered | test | unratified | unit | — |
+| FR-MCP-004 | ✅ covered | test | unratified | unit | — |
+| FR-MCP-005 | ✅ covered | test | unratified | unit | — |
+| FR-MCP-006 | ✅ covered | test | unratified | unit | — |
+| FR-MCP-007 | ✅ covered | test | unratified | unit | — |
+| FR-MCP-008 | 🧱 debt | code | unratified | — | — |
+| FR-MCP-009 | 🧱 debt | code | unratified | — | — |
+| FR-MCP-010 | 🧱 debt | code | unratified | — | — |
+
+## SEC
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| NFR-SEC-001 | ✅ covered | test | unratified | playwright | — |
+| NFR-SEC-002 | ✅ covered | test | unratified | integration | — |
+| NFR-SEC-003 | ✅ covered | test | unratified | integration, unit | — |
+| NFR-SEC-004 | ✅ covered | test | unratified | unit, integration | — |
+| NFR-SEC-005 | 🧱 debt | code | unratified | — | — |
+| NFR-SEC-006 | 🧱 debt | code | unratified | — | — |
+| NFR-SEC-007 | 🧱 debt | code | unratified | — | — |
+| NFR-SEC-008 | 🧱 debt | doc | unratified | — | — |
+| NFR-SEC-009 | 🧱 debt | doc | unratified | — | — |
+| NFR-SEC-010 | ✅ covered | human | ratified | integration | — |
+| NFR-SEC-011 | ✅ covered | human | ratified | integration | — |
+| NFR-SEC-012 | ✅ covered | human | ratified | integration | — |
+
+## SETTINGS
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| FR-SETTINGS-001 | ✅ covered | test | unratified | playwright | — |
+| FR-SETTINGS-002 | ✅ covered | test | unratified | playwright | — |
+| FR-SETTINGS-003 | ✅ covered | test | unratified | playwright | — |
+| FR-SETTINGS-004 | ✅ covered | test | unratified | playwright | — |
+| FR-SETTINGS-005 | 🧱 debt | code | unratified | — | — |
+| FR-SETTINGS-006 | 🧱 debt | code | unratified | — | — |
+| FR-SETTINGS-007 | 🧱 debt | code | unratified | — | — |
+| FR-SETTINGS-008 | 🧱 debt | code | unratified | — | — |
+| FR-SETTINGS-009 | 🧱 debt | code | unratified | — | — |
+| FR-SETTINGS-010 | 🧱 debt | doc | ratified | — | — |
+
+## STATS
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| BIZ-STATS-001 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-002 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-003 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-004 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-005 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-006 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-007 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-008 | ✅ covered | test | ratified | unit | — |
+| BIZ-STATS-009 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-010 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-011 | ✅ covered | test | unratified | unit | — |
+| BIZ-STATS-012 | 🧱 debt | code | unratified | — | — |
+| BIZ-STATS-013 | 🧱 debt | code | unratified | — | — |
+| BIZ-STATS-014 | ✅ covered | code | ratified | unit | — |
+| BIZ-STATS-015 | ✅ covered | code | ratified | unit | — |
+| BIZ-STATS-016 | 🧱 debt | code | unratified | — | — |
+| BIZ-STATS-017 | 🧱 debt | code | unratified | — | — |
+| BIZ-STATS-018 | 🧱 debt | code | unratified | — | — |
+
+## TAGS
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| BIZ-TAGS-001 | ✅ covered | human | ratified | unit, integration | — |
+| BIZ-TAGS-002 | ✅ covered | test | unratified | unit | — |
+| BIZ-TAGS-003 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TAGS-004 | 🧱 debt | test | unratified | integration | — |
+| BIZ-TAGS-005 | 🧱 debt | code | unratified | — | — |
+| FR-TAGS-001 | ✅ covered | test | unratified | integration, unit | — |
+| FR-TAGS-002 | ✅ covered | test | unratified | integration, unit | — |
+| FR-TAGS-003 | ✅ covered | test | unratified | integration | — |
+| FR-TAGS-004 | ✅ covered | human | ratified | integration, unit | — |
+| FR-TAGS-005 | ✅ covered | test | unratified | integration | — |
+| FR-TAGS-006 | 🧱 debt | code | unratified | — | — |
+
+## TASKS
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| BIZ-TASKS-001 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-002 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-003 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-004 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-005 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-006 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-007 | ✅ covered | human | ratified | unit | — |
+| BIZ-TASKS-008 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-009 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-010 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-011 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-012 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-013 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-014 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-015 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-016 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-017 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-018 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-019 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-020 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-021 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-022 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-023 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-024 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-025 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-026 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKS-027 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-028 | ✅ covered | test | unratified | unit | — |
+| BIZ-TASKS-029 | 🧱 debt | code | ratified | — | — |
+| BIZ-TASKS-030 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-031 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-032 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-033 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-034 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-035 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-036 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-037 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-038 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-039 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-040 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-041 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-042 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-043 | 🧱 debt | code | unratified | — | — |
+| BIZ-TASKS-044 | 🧱 debt | code | unratified | — | — |
+| FR-TASKS-001 | ✅ covered | test | unratified | unit, integration | — |
+| FR-TASKS-002 | ✅ covered | test | unratified | unit, integration | — |
+| FR-TASKS-003 | ✅ covered | test | unratified | unit, integration | — |
+| FR-TASKS-004 | ✅ covered | test | unratified | unit, integration | — |
+| FR-TASKS-005 | ✅ covered | test | unratified | unit | — |
+| FR-TASKS-006 | ✅ covered | test | unratified | unit, integration | — |
+| FR-TASKS-007 | ✅ covered | test | unratified | unit, integration | — |
+| FR-TASKS-008 | ✅ covered | human | ratified | unit, integration | — |
+| FR-TASKS-009 | ✅ covered | test | unratified | integration | — |
+| FR-TASKS-010 | ✅ covered | test | unratified | integration | — |
+| FR-TASKS-011 | ✅ covered | test | unratified | integration | — |
+| FR-TASKS-012 | ✅ covered | test | unratified | integration, unit | — |
+| FR-TASKS-013 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-014 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-015 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-016 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-017 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-018 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-019 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-020 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-021 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-022 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-023 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-024 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-025 | ✅ covered | human | ratified | integration, playwright, unit | — |
+| FR-TASKS-026 | ✅ covered | test | unratified | integration | — |
+| FR-TASKS-027 | ✅ covered | test | unratified | integration | — |
+| FR-TASKS-028 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-029 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-030 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-031 | ✅ covered | test | unratified | playwright | — |
+| FR-TASKS-032 | 🧱 debt | code | unratified | — | — |
+| FR-TASKS-033 | 🧱 debt | code | unratified | — | — |
+| FR-TASKS-034 | 🧱 debt | code | unratified | — | — |
+| FR-TASKS-035 | ✅ covered | human | ratified | unit, integration | — |
+| FR-TASKS-036 | 🧱 debt | code | unratified | — | — |
+| FR-TASKS-037 | 🧱 debt | doc | ratified | — | — |
+| FR-TASKS-038 | 🧱 debt | doc | ratified | — | — |
+| FR-TASKS-040 | 🧱 debt | doc | ratified | — | — |
+| FR-TASKS-041 | 🧱 debt | doc | ratified | — | — |
+| NFR-TASKS-001 | ✅ covered | test | unratified | integration | — |
+| NFR-TASKS-002 | ✅ covered | test | unratified | playwright | — |
+| NFR-TASKS-003 | ✅ covered | test | unratified | playwright | — |
+
+## TASKTYPES
+
+| ID | Coverage | Provenance | Ratification | Covered by | Source |
+|----|----------|-----------|--------------|------------|--------|
+| BIZ-TASKTYPES-001 | ✅ covered | test | unratified | unit, integration | — |
+| BIZ-TASKTYPES-002 | 🧱 debt | doc | unratified | — | — |
+| FR-TASKTYPES-001 | ✅ covered | test | unratified | integration, unit | — |
+| FR-TASKTYPES-002 | 🧱 debt | doc | unratified | — | — |
+

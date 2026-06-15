@@ -80,7 +80,7 @@ public class StatsServiceTests : IDisposable
         var now = DateTime.UtcNow;
         _context.Tasks.AddRange(
             MakeTask("user1", TaskStatus.Completed, completedDate: now),
-            MakeTask("user1", TaskStatus.Completed, completedDate: now.AddHours(-1)),
+            MakeTask("user1", TaskStatus.Completed, completedDate: now.Date),
             MakeTask("user1", TaskStatus.Completed, completedDate: now.AddDays(-2))
         );
         await _context.SaveChangesAsync();

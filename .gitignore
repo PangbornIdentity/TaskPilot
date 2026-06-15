@@ -72,3 +72,9 @@ publish-linux*/
 
 ## Claude Code local settings
 .claude/settings.local.json
+
+# The requirement records are documentation — never ignore them, even when an area
+# directory name (e.g. RELEASE/) collides with a build-output pattern like [Rr]elease/.
+!docs/requirements/
+!docs/requirements/*/
+!docs/requirements/**

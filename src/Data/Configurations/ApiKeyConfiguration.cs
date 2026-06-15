@@ -16,8 +16,11 @@ public class ApiKeyConfiguration : IEntityTypeConfiguration<ApiKey>
         builder.Property(k => k.UserId).IsRequired();
         builder.Property(k => k.LastModifiedBy).IsRequired();
 
+        builder.HasQueryFilter(k => !k.IsDeleted);
+
         builder.HasIndex(k => k.UserId);
         builder.HasIndex(k => k.KeyHash).IsUnique();
+        builder.HasIndex(k => new { k.UserId, k.IsDeleted });
 
         builder.HasMany(k => k.AuditLogs)
             .WithOne(a => a.ApiKey)
