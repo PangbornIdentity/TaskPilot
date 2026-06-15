@@ -3,7 +3,7 @@ id: FR-LAYOUT-008
 type: FR
 area: LAYOUT
 provenance: doc
-status: unratified
+status: ratified
 verification: automated
 tests: []
 why: Global keyboard shortcuts let power users drive the app (create, edit, complete, search) without reaching for the mouse, speeding repetitive task management.

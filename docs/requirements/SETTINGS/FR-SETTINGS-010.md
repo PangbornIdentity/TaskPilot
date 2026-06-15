@@ -3,7 +3,7 @@ id: FR-SETTINGS-010
 type: FR
 area: SETTINGS
 provenance: doc
-status: unratified
+status: ratified
 verification: automated
 tests: []
 why: CSV export lets users get their own task data out of the app for backup or analysis, avoiding lock-in.

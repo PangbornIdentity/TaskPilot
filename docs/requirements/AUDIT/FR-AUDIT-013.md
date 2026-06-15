@@ -3,7 +3,7 @@ id: FR-AUDIT-013
 type: FR
 area: AUDIT
 provenance: doc
-status: unratified
+status: ratified
 why: Click-to-filter and an API-key dropdown plus status-code range let an owner drill straight into one key's activity or isolate error responses without hand-editing filters.
 verification: automated
 tests: []

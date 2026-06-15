@@ -3,7 +3,7 @@ id: FR-TASKS-038
 type: FR
 area: TASKS
 provenance: doc
-status: unratified
+status: ratified
 verification: automated
 why: SUGGESTED: Save and Create Another speeds up entering many tasks in one sitting.
 tests: []

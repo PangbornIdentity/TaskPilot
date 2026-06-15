@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-06-14 — CVS P6 ledger closeout (no version bump)
+
+> Docs
+>
+> Closed the last 11 reconciliation-ledger rows, completing CVS P6. No code, no `csproj` bump, and no
+> `app-changelog.json` entry — nothing user-visible shipped; this is a documentation/traceability
+> closeout only.
+
+De-scoped 3 PRD-stated-but-unbuilt features by deleting their aspirational requirement records and
+striking the matching PRD promises:
+- **Audit per-API-key bar chart** (LDG-024) — deleted `FR-AUDIT-012`; removed the per-key chart bullet from REQUIREMENTS.md §4.5.
+- **Task draft autosave to localStorage** (LDG-033) — deleted `FR-TASKS-039`; removed the auto-save-draft bullet from REQUIREMENTS.md §4.3.
+- **Mobile swipe gestures** (LDG-036) — deleted `FR-TASKS-042`; removed the mobile-swipe bullet from REQUIREMENTS.md §4.2.
+
+Ratified 6 kept iter-2 backlog features so they remain confirmed-but-unbuilt aspirational records in
+the gap baseline: `FR-TASKS-037`, `FR-LAYOUT-008` (keyboard shortcuts — LDG-031), `FR-TASKS-038`
+(Save & Create Another — LDG-032), `FR-TASKS-040` (markdown descriptions — LDG-034), `FR-TASKS-041`
+(drag-and-drop reorder; backend `UpdateSortOrderAsync` exists, UI pending — LDG-035), `FR-SETTINGS-010`
+(CSV export — LDG-037), and `FR-AUDIT-013` (richer audit-dashboard filters — LDG-025).
+
+Ratified `BIZ-TASKS-029` (LDG-039) — confirming the recurring-task date-math is intended: a recurring
+task with a null target date validly spawns a successor with a null target date. Documented the benign
+API-register cookie-persistence note (LDG-040) — API clients authenticate with keys, not cookies, so
+the `isPersistent` difference is harmless; no change made.
+
+Files: deleted `docs/requirements/AUDIT/FR-AUDIT-012.md`, `docs/requirements/TASKS/FR-TASKS-039.md`,
+`docs/requirements/TASKS/FR-TASKS-042.md`; `REQUIREMENTS.md` (§4.2, §4.3, §4.5);
+`docs/cvs/RECONCILIATION-LEDGER.md` (LDG-024/025/031–037/039/040);
+ratified records `docs/requirements/TASKS/FR-TASKS-037.md`, `docs/requirements/LAYOUT/FR-LAYOUT-008.md`,
+`docs/requirements/TASKS/FR-TASKS-038.md`, `docs/requirements/TASKS/FR-TASKS-040.md`,
+`docs/requirements/TASKS/FR-TASKS-041.md`, `docs/requirements/SETTINGS/FR-SETTINGS-010.md`,
+`docs/requirements/AUDIT/FR-AUDIT-013.md`, `docs/requirements/TASKS/BIZ-TASKS-029.md`.
+
+---
+
 ## 2026-06-14 — Security hardening + soft-delete (v1.14.0)
 
 > CVS P6 batch-A remediation: the security and data-integrity conflicts surfaced in the reconciliation

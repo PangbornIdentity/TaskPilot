@@ -1,14 +1,14 @@
 {
   "generatedBy": "reqindex",
   "summary": {
-    "total": 262,
+    "total": 259,
     "covered": 168,
     "manual": 0,
-    "debt": 94,
+    "debt": 91,
     "gapsNew": 0,
-    "ratified": 10,
-    "unratified": 252,
-    "withWhy": 261,
+    "ratified": 18,
+    "unratified": 241,
+    "withWhy": 258,
     "withSource": 0,
     "infraDebt": 0,
     "untaggedDebt": 234,
@@ -1548,7 +1548,7 @@
       "coverage": "gap",
       "debt": true,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "code",
       "verification": "automated",
       "coveredBy": [],
@@ -1557,7 +1557,7 @@
       "sourceFile": "docs/requirements/TASKS/BIZ-TASKS-029.md",
       "statement": "When a recurring task is completed, the successor task's target date is computed from the source task's target date by adding one day for a Daily pattern, seven days for a Weekly pattern, and one calendar month for a Monthly pattern; if the source has no target date the successor's target date is null.",
       "why": "Computing the successor's due date from the recurrence pattern keeps recurring tasks on their intended cadence automatically.",
-      "contentHash": "sha256:feb4e4c86084a2f9b7719348502976ceca333e5649edebb9cfd480240dee5159"
+      "contentHash": "sha256:d704f01a3ff57fc938770e042504a8d881068b9afef8d180fe6cd6b3d4abcc65"
     },
     {
       "id": "BIZ-TASKS-030",
@@ -2421,31 +2421,13 @@
       "contentHash": "sha256:71dd49d952d91a4b72c3e01b0f61c527a945944f5698196c83ded651176f366d"
     },
     {
-      "id": "FR-AUDIT-012",
-      "type": "FR",
-      "area": "AUDIT",
-      "coverage": "gap",
-      "debt": true,
-      "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "doc",
-      "verification": "automated",
-      "coveredBy": [],
-      "tests": [],
-      "source": [],
-      "sourceFile": "docs/requirements/AUDIT/FR-AUDIT-012.md",
-      "statement": "The LLM Audit Dashboard (API Access tab) presents a per-API-key bar chart showing request count per API key over the last 30 days.",
-      "why": "A per-key bar chart over 30 days lets an owner visually spot which LLM client drives traffic and detect unexpected spikes.",
-      "contentHash": "sha256:710ea594177509801bda62a5c5c641e789b44b211ca7f64a6d1acfaa1cc598b8"
-    },
-    {
       "id": "FR-AUDIT-013",
       "type": "FR",
       "area": "AUDIT",
       "coverage": "gap",
       "debt": true,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "doc",
       "verification": "automated",
       "coveredBy": [],
@@ -2454,7 +2436,7 @@
       "sourceFile": "docs/requirements/AUDIT/FR-AUDIT-013.md",
       "statement": "On the LLM Audit Dashboard (API Access tab), clicking an API key name filters the audit-log table to that key's activity, and the available filters include an API-key dropdown and a status-code range in addition to date range and HTTP method.",
       "why": "Click-to-filter and an API-key dropdown plus status-code range let an owner drill straight into one key's activity or isolate error responses without hand-editing filters.",
-      "contentHash": "sha256:ecf7e93e77d7ddcfef066755dc2cac68dc5b75ba858d69cbea2712886dade7f6"
+      "contentHash": "sha256:78c886a7342cd7008fca9791b4544c65732e5398a8bfaf44ddb0370e331ce1b0"
     },
     {
       "id": "FR-AUTH-001",
@@ -3282,7 +3264,7 @@
       "coverage": "gap",
       "debt": true,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "doc",
       "verification": "automated",
       "coveredBy": [],
@@ -3291,7 +3273,7 @@
       "sourceFile": "docs/requirements/LAYOUT/FR-LAYOUT-008.md",
       "statement": "The application supports global keyboard shortcuts as specified in REQUIREMENTS.md §4.8: N (new task), E (edit selected task), / (focus search), Esc (close slide-over/modal), ? (show keyboard-shortcuts overlay), and Space (toggle selected task complete); the quick-add bar also supports title+Tab to open the full create form pre-filled.",
       "why": "Global keyboard shortcuts let power users drive the app (create, edit, complete, search) without reaching for the mouse, speeding repetitive task management.",
-      "contentHash": "sha256:79442c05a2e68e0fedb7e7576da389478d0df72e3801b3eefb536849183027ec"
+      "contentHash": "sha256:d1278090924aeae04778304c7a6b13dd78bd4135baa2bd4fd05a6c57f9346c72"
     },
     {
       "id": "FR-MCP-001",
@@ -3686,7 +3668,7 @@
       "coverage": "gap",
       "debt": true,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "doc",
       "verification": "automated",
       "coveredBy": [],
@@ -3695,7 +3677,7 @@
       "sourceFile": "docs/requirements/SETTINGS/FR-SETTINGS-010.md",
       "statement": "The Settings page provides a Data Export action that exports the user's tasks as a CSV file.",
       "why": "CSV export lets users get their own task data out of the app for backup or analysis, avoiding lock-in.",
-      "contentHash": "sha256:be9011973542d09536da4ca8e4662942a3b45e3cacd50e0c0f8de9faa3b1d430"
+      "contentHash": "sha256:8a8aa8138bf501d7c806fa90fde56c38975fdd705237c1c38d5e1c74488d5e88"
     },
     {
       "id": "FR-TAGS-001",
@@ -4631,7 +4613,7 @@
       "coverage": "gap",
       "debt": true,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "doc",
       "verification": "automated",
       "coveredBy": [],
@@ -4640,7 +4622,7 @@
       "sourceFile": "docs/requirements/TASKS/FR-TASKS-037.md",
       "statement": "The application provides global keyboard shortcuts for task workflows: `N` opens the new-task create panel, `E` edits the selected task, `/` focuses the search input, `Esc` closes the active slide-over or modal, `?` shows a keyboard-shortcuts overlay, and `Space` toggles the selected task complete.",
       "why": "SUGGESTED: Keyboard shortcuts speed up power-user task workflows without reaching for the mouse.",
-      "contentHash": "sha256:c581c9ee6319f9feda23612ee3feb8ee6dfa957cd8019ac8014544e978f085f9"
+      "contentHash": "sha256:c90897c509109c4e6e61810d12fe4cb924645d108f4ad43ffc9216a0beb50cd6"
     },
     {
       "id": "FR-TASKS-038",
@@ -4649,7 +4631,7 @@
       "coverage": "gap",
       "debt": true,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "doc",
       "verification": "automated",
       "coveredBy": [],
@@ -4658,25 +4640,7 @@
       "sourceFile": "docs/requirements/TASKS/FR-TASKS-038.md",
       "statement": "The task create/edit slide-over offers a \"Save & Create Another\" action that saves the current task and immediately reopens an empty create form for rapid batch entry.",
       "why": "SUGGESTED: Save and Create Another speeds up entering many tasks in one sitting.",
-      "contentHash": "sha256:06fcb3eb2d200929e357804f278b370c04911d20de2cd2f72296c41bef13b76e"
-    },
-    {
-      "id": "FR-TASKS-039",
-      "type": "FR",
-      "area": "TASKS",
-      "coverage": "gap",
-      "debt": true,
-      "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "doc",
-      "verification": "automated",
-      "coveredBy": [],
-      "tests": [],
-      "source": [],
-      "sourceFile": "docs/requirements/TASKS/FR-TASKS-039.md",
-      "statement": "The task create/edit form auto-saves an in-progress draft to `localStorage` if the user navigates away mid-edit, so the unsaved input can be restored.",
-      "why": "SUGGESTED: Auto-saving a draft protects users from losing in-progress input if they navigate away mid-edit.",
-      "contentHash": "sha256:2380bd18feb98ece3fde4b337f653060955c8215c84ea5b5c374484f08b35dec"
+      "contentHash": "sha256:9b02e7498856360b44d97c4d6768ddd07c15d02bddc770c8e8c96e2636616c33"
     },
     {
       "id": "FR-TASKS-040",
@@ -4685,7 +4649,7 @@
       "coverage": "gap",
       "debt": true,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "doc",
       "verification": "automated",
       "coveredBy": [],
@@ -4694,7 +4658,7 @@
       "sourceFile": "docs/requirements/TASKS/FR-TASKS-040.md",
       "statement": "A task's Description supports markdown rendering in the UI (the stored text is rendered as formatted markdown when displayed).",
       "why": "SUGGESTED: Markdown rendering lets users format task descriptions for readability.",
-      "contentHash": "sha256:86017dcfeaa060f13eb770d3a4bfa8cd6f2eb585b774e1b1ad5491080123461e"
+      "contentHash": "sha256:b09ddd8d85b17fc3f1b565e71b0a635cc712f9e80b7704c79e1aca1dbe3ffa6b"
     },
     {
       "id": "FR-TASKS-041",
@@ -4703,7 +4667,7 @@
       "coverage": "gap",
       "debt": true,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "doc",
       "verification": "automated",
       "coveredBy": [],
@@ -4712,25 +4676,7 @@
       "sourceFile": "docs/requirements/TASKS/FR-TASKS-041.md",
       "statement": "A user can reorder tasks within a view by drag-and-drop, persisting the new manual `SortOrder`. (Distinct from FR-TASKS-036, which covers the service-level `UpdateSortOrderAsync` method: this record covers the user-facing drag-and-drop interaction and the HTTP/UI surface that drives it.)",
       "why": "SUGGESTED: Drag-and-drop reordering gives users an intuitive way to set manual task priority order.",
-      "contentHash": "sha256:c52b04667bcd4f73a33c42a3c6fa36f84823feb1b4197a88b5a372ef4156264e"
-    },
-    {
-      "id": "FR-TASKS-042",
-      "type": "FR",
-      "area": "TASKS",
-      "coverage": "gap",
-      "debt": true,
-      "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "doc",
-      "verification": "automated",
-      "coveredBy": [],
-      "tests": [],
-      "source": [],
-      "sourceFile": "docs/requirements/TASKS/FR-TASKS-042.md",
-      "statement": "On mobile, swipe gestures on a task row perform quick actions: swipe right marks the task complete, and swipe left soft-deletes it with an undo toast.",
-      "why": "SUGGESTED: Mobile swipe gestures provide fast one-handed complete and delete actions on touch devices.",
-      "contentHash": "sha256:44a3e9fa63da37e82a0d5c0cbdc8b2d61e96b7df56aeb8deec4bdd9401a2c554"
+      "contentHash": "sha256:6babb1b53eaa01352c17ea906d0a3e3bc86cf6d1d494c80db57a572727515392"
     },
     {
       "id": "FR-TASKTYPES-001",

@@ -213,7 +213,6 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 - **Bulk actions toolbar** (when items selected): mark complete, change priority, change status, add/remove tag, soft-delete
 - **Drag-and-drop reordering** within groups (persists `SortOrder`)
 - **Inline edit:** Click title to rename in place
-- **Mobile swipe:** Right = mark complete, Left = soft-delete with undo toast
 
 **Definitions:**
 - *Incomplete* = `TaskStatus` ∈ {`NotStarted`, `InProgress`, `Blocked`}. Excludes `Completed` and `Cancelled`.
@@ -228,7 +227,6 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 - Tag selector with inline "create new tag" capability (type name, pick color)
 - Tags displayed as coloured pills in the selector and on the saved form
 - **"Save & Create Another"** button for rapid batch entry
-- **Auto-save draft** to localStorage if user navigates away mid-edit
 - Inline validation feedback on each field
 
 ### 4.4 Task Detail View
@@ -244,7 +242,6 @@ TaskType records are read-only in iteration 1 (no UI to add/edit types). Exposed
 - Data table: timestamp, API key name, HTTP method, endpoint, status code, duration (ms)
 - **Filters:** API key (dropdown), date range, HTTP method, status code range
 - **Summary cards:** Total requests, GETs today, writes (POST/PUT/PATCH/DELETE) today, active API keys
-- **Per-API-key chart:** Bar chart, request count per key, last 30 days
 - Click an API key name → filters table to that key's activity
 - Pagination on audit log table
 

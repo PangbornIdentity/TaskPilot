@@ -3,7 +3,7 @@ id: FR-TASKS-041
 type: FR
 area: TASKS
 provenance: doc
-status: unratified
+status: ratified
 verification: automated
 why: SUGGESTED: Drag-and-drop reordering gives users an intuitive way to set manual task priority order.
 tests: []

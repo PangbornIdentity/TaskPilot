@@ -3,7 +3,7 @@ id: BIZ-TASKS-029
 type: BIZ
 area: TASKS
 provenance: code
-status: unratified
+status: ratified
 verification: automated
 why: Computing the successor's due date from the recurrence pattern keeps recurring tasks on their intended cadence automatically.
 tests: []

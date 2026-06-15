@@ -3,7 +3,7 @@ id: FR-TASKS-040
 type: FR
 area: TASKS
 provenance: doc
-status: unratified
+status: ratified
 verification: automated
 why: SUGGESTED: Markdown rendering lets users format task descriptions for readability.
 tests: []

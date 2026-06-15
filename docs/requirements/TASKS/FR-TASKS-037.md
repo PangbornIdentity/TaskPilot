@@ -3,7 +3,7 @@ id: FR-TASKS-037
 type: FR
 area: TASKS
 provenance: doc
-status: unratified
+status: ratified
 verification: automated
 why: SUGGESTED: Keyboard shortcuts speed up power-user task workflows without reaching for the mouse.
 tests: []
