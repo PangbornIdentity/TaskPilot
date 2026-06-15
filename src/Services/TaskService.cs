@@ -357,6 +357,6 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         task.LastModifiedDate,
         task.LastModifiedBy,
         task.UserId,
-        task.TaskTags.Select(tt => new TagResponse(tt.Tag.Id, tt.Tag.Name, tt.Tag.Color, tt.Tag.CreatedDate)).ToList()
+        task.TaskTags.Where(tt => tt.Tag is not null).Select(tt => new TagResponse(tt.Tag.Id, tt.Tag.Name, tt.Tag.Color, tt.Tag.CreatedDate)).ToList()
     );
 }

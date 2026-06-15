@@ -5,6 +5,8 @@ public class Tag : BaseEntity
     public string Name { get; set; } = string.Empty;
     public string Color { get; set; } = string.Empty;
     public string UserId { get; set; } = string.Empty;
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
 
     public ICollection<TaskTag> TaskTags { get; set; } = [];
 }

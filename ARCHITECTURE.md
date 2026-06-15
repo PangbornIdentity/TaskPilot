@@ -416,7 +416,7 @@ public record CreateTaskRequest
     public DateTime? TargetDate { get; init; }
     public bool IsRecurring { get; init; } = false;
     public RecurrencePattern? RecurrencePattern { get; init; }
-    public int? TaskTypeId { get; init; }               // optional FK to TaskType lookup table
+    public int? TaskTypeId { get; init; }               // FK to TaskType lookup table; REQUIRED — validator enforces GreaterThan(0)
     public Area Area { get; init; } = Area.Personal;    // 0=Personal (default), 1=Work
     public List<Guid> TagIds { get; init; } = [];       // tag associations (empty = no tags)
 }
@@ -435,7 +435,7 @@ public record UpdateTaskRequest
     public DateTime? TargetDate { get; init; }
     public bool IsRecurring { get; init; } = false;
     public RecurrencePattern? RecurrencePattern { get; init; }
-    public int? TaskTypeId { get; init; }               // optional FK to TaskType lookup table
+    public int? TaskTypeId { get; init; }               // FK to TaskType lookup table; REQUIRED — validator enforces GreaterThan(0)
     public Area Area { get; init; } = Area.Personal;    // 0=Personal (default), 1=Work
     public List<Guid> TagIds { get; init; } = [];       // replaces full tag set on the task
 }
@@ -694,15 +694,29 @@ public async Task<IActionResult> CloneTask(
 
 ### 3.3 API Key Endpoints
 
-| Method | Endpoint | Auth | Request | Success Response | Error Codes |
+| Method | Endpoint | Auth (intended) | Request | Success Response | Error Codes |
 |--------|----------|------|---------|-----------------|-------------|
 | GET | /api/v1/apikeys | Cookie | — | 200 `ApiListResponse<ApiKeyResponse>` | 401 |
-| POST | /api/v1/apikeys | Cookie | `GenerateApiKeyRequest` | 201 `ApiResponse<GeneratedApiKeyResponse>` | 400, 401 |
-| PATCH | /api/v1/apikeys/{id}/deactivate | Cookie | — | 200 `ApiResponse<ApiKeyResponse>` | 401, 404 |
-| PATCH | /api/v1/apikeys/{id}/activate | Cookie | — | 200 `ApiResponse<ApiKeyResponse>` | 401, 404 |
+| POST | /api/v1/apikeys | Cookie | `CreateApiKeyRequest` | 201 `ApiResponse<CreateApiKeyResponse>` | 400, 401 |
+| PATCH | /api/v1/apikeys/{id}/rename | Cookie | `RenameApiKeyRequest` | 204 | 400, 401, 404 |
+| POST | /api/v1/apikeys/{id}/activate | Cookie | — | 204 | 401, 404 |
+| POST | /api/v1/apikeys/{id}/deactivate | Cookie | — | 204 | 401, 404 |
 | DELETE | /api/v1/apikeys/{id} | Cookie | — | 204 | 401, 404 |
 
-> Note: `GeneratedApiKeyResponse` includes the plaintext `FullKey` field. This is the ONLY time the plaintext key is returned. After this response, the key cannot be retrieved.
+> Note: `CreateApiKeyResponse` includes the plaintext key as its `PlainTextKey` field (record:
+> `CreateApiKeyResponse(Id, Name, KeyPrefix, PlainTextKey, CreatedDate)`). This is the ONLY time the
+> plaintext key is returned. After this response, the key cannot be retrieved. The create request DTO is
+> `CreateApiKeyRequest` and the rename DTO is `RenameApiKeyRequest`. (Activate/deactivate are `POST`
+> returning `204 No Content` — NOT `PATCH` with a body. Rename is `PATCH …/{id}/rename` returning `204`.)
+
+> **Auth-scheme enforcement (SECURITY — see §4.9):** the "Auth (intended)" column states the *design
+> intent* that API-key management is a cookie-only (human, browser) operation. **This is NOT enforced in
+> iteration 1.** `ApiKeysController` carries a bare `[Authorize]` with no `AuthenticationSchemes`, so the
+> `MultiScheme` policy selector forwards any request bearing an `X-Api-Key` header to the `ApiKey`
+> scheme, which authenticates successfully and satisfies `[Authorize]`. **A valid API key can therefore
+> list, create, rename, activate, deactivate, and revoke API keys** (scoped to the key's owning user).
+> This is a privilege gap relative to the documented design — see §4.9 and dev work-item
+> **WI-APIKEY-SCHEME** for the fix.
 
 ### 3.4 Audit Log Endpoints
 
@@ -810,14 +824,30 @@ ASP.NET Core Identity with cookie authentication for the Razor Pages web UI.
 - MaxFailedAccessAttempts: 5
 - AllowedForNewUsers: true
 
-**Cookie settings (iteration 1):**
+**Cookie settings — ASPIRATIONAL / ITERATION 2 (NOT implemented in iteration 1):**
+
+In iteration 1, `ConfigureApplicationCookie` (in `ServiceCollectionExtensions.AddTaskPilotAuthentication`)
+sets ONLY the `LoginPath`, `LogoutPath`, `AccessDeniedPath`, and the `OnRedirectToLogin` event (which
+returns `401` for `/api/*` paths instead of redirecting to the login page). All other cookie options use
+ASP.NET Core Identity framework defaults: the framework default already sets `HttpOnly = true` and
+`SecurePolicy = SameAsRequest`; `SameSite` defaults to `Lax`, `ExpireTimeSpan` to 14 days, and
+`SlidingExpiration` to `true`. The explicit hardening block below is **planned for iteration 2** (tracked
+as aspirational record `NFR-SEC-009`) and is the only behavioural delta — chiefly tightening `SameSite`
+from `Lax` to `Strict` and forcing `SecurePolicy=Always`:
+
 ```csharp
-options.Cookie.HttpOnly = true;
-options.Cookie.SameSite = SameSiteMode.Strict;
-options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; // → Always in iteration 2
-options.ExpireTimeSpan = TimeSpan.FromDays(14);
-options.SlidingExpiration = true;
+// ITERATION 2 — to be added inside ConfigureApplicationCookie(options => { ... }):
+options.Cookie.HttpOnly = true;                                // already the framework default
+options.Cookie.SameSite = SameSiteMode.Strict;                 // tighten from framework default Lax
+options.Cookie.SecurePolicy = CookieSecurePolicy.Always;       // SameAsRequest until HTTPS-everywhere
+options.ExpireTimeSpan = TimeSpan.FromDays(14);                // make explicit (matches default)
+options.SlidingExpiration = true;                             // make explicit (matches default)
 ```
+
+> **Rationale for deferral:** iteration 1 is localhost-only and may serve over `http`. `SameSite=Strict`
+> plus a forced `SecurePolicy=Always` is only meaningful once the app sits behind iteration-2 Azure App
+> Service TLS termination. The framework defaults are safe for local dev. No migration debt: the change
+> is purely additive (five property assignments in one existing method).
 
 ### 4.2 API Key Authentication Handler
 
@@ -837,14 +867,22 @@ Custom `AuthenticationHandler<AuthenticationSchemeOptions>` reading the `X-Api-K
 3. Compute HMAC-SHA256 hash of received key
 4. Look up `KeyHash` in `ApiKey` table (using hash — never plaintext lookup)
 5. Verify `IsActive == true`
-6. Update `LastUsedDate` (non-blocking fire-and-forget)
+6. Update `LastUsedDate` — **awaited** (NOT fire-and-forget). The scoped `ApplicationDbContext` is not
+   thread-safe and forbids overlapping operations, so an unawaited save here can race with the
+   controller / audit middleware on the same scoped instance. Awaiting also surfaces failures instead of
+   silently dropping them. (See `ApiKeyService.ValidateKeyAsync` → `UpdateLastUsedAsync`.)
 7. Set `ClaimsPrincipal` with user ID and API key name claims
 
-**HMAC signing key** stored in `dotnet user-secrets` as `ApiKey:HmacSigningKey` (iteration 1), Azure Key Vault in iteration 2.
+**HMAC signing key** — the canonical configuration key is **`Hmac:SecretKey`** (read by
+`ApiKeyService.ComputeHmacHash` as `configuration["Hmac:SecretKey"]`). Store it in `dotnet user-secrets`
+under `Hmac:SecretKey` in iteration 1, and in Azure Key Vault as the secret `Hmac--SecretKey` (the `--`
+double-dash is how Key Vault represents the `:` config section separator) in iteration 2. If the key is
+missing, API-key validation throws `InvalidOperationException` at first use.
 
 ### 4.3 Audit Logging Middleware
 
-`ApiKeyAuditMiddleware` fires on all requests authenticated via the API key scheme.
+`ApiAuditMiddleware` (class `TaskPilot.Middleware.ApiAuditMiddleware`, registered via the
+`app.UseApiAudit()` pipeline helper) fires on requests authenticated via the API key scheme.
 
 ```csharp
 // Captures per request:
@@ -881,18 +919,29 @@ Use `IgnoreQueryFilters()` only for:
 - Admin/background cleanup jobs
 - The 30-second undo window check
 
-### 4.5 Security Headers Middleware
+### 4.5 Security Headers Middleware — ASPIRATIONAL / ITERATION 2 (NOT implemented in iteration 1)
 
-Sets on every response:
+> **Status:** No security-headers middleware exists in the iteration-1 pipeline. The headers below are
+> **not** currently emitted. This is tracked as aspirational record `NFR-SEC-008`. The decision is to
+> ship the headers in iteration 2 alongside the related HSTS/CSP work and the cookie hardening (§4.1),
+> so the entire transport-security posture lands behind Azure App Service TLS in one coherent change
+> rather than piecemeal on localhost-`http` in iteration 1.
+
+**Planned for iteration 2** — a small `SecurityHeadersMiddleware` will set on every response:
 ```
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
 ```
+Plus the transport/CSP additions:
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` (HTTPS only)
+- `Content-Security-Policy: default-src 'self'; ...` (needs allowlisting for the locally-vendored
+  `wwwroot/lib` assets — Bootstrap, htmx, ApexCharts — which are same-origin, so CSP is straightforward
+  once authored)
 
-Iteration 2 additions (document only, not implemented in v1):
-- `Strict-Transport-Security: max-age=31536000; includeSubDomains`
-- `Content-Security-Policy: default-src 'self'; ...` (needs allowlisting for CDN domains in iteration 2)
+Pipeline position when added: registered **first** in the pipeline (immediately after
+`app.UseGlobalExceptionHandler()` and before `app.UseHttpsRedirection()`) so the headers are present on
+every response including error responses and static files. See dev work-item **WI-SEC-HEADERS** below.
 
 ### 4.6 Global Exception Handler Middleware
 
@@ -917,15 +966,58 @@ policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")  // loc
 
 ### 4.8 Rate Limiting — Insertion Point (document only)
 
-In `Program.cs`, rate limiting middleware inserts here:
+No rate limiter exists in iteration 1 (per rule #8). **Decision:** the insertion point will be marked
+with an explicit anchor comment in `Program.cs` so the "document insertion point only" rule is satisfied
+by a concrete code marker, not prose alone. See dev work-item **WI-RATELIMIT-MARKER** below. The marker
+sits between `app.UseAuthorization()` and `app.MapControllers()`:
+
 ```csharp
 app.UseAuthentication();
 app.UseAuthorization();
-// ← INSERT: app.UseRateLimiter(); here in iteration 2
+
+app.UseApiAudit();
+
+// ITERATION-2 INSERTION POINT — rate limiting:
+//   builder.Services.AddRateLimiter(...);  // in the service-registration section
+//   app.UseRateLimiter();                  // here, after auth/authorization, before MapControllers
+// Per-API-key sliding-window limiter keyed on the api-key id claim; web/cookie requests exempt.
+
+app.UseStaticFiles();
 app.MapControllers();
 ```
 
-**Iteration 2 policy design:** Per-API-key sliding window limiter using `RateLimitPartition.GetSlidingWindowLimiter` keyed on the API key ID claim. Web UI requests exempt. Configuration: 100 requests/minute per key default, configurable per key.
+> Note: in the shipped pipeline `app.UseApiAudit()` sits between `UseAuthorization()` and
+> `UseStaticFiles()`/`MapControllers()`; the rate-limiter belongs after auth/authorization (so it can
+> key on the resolved api-key id claim) and before `MapControllers()`.
+
+**Iteration 2 policy design:** Per-API-key sliding window limiter using `RateLimitPartition.GetSlidingWindowLimiter` keyed on the API key ID claim. Web UI / cookie requests exempt. Configuration: 100 requests/minute per key default, configurable per key.
+
+### 4.9 Authentication Scheme Selection & the API-Key Privilege Gap
+
+**How scheme selection works.** `AddTaskPilotAuthentication` registers a `MultiScheme` policy scheme as
+both the default authenticate and default challenge scheme. Its `ForwardDefaultSelector` inspects each
+request:
+- if the `X-Api-Key` header is present → forward to the `ApiKey` scheme (`ApiKeyAuthenticationHandler`),
+- otherwise → forward to the cookie scheme (`Identity.Application`).
+
+The `ApiKeyAuthenticationHandler` validates the key (hash lookup + `IsActive`) and, on success, issues a
+`ClaimsPrincipal` carrying `NameIdentifier` (user id), the api-key name, and an
+`AuthenticationMethod = "ApiKey"` claim. Because that principal is authenticated, it satisfies a bare
+`[Authorize]` attribute.
+
+**The gap (LDG-007 / verified).** `ApiKeysController` is annotated with `[Authorize]` only — it does NOT
+pin `AuthenticationSchemes = AuthConstants.CookieScheme`. Combined with the selector above, **a request
+that presents a valid `X-Api-Key` is authenticated by the ApiKey scheme and is authorized to call every
+endpoint on `ApiKeysController`** (GET / POST / rename / activate / deactivate / DELETE). All operations
+remain scoped to the key's owning user (the service filters by `UserId`), so this is not cross-tenant
+escalation — but it does mean **an API key can mint new API keys, revoke other keys, and reactivate
+deactivated keys for its own user**, which contradicts the §3.3 "Cookie-only" design intent and weakens
+the human-in-the-loop boundary for credential management.
+
+**Resolution.** Pin the cookie scheme on the API-key management surface so key lifecycle is a
+browser/human-only operation. See dev work-item **WI-APIKEY-SCHEME**. (The MCP surface and the
+Tasks/Tags/Audit data surfaces remain "Cookie or ApiKey" by design — only API-key *management* is
+cookie-only.)
 
 ---
 
