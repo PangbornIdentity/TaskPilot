@@ -8,7 +8,7 @@ using TaskPilot.Models.ApiKeys;
 namespace TaskPilot.Controllers;
 
 [Authorize(AuthenticationSchemes = AuthConstants.CookieScheme)]
-public class ApiKeysController(IApiKeyService apiKeyService, IValidator<CreateApiKeyRequest> validator) : BaseApiController
+public class ApiKeysController(IApiKeyService apiKeyService, IValidator<CreateApiKeyRequest> createValidator, IValidator<RenameApiKeyRequest> renameValidator) : BaseApiController
 {
     [HttpGet]
     public async Task<IActionResult> GetKeys(CancellationToken cancellationToken)
@@ -20,7 +20,7 @@ public class ApiKeysController(IApiKeyService apiKeyService, IValidator<CreateAp
     [HttpPost]
     public async Task<IActionResult> GenerateKey([FromBody] CreateApiKeyRequest request, CancellationToken cancellationToken)
     {
-        var validation = await validator.ValidateAsync(request, cancellationToken);
+        var validation = await createValidator.ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
         {
             var details = validation.Errors.Select(e => new Models.Common.FieldError(e.PropertyName, e.ErrorMessage)).ToList();
@@ -34,6 +34,13 @@ public class ApiKeysController(IApiKeyService apiKeyService, IValidator<CreateAp
     [HttpPatch("{id:guid}/rename")]
     public async Task<IActionResult> RenameKey(Guid id, [FromBody] RenameApiKeyRequest request, CancellationToken cancellationToken)
     {
+        var validation = await renameValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            var details = validation.Errors.Select(e => new Models.Common.FieldError(e.PropertyName, e.ErrorMessage)).ToList();
+            return BadRequest(ValidationError("Validation failed.", details));
+        }
+
         var updated = await apiKeyService.RenameKeyAsync(id, request, UserId, ModifiedBy, cancellationToken);
         if (!updated) return NotFound(NotFoundError("API key"));
         return NoContent();

@@ -2,12 +2,12 @@
   "generatedBy": "reqindex",
   "summary": {
     "total": 259,
-    "covered": 168,
+    "covered": 170,
     "manual": 0,
-    "debt": 91,
+    "debt": 89,
     "gapsNew": 0,
-    "ratified": 18,
-    "unratified": 241,
+    "ratified": 23,
+    "unratified": 236,
     "withWhy": 258,
     "withSource": 0,
     "infraDebt": 0,
@@ -1038,20 +1038,21 @@
       "coverage": "covered",
       "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "test",
+      "ratification": "ratified",
+      "provenance": "human",
       "verification": "automated",
       "coveredBy": [
         "unit"
       ],
       "tests": [
-        "tests/TaskPilot.Tests.Unit/Services/TaskServiceTests.cs"
+        "tests/TaskPilot.Tests.Unit/Services/TaskServiceTests.cs",
+        "tests/TaskPilot.Tests.Unit/Services/UpdateTaskActivityLogTests.cs"
       ],
       "source": [],
       "sourceFile": "docs/requirements/TASKS/BIZ-TASKS-007.md",
-      "statement": "A full update writes an activity-log entry for each field whose value differs from the prior stored value.",
+      "statement": "A full task update writes one activity-log entry per changed field — including Title, Description, TaskTypeId, Area, Priority, Status, TargetDate, AND TargetDateType, IsRecurring, and RecurrencePattern; unchanged fields are not logged.",
       "why": "SUGGESTED: A full update should record every genuine field change so the activity log stays a complete, trustworthy history.",
-      "contentHash": "sha256:4c5320d5a9ec15d69e756e3d6793a44099ca45fe830c04b7a30a954fb7a2d91e"
+      "contentHash": "sha256:3e494b7c90df65793890bf6fb70e7ba6ed8a8d8084933d95267974c5baa7fb37"
     },
     {
       "id": "BIZ-TASKS-008",
@@ -2118,19 +2119,23 @@
       "id": "FR-APIKEYS-005",
       "type": "FR",
       "area": "APIKEYS",
-      "coverage": "gap",
-      "debt": true,
+      "coverage": "covered",
+      "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "code",
+      "ratification": "ratified",
+      "provenance": "human",
       "verification": "automated",
-      "coveredBy": [],
-      "tests": [],
+      "coveredBy": [
+        "integration"
+      ],
+      "tests": [
+        "tests/TaskPilot.Tests.Integration/ApiKeys/RenameApiKeyValidationTests.cs"
+      ],
       "source": [],
       "sourceFile": "docs/requirements/APIKEYS/FR-APIKEYS-005.md",
-      "statement": "PATCH /api/v1/apikeys/{id}/rename sets the key's name to the supplied value and returns 204; renaming a non-existent key returns 404.",
+      "statement": "Renaming an API key (PATCH /api/v1/apikeys/{id}/rename) validates the new name (required, ≤100 chars) and returns 400 on violation; a valid rename returns 204; a missing/cross-user key returns 404.",
       "why": "SUGGESTED: Lets owners relabel a key to track which LLM client uses it without rotating the credential; renaming a missing key must 404 rather than silently no-op.",
-      "contentHash": "sha256:4373c9ca0069e6f411585c0ee6931a60d099228a1cf2b89bd3d709716fd3ff69"
+      "contentHash": "sha256:3ef3ebf61744dc6dd6f1d62234e7ce25a87e89867854ffe3fb7dd971b2e3164a"
     },
     {
       "id": "FR-APIKEYS-006",
@@ -3988,8 +3993,8 @@
       "coverage": "covered",
       "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "test",
+      "ratification": "ratified",
+      "provenance": "human",
       "verification": "automated",
       "coveredBy": [
         "unit",
@@ -3997,13 +4002,14 @@
       ],
       "tests": [
         "tests/TaskPilot.Tests.Unit/Services/TaskServiceTests.cs",
-        "tests/TaskPilot.Tests.Integration/Tasks/TasksApiTests.cs"
+        "tests/TaskPilot.Tests.Integration/Tasks/TasksApiTests.cs",
+        "tests/TaskPilot.Tests.Integration/Tasks/PatchTaskValidationTests.cs"
       ],
       "source": [],
       "sourceFile": "docs/requirements/TASKS/FR-TASKS-008.md",
       "statement": "A user can partially update a task by supplying only selected fields; supplied fields are changed while omitted (null) fields retain their existing values.",
       "why": "Partial update lets clients and the API change selected fields without resending the whole task or risking unintended overwrites.",
-      "contentHash": "sha256:0340bef60b011eb1c02893e20bc9aed7b9e0f004a5ca4d46fdad2126ffdbc9d5"
+      "contentHash": "sha256:86f689532a5d9bfcf778ed8ee823beeb7f697ad0d1c6a678c2c542937fa7d790"
     },
     {
       "id": "FR-TASKS-009",
@@ -4367,22 +4373,25 @@
       "coverage": "covered",
       "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "test",
+      "ratification": "ratified",
+      "provenance": "human",
       "verification": "automated",
       "coveredBy": [
         "integration",
-        "playwright"
+        "playwright",
+        "unit"
       ],
       "tests": [
         "tests/TaskPilot.Tests.Integration/Tasks/TasksShowParamTests.cs",
-        "tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs"
+        "tests/TaskPilot.Tests.E2E/Tasks/TaskLifecycleTests.cs",
+        "tests/TaskPilot.Tests.Integration/Tasks/TaskScopeApiTests.cs",
+        "tests/TaskPilot.Tests.Unit/Services/TaskScopeFilterTests.cs"
       ],
       "source": [],
       "sourceFile": "docs/requirements/TASKS/FR-TASKS-025.md",
-      "statement": "The Tasks page has an Active/Completed/All segmented control: Active (the default) shows only NotStarted/InProgress/Blocked tasks, Completed shows only Completed/Cancelled tasks, and All shows every status; the selected segment is reflected in the URL and its pressed state.",
+      "statement": "The Active/Completed/All scope is enforced server-side — the repository filters by scope (Active = NotStarted/InProgress/Blocked; Completed = Completed/Cancelled; All = no restriction) and pagination + total count reflect the scoped set.",
       "why": "The Active/Completed/All control lets users focus on current work by default while still reaching finished or all tasks; URL state makes it shareable.",
-      "contentHash": "sha256:0fba4823f63137f274a24263fb8684fa251f986e16e6630cc82a8d64855900d0"
+      "contentHash": "sha256:9816c5ab6981ba27f35650ee5e82fc1802fb318590c6e151a3a4dab812637a5e"
     },
     {
       "id": "FR-TASKS-026",
@@ -4574,19 +4583,25 @@
       "id": "FR-TASKS-035",
       "type": "FR",
       "area": "TASKS",
-      "coverage": "gap",
-      "debt": true,
+      "coverage": "covered",
+      "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "code",
+      "ratification": "ratified",
+      "provenance": "human",
       "verification": "automated",
-      "coveredBy": [],
-      "tests": [],
+      "coveredBy": [
+        "unit",
+        "integration"
+      ],
+      "tests": [
+        "tests/TaskPilot.Tests.Unit/Validators/PatchTaskRequestValidatorTests.cs",
+        "tests/TaskPilot.Tests.Integration/Tasks/PatchTaskValidationTests.cs"
+      ],
       "source": [],
       "sourceFile": "docs/requirements/TASKS/FR-TASKS-035.md",
-      "statement": "Creating or fully updating a task is rejected when the priority, status, area, or target-date-type value is not a defined enum value.",
+      "statement": "Create, full-update (PUT), AND partial-update (PATCH) reject invalid input (empty/>200-char title, TaskTypeId ≤ 0, non-enum priority/status/area/date-type, IsRecurring without a valid RecurrencePattern, SpecificDay without a date) with HTTP 400 and the standard validation-error envelope.",
       "why": "Rejecting out-of-range enum values prevents corrupt enum state that downstream logic and storage cannot interpret.",
-      "contentHash": "sha256:b4c5419507a112abf5425a086ff2e041110f77b0c08d2d6ed9536e9b6ddd831c"
+      "contentHash": "sha256:f0fecc31bc219dc3237b3591e9119f4015af5b5cd82c412b945d14d9873afb7e"
     },
     {
       "id": "FR-TASKS-036",

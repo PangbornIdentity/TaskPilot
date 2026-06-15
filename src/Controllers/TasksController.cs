@@ -8,7 +8,7 @@ using TaskPilot.Models.Common;
 namespace TaskPilot.Controllers;
 
 [Authorize]
-public class TasksController(ITaskService taskService, IValidator<CreateTaskRequest> createValidator, IValidator<UpdateTaskRequest> updateValidator) : BaseApiController
+public class TasksController(ITaskService taskService, IValidator<CreateTaskRequest> createValidator, IValidator<UpdateTaskRequest> updateValidator, IValidator<PatchTaskRequest> patchValidator) : BaseApiController
 {
     [HttpGet]
     public async Task<IActionResult> GetTasks([FromQuery] TaskQueryParams queryParams, CancellationToken cancellationToken)
@@ -64,6 +64,13 @@ public class TasksController(ITaskService taskService, IValidator<CreateTaskRequ
     [HttpPatch("{id:guid}")]
     public async Task<IActionResult> PatchTask(Guid id, [FromBody] PatchTaskRequest request, CancellationToken cancellationToken)
     {
+        var validation = await patchValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+            var details = validation.Errors.Select(e => new Models.Common.FieldError(e.PropertyName, e.ErrorMessage)).ToList();
+            return BadRequest(ValidationError("Validation failed.", details));
+        }
+
         var task = await taskService.PatchTaskAsync(id, request, UserId, ModifiedBy, cancellationToken);
         if (task is null) return NotFound(NotFoundError("Task"));
         return Ok(Envelope(task));

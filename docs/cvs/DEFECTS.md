@@ -20,11 +20,13 @@
 - **What:** POST (`CreateTaskRequestValidator`) and PUT (`UpdateTaskRequestValidator`) validate input; PATCH calls the service directly. No `IValidator<PatchTaskRequest>` is injected or invoked, and none exists in `src/Models/Validators/`. A client can PATCH `Title` to empty/>200 chars, or set `IsRecurring=true` with `RecurrencePattern=null`, reaching states the create/update validators forbid.
 - **Proof:** `PatchTaskAsync` blindly assigns each supplied field (TaskService.cs:119-129); contrast CreateTask (validate at controller) / UpdateTask.
 - **Fix sketch:** add a `PatchTaskRequest` validator (rules conditional on supplied fields) and gate the PATCH action on it.
+- **RESOLVED 2026-06-14 (P7)**: Added a `PatchTaskRequest` validator (rules conditional on supplied fields) and gated the PATCH action on it — invalid PATCH input now returns 400 with the standard validation-error envelope. Records co-updated: **FR-TASKS-035** (now covers Create + PUT + PATCH) and **FR-TASKS-008** (binding added). Covered by `PatchTaskRequestValidatorTests` (unit) + `PatchTaskValidationTests` (integration).
 
 ### D-002 — Full task UPDATE under-logs field changes — Low–Medium
 - **Where:** `src/Services/TaskService.cs:238-257` (`BuildActivityLogs`, full-update path).
 - **What:** A full UPDATE logs Title, Description, TaskTypeId, Area, Priority, Status, TargetDate — but `TargetDateType`, `IsRecurring`, and `RecurrencePattern` are persisted (assigned at TaskService.cs:85-88) **without** an activity-log entry. PATCH *does* log all three. Audit history is silently incomplete for full updates and inconsistent with PATCH.
 - **Fix sketch:** add the three missing fields to the full-update `BuildActivityLogs` diff.
+- **RESOLVED 2026-06-14 (P7)**: `TargetDateType`, `IsRecurring`, and `RecurrencePattern` added to the full-update `BuildActivityLogs` diff — a full update now logs one entry per changed field, consistent with PATCH. Record co-updated: **BIZ-TASKS-007** (statement now enumerates all logged fields). Covered by `UpdateTaskActivityLogTests` (unit).
 
 ### D-003 — Tag deletion is a HARD delete (violates Non-Negotiable Rule #2) — High *(see Q-001)*
 - **Where:** `src/Controllers/TagsController.cs:68` → `src/Services/TagService.cs:58-66` → `src/Repositories/GenericRepository.cs:29-30` (`DbSet.Remove` + `SaveChangesAsync`).
@@ -41,11 +43,13 @@
 - **Where:** `src/Controllers/ApiKeysController.cs:33-39` → `src/Services/ApiKeyService.cs:40-49` (`RenameKeyAsync`).
 - **What:** Key creation enforces non-empty + ≤100 chars (`CreateApiKeyRequestValidator`); rename invokes no validator (no `RenameApiKeyRequest` validator class exists) and assigns `key.Name = request.Name` unchecked. Empty or >100-char names are accepted via rename. (Ownership check at ApiKeyService.cs:43 is present — not a security hole, a consistency gap.)
 - **Fix sketch:** add a `RenameApiKeyRequest` validator mirroring the create name rules; gate the rename action.
+- **RESOLVED 2026-06-14 (P7)**: Added a `RenameApiKeyRequest` validator (required, ≤100 chars) mirroring the create name rules and gated the rename action — empty/>100-char names now return 400; a valid rename returns 204; a missing/cross-user key returns 404. Record co-updated: **FR-APIKEYS-005** (statement now states the validation + 400/204/404 contract). Covered by `RenameApiKeyValidationTests` (integration).
 
 ### D-006 — Tasks page "completed"/"all" scopes under-count (paginate-then-filter) — Medium
 - **Where:** `src/Pages/Tasks/Index.cshtml.cs:97-123`.
 - **What:** For `show=completed` (and `all`) the page requests a server-paginated page (`PageSize:50`, `IncludeOnlyIncomplete:false`, no terminal-status filter pushed to the repo) and then post-filters the returned 50 rows down to Completed/Cancelled at the page layer. The repository applies `Skip/Take` server-side (`TaskRepository.cs:129-130`), so the 50-row page already mixes all statuses; post-filtering yields fewer than a full page of completed rows and loses completed tasks beyond the first 50 mixed rows. `TotalCount = Tasks.Count` then reports only the filtered slice — completed/all views silently under-count.
 - **Fix sketch:** push the terminal-status filter into the repository query for the completed/all scopes so pagination and counts are computed server-side.
+- **RESOLVED 2026-06-14 (P7)**: The Active/Completed/All scope is now enforced server-side — the repository filters by scope (Active = NotStarted/InProgress/Blocked; Completed = Completed/Cancelled; All = no restriction) so `Skip/Take` pagination and `TotalCount` are computed over the scoped set, ending the paginate-then-filter under-count. Record co-updated: **FR-TASKS-025** (statement now states server-side scope + pagination/count). Covered by `TaskScopeApiTests` (integration) + `TaskScopeFilterTests` (unit).
 
 ### D-007 — API-key privilege escalation: an API key can manage API keys (LDG-007) — High
 - **Where:** `src/Controllers/ApiKeysController.cs` → multi-scheme selector in `ServiceCollectionExtensions` (forwards to the ApiKey scheme whenever `X-Api-Key` is present).
