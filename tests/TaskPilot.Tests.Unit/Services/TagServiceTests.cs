@@ -41,7 +41,7 @@ public class TagServiceTests
     public async Task CreateTagAsync_ValidRequest_ReturnsTagResponse()
     {
         var request = new CreateTagRequest("Important", "#ff5722");
-        _tagRepoMock.Setup(r => r.GetByNameAsync("Important", "user1", default))
+        _tagRepoMock.Setup(r => r.GetByNameIncludingDeletedAsync("Important", "user1", default))
             .ReturnsAsync((Tag?)null);
         _tagRepoMock.Setup(r => r.AddAsync(It.IsAny<Tag>(), default)).Returns(Task.CompletedTask);
         _tagRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
@@ -58,10 +58,65 @@ public class TagServiceTests
     {
         var existing = MakeTag("user1");
         existing.Name = "Work";
-        _tagRepoMock.Setup(r => r.GetByNameAsync("Work", "user1", default)).ReturnsAsync(existing);
+        existing.IsDeleted = false;
+        _tagRepoMock.Setup(r => r.GetByNameIncludingDeletedAsync("Work", "user1", default)).ReturnsAsync(existing);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _service.CreateTagAsync(new CreateTagRequest("Work", "#000000"), "user1", "user:test@example.com"));
+    }
+
+    [Fact]
+    public async Task CreateTagAsync_SoftDeletedSameName_ResurrectsTag()
+    {
+        // BIZ-TAGS-001: recreating a soft-deleted tag-name must revive the original row.
+        var tombstone = MakeTag("user1");
+        tombstone.Name = "Work";
+        tombstone.Color = "#old";
+        tombstone.IsDeleted = true;
+        tombstone.DeletedAt = DateTime.UtcNow.AddMinutes(-5);
+        var originalId = tombstone.Id;
+
+        _tagRepoMock.Setup(r => r.GetByNameIncludingDeletedAsync("Work", "user1", default))
+            .ReturnsAsync(tombstone);
+        _tagRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
+        _tagRepoMock.Setup(r => r.GetAllForUserWithTaskCountAsync("user1", default))
+            .ReturnsAsync(new List<(Tag, int)> { (tombstone, 0) });
+
+        var result = await _service.CreateTagAsync(
+            new CreateTagRequest("Work", "#new"), "user1", "user:test@example.com");
+
+        // The tombstone must be resurrected: same Id, IsDeleted cleared, color updated.
+        Assert.Equal(originalId, result.Id);
+        Assert.False(tombstone.IsDeleted);
+        Assert.Null(tombstone.DeletedAt);
+        Assert.Equal("#new", tombstone.Color);
+        Assert.Equal("user:test@example.com", tombstone.LastModifiedBy);
+
+        // Update called (not AddAsync) — no new row was inserted.
+        _tagRepoMock.Verify(r => r.Update(tombstone), Times.Once);
+        _tagRepoMock.Verify(r => r.AddAsync(It.IsAny<Tag>(), default), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateTagAsync_SoftDeletedSameName_ReturnsRealTaskCount()
+    {
+        // BIZ-TAGS-001: resurrected tag returns the actual task count from preserved TaskTag rows.
+        var tombstone = MakeTag("user1");
+        tombstone.Name = "Work";
+        tombstone.IsDeleted = true;
+        tombstone.DeletedAt = DateTime.UtcNow.AddMinutes(-5);
+
+        _tagRepoMock.Setup(r => r.GetByNameIncludingDeletedAsync("Work", "user1", default))
+            .ReturnsAsync(tombstone);
+        _tagRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
+        // Simulate 3 tasks still linked to the resurrected tag row.
+        _tagRepoMock.Setup(r => r.GetAllForUserWithTaskCountAsync("user1", default))
+            .ReturnsAsync(new List<(Tag, int)> { (tombstone, 3) });
+
+        var result = await _service.CreateTagAsync(
+            new CreateTagRequest("Work", "#aabbcc"), "user1", "user:test@example.com");
+
+        Assert.Equal(3, result.TaskCount);
     }
 
     [Fact]
@@ -69,13 +124,16 @@ public class TagServiceTests
     {
         var tag = MakeTag("user1");
         _tagRepoMock.Setup(r => r.GetByIdAsync(tag.Id, default)).ReturnsAsync(tag);
-        _tagRepoMock.Setup(r => r.Remove(tag));
+        _tagRepoMock.Setup(r => r.Update(tag));
         _tagRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
 
-        var result = await _service.DeleteTagAsync(tag.Id, "user1");
+        var result = await _service.DeleteTagAsync(tag.Id, "user1", "user:test@example.com");
 
         Assert.True(result);
-        _tagRepoMock.Verify(r => r.Remove(tag), Times.Once);
+        Assert.True(tag.IsDeleted);
+        Assert.NotNull(tag.DeletedAt);
+        _tagRepoMock.Verify(r => r.Update(tag), Times.Once);
+        _tagRepoMock.Verify(r => r.Remove(It.IsAny<Tag>()), Times.Never);
     }
 
     [Fact]
@@ -84,9 +142,10 @@ public class TagServiceTests
         var tag = MakeTag("user1");
         _tagRepoMock.Setup(r => r.GetByIdAsync(tag.Id, default)).ReturnsAsync(tag);
 
-        var result = await _service.DeleteTagAsync(tag.Id, "other-user");
+        var result = await _service.DeleteTagAsync(tag.Id, "other-user", "user:other@example.com");
 
         Assert.False(result);
+        _tagRepoMock.Verify(r => r.Update(It.IsAny<Tag>()), Times.Never);
         _tagRepoMock.Verify(r => r.Remove(It.IsAny<Tag>()), Times.Never);
     }
 

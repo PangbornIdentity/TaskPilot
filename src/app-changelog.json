@@ -1,6 +1,19 @@
 {
   "versions": [
     {
+      "version": "1.14.0",
+      "releaseDate": "2026-06-14",
+      "versionType": "minor",
+      "summary": "Security hardening across sign-in and API keys, plus recoverable deletes and chronologically ordered dashboard charts.",
+      "changes": [
+        { "type": "Improvement", "description": "Stronger password requirements (min 10 chars incl. upper/lower/digit/symbol)" },
+        { "type": "Improvement", "description": "Accounts now temporarily lock after 5 failed sign-in attempts" },
+        { "type": "Fix", "description": "API keys can no longer be used to manage other API keys (session sign-in required)" },
+        { "type": "Fix", "description": "Dashboard weekly charts now order weeks chronologically" },
+        { "type": "Improvement", "description": "Deleting a tag or API key is now a recoverable soft-delete" }
+      ]
+    },
+    {
       "version": "1.13.0",
       "releaseDate": "2026-05-17",
       "versionType": "minor",

@@ -53,11 +53,20 @@ public class TaskRepository(ApplicationDbContext context) : GenericRepository<Ta
             }
         }
 
-        if (queryParams.IncludeOnlyIncomplete)
+        // Scope-based status filtering takes priority over the legacy IncludeOnlyIncomplete flag.
+        // Active  → NotStarted, InProgress, Blocked  (same semantics as IncludeOnlyIncomplete)
+        // Completed → Completed + Cancelled
+        // All     → no restriction
+        if (queryParams.Scope == TaskScope.Active || queryParams.IncludeOnlyIncomplete)
         {
             query = query.Where(t => t.Status == TaskStatus.NotStarted
                                   || t.Status == TaskStatus.InProgress
                                   || t.Status == TaskStatus.Blocked);
+        }
+        else if (queryParams.Scope == TaskScope.Completed)
+        {
+            query = query.Where(t => t.Status == TaskStatus.Completed
+                                  || t.Status == TaskStatus.Cancelled);
         }
 
         if (queryParams.OverdueOnly)
@@ -81,7 +90,7 @@ public class TaskRepository(ApplicationDbContext context) : GenericRepository<Ta
         // append a SortOrder tiebreaker so pagination stays deterministic on ties.
         var sortKey = queryParams.SortBy.ToLower();
         var desc = queryParams.SortDir == "desc";
-        var usingIncompleteDefault = queryParams.IncludeOnlyIncomplete && sortKey == "priority";
+        var usingIncompleteDefault = (queryParams.IncludeOnlyIncomplete || queryParams.Scope == TaskScope.Active) && sortKey == "priority";
 
         query = sortKey switch
         {

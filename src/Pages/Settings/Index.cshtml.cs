@@ -69,7 +69,7 @@ public class SettingsIndexModel(
 
     public async Task<IActionResult> OnPostDeleteKeyAsync(Guid keyId)
     {
-        await apiKeyService.RevokeKeyAsync(keyId, UserId);
+        await apiKeyService.RevokeKeyAsync(keyId, UserId, ModifiedBy);
         TempData["Toast"] = "API key revoked.";
         return RedirectToPage();
     }
@@ -118,7 +118,7 @@ public class SettingsIndexModel(
 
     public async Task<IActionResult> OnPostDeleteTagAsync(Guid tagId)
     {
-        await tagService.DeleteTagAsync(tagId, UserId);
+        await tagService.DeleteTagAsync(tagId, UserId, ModifiedBy);
         TempData["Toast"] = "Tag deleted.";
         return RedirectToPage();
     }

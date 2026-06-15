@@ -253,6 +253,9 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         Log(nameof(task.Priority), task.Priority.ToString(), request.Priority.ToString());
         Log(nameof(task.Status), task.Status.ToString(), request.Status.ToString());
         Log(nameof(task.TargetDate), task.TargetDate?.ToString("O"), request.TargetDate?.ToString("O"));
+        Log(nameof(task.TargetDateType), task.TargetDateType.ToString(), request.TargetDateType.ToString());
+        Log(nameof(task.IsRecurring), task.IsRecurring.ToString(), request.IsRecurring.ToString());
+        Log(nameof(task.RecurrencePattern), task.RecurrencePattern?.ToString(), request.RecurrencePattern?.ToString());
 
         return logs;
     }
@@ -357,6 +360,6 @@ public class TaskService(ITaskRepository taskRepository, ITagRepository tagRepos
         task.LastModifiedDate,
         task.LastModifiedBy,
         task.UserId,
-        task.TaskTags.Select(tt => new TagResponse(tt.Tag.Id, tt.Tag.Name, tt.Tag.Color, tt.Tag.CreatedDate)).ToList()
+        task.TaskTags.Where(tt => tt.Tag is not null).Select(tt => new TagResponse(tt.Tag.Id, tt.Tag.Name, tt.Tag.Color, tt.Tag.CreatedDate)).ToList()
     );
 }

@@ -88,11 +88,14 @@ public class TasksIndexModel(ITaskService taskService, ITaskTypeService taskType
         TaskTypes = await taskTypeService.GetAllActiveAsync();
         AllTags = (await tagService.GetAllTagsAsync(userId)).ToList();
 
-        // Translate the "show" scope to the repository's IncludeOnlyIncomplete flag
-        // or a status-set filter applied at the page-model layer. The repository already
-        // supports IncludeOnlyIncomplete (the active set). For "completed" we apply a
-        // post-query status filter at this layer to avoid a new repo parameter.
-        var includeOnlyIncomplete = Show == "active";
+        // Translate the "show" scope to a server-side TaskScope so pagination and
+        // TotalCount are computed correctly at the repository layer. No post-filtering.
+        var scope = Show switch
+        {
+            "completed" => TaskScope.Completed,
+            "active"    => TaskScope.Active,
+            _           => TaskScope.All
+        };
 
         var result = await taskService.GetTasksAsync(new TaskQueryParams(
             Status: status,
@@ -107,20 +110,12 @@ public class TasksIndexModel(ITaskService taskService, ITaskTypeService taskType
             // when no header is active so existing behaviour stays.
             SortBy: SortBy ?? "priority",
             SortDir: SortDir ?? "asc",
-            IncludeOnlyIncomplete: includeOnlyIncomplete,
-            OverdueOnly: overdue
+            OverdueOnly: overdue,
+            Scope: scope
         ), userId);
 
-        var allFetched = result.Data?.ToList() ?? [];
-
-        // For "completed" show-mode, narrow to the terminal statuses at the page layer.
-        // IncludeOnlyIncomplete=false already returns everything; we just post-filter.
-        Tasks = Show == "completed"
-            ? allFetched.Where(t => t.Status == TaskStatus.Completed
-                                 || t.Status == TaskStatus.Cancelled).ToList()
-            : allFetched;
-
-        TotalCount = Tasks.Count;
+        Tasks = result.Data?.ToList() ?? [];
+        TotalCount = result.Meta.TotalCount;
 
         if (View == "board")
         {

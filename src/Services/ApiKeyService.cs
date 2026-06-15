@@ -59,12 +59,16 @@ public class ApiKeyService(IApiKeyRepository apiKeyRepository, IConfiguration co
         return true;
     }
 
-    public async Task<bool> RevokeKeyAsync(Guid id, string userId, CancellationToken cancellationToken = default)
+    public async Task<bool> RevokeKeyAsync(Guid id, string userId, string modifiedBy, CancellationToken cancellationToken = default)
     {
         var key = await apiKeyRepository.GetByIdAsync(id, cancellationToken);
         if (key is null || key.UserId != userId) return false;
 
-        apiKeyRepository.Remove(key);
+        key.IsDeleted = true;
+        key.DeletedAt = DateTime.UtcNow;
+        key.IsActive = false;
+        key.LastModifiedBy = modifiedBy;
+        apiKeyRepository.Update(key);
         await apiKeyRepository.SaveChangesAsync(cancellationToken);
         return true;
     }
