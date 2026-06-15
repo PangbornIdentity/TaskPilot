@@ -7,11 +7,29 @@
 
 ---
 
-## 2026-06-14 — CVS P6 ledger closeout (no version bump)
+## 2026-06-14 — Retire vendored traceability engine (keep requirement records as data)
+
+> Docs
+
+Removed the vendored proprietary requirements-traceability kit and its machinery from the public repo: the
+`scripts/cvs/*.mjs` engine scripts, the `.github/workflows/traceability.yml` CI gate, the
+`.traceability.config.json` config, the two shrink-only baselines, the requirements constitution, and the
+`docs/cvs/` working ledger/defects log (all defects fixed, ledger closed). The requirement records under
+`docs/requirements/**` and their generated snapshots (`docs/requirements-index.json`, `docs/TRACEABILITY.md`)
+are retained as plain documentation. Reintroducing a small self-owned traceability gate is tracked as tech debt.
+
+Files affected: deleted `scripts/cvs/*.mjs`, `.github/workflows/traceability.yml`, `.traceability.config.json`,
+`docs/REQUIREMENTS_CONSTITUTION.md`, `docs/traceability-baseline.json`, `docs/untagged-test-baseline.json`,
+`docs/cvs/DEFECTS.md`, `docs/cvs/RECONCILIATION-LEDGER.md`; scrubbed `CLAUDE.md`, `README.md`,
+`docs/requirements-index.json`, `docs/TRACEABILITY.md`.
+
+---
+
+## 2026-06-14 — Requirements traceability ledger closeout (no version bump)
 
 > Docs
 >
-> Closed the last 11 reconciliation-ledger rows, completing CVS P6. No code, no `csproj` bump, and no
+> Closed the last 11 open requirements-reconciliation items. No code, no `csproj` bump, and no
 > `app-changelog.json` entry — nothing user-visible shipped; this is a documentation/traceability
 > closeout only.
 
@@ -34,7 +52,6 @@ the `isPersistent` difference is harmless; no change made.
 
 Files: deleted `docs/requirements/AUDIT/FR-AUDIT-012.md`, `docs/requirements/TASKS/FR-TASKS-039.md`,
 `docs/requirements/TASKS/FR-TASKS-042.md`; `REQUIREMENTS.md` (§4.2, §4.3, §4.5);
-`docs/cvs/RECONCILIATION-LEDGER.md` (LDG-024/025/031–037/039/040);
 ratified records `docs/requirements/TASKS/FR-TASKS-037.md`, `docs/requirements/LAYOUT/FR-LAYOUT-008.md`,
 `docs/requirements/TASKS/FR-TASKS-038.md`, `docs/requirements/TASKS/FR-TASKS-040.md`,
 `docs/requirements/TASKS/FR-TASKS-041.md`, `docs/requirements/SETTINGS/FR-SETTINGS-010.md`,
@@ -44,9 +61,9 @@ ratified records `docs/requirements/TASKS/FR-TASKS-037.md`, `docs/requirements/L
 
 ## 2026-06-14 — Security hardening + soft-delete (v1.14.0)
 
-> CVS P6 batch-A remediation: the security and data-integrity conflicts surfaced in the reconciliation
-> ledger (LDG-001/002/003/007/027) and defects D-003/D-004/D-007 are now fixed in code and bound to
-> tests, and the affected requirement records are co-updated and ratified. Ships as v1.14.0.
+> Security and data-integrity remediation: the conflicts and defects surfaced during requirements
+> reconciliation are now fixed in code and bound to tests, and the affected requirement records are
+> co-updated and ratified. Ships as v1.14.0.
 
 ### Security | Password policy hardened (LDG-002 / NFR-SEC-011)
 
@@ -78,33 +95,31 @@ soft-delete with `IsActive=false`.
 `StatsService` now orders the weekly series numerically by (year, week index) instead of by the
 unpadded `"W{n}/{year}"` string, so weeks ≥10 no longer sort before single-digit weeks.
 
-### Test/Docs | CVS bookkeeping
+### Test/Docs | Requirements bookkeeping
 
 New tests bound; requirement records co-updated and ratified (NFR-DATA-001, FR-TAGS-004,
-FR-APIKEYS-004, BIZ-STATS-008/014/015); 3 new ratified records created (NFR-SEC-010/011/012); defects
-D-003/D-004/D-007 + Q-001 marked resolved; ledger rows LDG-001/002/003/007/027 ratified. Traceability
-index regenerated; gap baseline shrunk (BIZ-STATS-014, BIZ-STATS-015 now covered).
+FR-APIKEYS-004, BIZ-STATS-008/014/015); 3 new ratified records created (NFR-SEC-010/011/012). The
+traceability index was regenerated and the affected records marked covered (BIZ-STATS-014, BIZ-STATS-015).
 
-Files affected: `src/Program.cs` (password policy + lockout + cookie-scheme registration), `src/Controllers/ApiKeysController.cs` (cookie scheme pinned), `src/Entities/Tag.cs` + `src/Entities/ApiKey.cs` (IsDeleted/DeletedAt), `src/Data/Configurations/TagConfiguration.cs` + `ApiKeyConfiguration.cs` (query filter, no cascade), `src/Services/TagService.cs` + `src/Services/ApiKeyService.cs` (soft-delete), `src/Services/StatsService.cs` (numeric week ordering), the new EF migration (Tag/ApiKey soft-delete columns); new tests `tests/TaskPilot.Tests.Unit/Services/TagSoftDeleteTests.cs`, `ApiKeySoftDeleteTests.cs`, `StatsWeekOrderingTests.cs`, `tests/TaskPilot.Tests.Integration/Tags/TagSoftDeleteIntegrationTests.cs`, `tests/TaskPilot.Tests.Integration/ApiKeys/ApiKeyRevokeRejectionTests.cs`, `ApiKeySchemeRestrictionTests.cs`, `tests/TaskPilot.Tests.Integration/Auth/PasswordPolicyTests.cs`, `AccountLockoutTests.cs`; co-updated records `docs/requirements/DATA/NFR-DATA-001.md`, `docs/requirements/TAGS/FR-TAGS-004.md`, `docs/requirements/APIKEYS/FR-APIKEYS-004.md`, `docs/requirements/STATS/BIZ-STATS-008.md|014|015.md`; new records `docs/requirements/SEC/NFR-SEC-010.md|011|012.md`; `docs/cvs/DEFECTS.md`, `docs/cvs/RECONCILIATION-LEDGER.md`; `src/TaskPilot.csproj` (1.14.0), `src/app-changelog.json`, `README.md`; generated `docs/requirements-index.json`, `docs/TRACEABILITY.md`, `docs/traceability-baseline.json`.
+Files affected: `src/Program.cs` (password policy + lockout + cookie-scheme registration), `src/Controllers/ApiKeysController.cs` (cookie scheme pinned), `src/Entities/Tag.cs` + `src/Entities/ApiKey.cs` (IsDeleted/DeletedAt), `src/Data/Configurations/TagConfiguration.cs` + `ApiKeyConfiguration.cs` (query filter, no cascade), `src/Services/TagService.cs` + `src/Services/ApiKeyService.cs` (soft-delete), `src/Services/StatsService.cs` (numeric week ordering), the new EF migration (Tag/ApiKey soft-delete columns); new tests `tests/TaskPilot.Tests.Unit/Services/TagSoftDeleteTests.cs`, `ApiKeySoftDeleteTests.cs`, `StatsWeekOrderingTests.cs`, `tests/TaskPilot.Tests.Integration/Tags/TagSoftDeleteIntegrationTests.cs`, `tests/TaskPilot.Tests.Integration/ApiKeys/ApiKeyRevokeRejectionTests.cs`, `ApiKeySchemeRestrictionTests.cs`, `tests/TaskPilot.Tests.Integration/Auth/PasswordPolicyTests.cs`, `AccountLockoutTests.cs`; co-updated records `docs/requirements/DATA/NFR-DATA-001.md`, `docs/requirements/TAGS/FR-TAGS-004.md`, `docs/requirements/APIKEYS/FR-APIKEYS-004.md`, `docs/requirements/STATS/BIZ-STATS-008.md|014|015.md`; new records `docs/requirements/SEC/NFR-SEC-010.md|011|012.md`; `src/TaskPilot.csproj` (1.14.0), `src/app-changelog.json`, `README.md`; generated `docs/requirements-index.json`, `docs/TRACEABILITY.md`.
 
-## 2026-06-14 — Computable Verifiable State (CVS) bootstrap (no version bump — dev process/infra)
+## 2026-06-14 — Requirements-as-data bootstrap (no version bump — dev process/docs)
 
-> Adopted Method's `cvs-kit` (Computable Verifiable Requirements) to bind every requirement to a test
-> and gate it in CI. **No user-visible behavior changed**, so `src/TaskPilot.csproj` stays at `1.13.0`
-> and `src/app-changelog.json` is intentionally untouched. This is an engineering/process change.
+> Adopted a computable-requirements traceability approach: every requirement is captured as a structured
+> record bound to a proving test, with a generated coverage snapshot. **No user-visible behavior changed**,
+> so `src/TaskPilot.csproj` stays at `1.13.0` and `src/app-changelog.json` is intentionally untouched. This
+> is an engineering/process change.
 
-### Architecture | Test/Docs | CVS bootstrap P0–P5
+### Architecture | Test/Docs | Requirement-record bootstrap
 
-Ran the kit's bootstrap procedure (P0 inventory → P1 extract-from-tests → P1.5 extract-from-code →
-P2 reconcile-docs → P3 falsifiability + `why` → P5 install gate). Outcome:
+Inventoried the codebase, extracted requirements from tests and code, reconciled them against the PRD, and
+made each statement atomic and falsifiable with a `why:` rationale. Outcome:
 
-- **258 requirement records** authored under `docs/requirements/<AREA>/<ID>.md` across 18 areas (165 from tests, 77 latent from code, 16 from the PRD). All `unratified` pending the P6 human ratification pass. 257 carry a `why:` rationale.
-- **CI gate installed**: `.github/workflows/traceability.yml` runs the vendored `node scripts/cvs/reqindex.mjs --check` on PR/push, blocking new uncovered requirements, broken bindings, orphan IDs, untagged UI/integration tests, grown baselines, or a stale index. Proven: a synthetic uncovered requirement makes the gate fail; removing it restores green.
-- **Baselines seeded (shrink-only)**: 95 accepted coverage gaps (`docs/traceability-baseline.json`) + 234 accepted untagged UI/integration tests (`docs/untagged-test-baseline.json`) — today's debt accepted as tracked, only *new* violations fail. Repo is at the CVS *baseline*; strict CVS is reached when both are empty.
-- **Config**: `.traceability.config.json` maps the three xUnit projects; the Integration/E2E (`requireTagged`) sources carry an explicit `declRegex` for `[Fact]`/`[Theory]` (the kit's `kind`-keyed default would otherwise apply a JS regex to C# and detect zero declarations).
-- **Working artifacts** (not requirements): `docs/cvs/DEFECTS.md` (6 verified code defects + 5 open questions found during extraction) and `docs/cvs/RECONCILIATION-LEDGER.md` (40 source conflicts awaiting the P6 decision pass — overwhelmingly docs that drifted from shipped code).
+- **258 requirement records** authored under `docs/requirements/<AREA>/<ID>.md` across 18 areas (165 from tests, 77 latent from code, 16 from the PRD). All `unratified` pending the later human ratification pass. 257 carry a `why:` rationale.
+- **Coverage snapshot generated**: `docs/requirements-index.json` and `docs/TRACEABILITY.md` map each requirement to its proving test(s), flagging uncovered requirements, broken bindings, and orphan IDs.
+- **Accepted debt recorded**: 95 coverage gaps + 234 untagged UI/integration tests captured as tracked debt at the time of bootstrap; the goal was to burn both down to zero.
 
-Files affected: `docs/requirements/**` (258 records, 18 area dirs); `docs/TRACEABILITY.md`, `docs/requirements-index.json`, `docs/traceability-baseline.json`, `docs/untagged-test-baseline.json` (generated); `docs/cvs/DEFECTS.md`, `docs/cvs/RECONCILIATION-LEDGER.md`; `.traceability.config.json`; `.gitattributes`; `.github/workflows/traceability.yml`; `scripts/cvs/*.mjs` (vendored kit); `docs/REQUIREMENTS_CONSTITUTION.md`; `README.md` (cvs-repo block); `CLAUDE.md` (CVS section).
+Files affected: `docs/requirements/**` (258 records, 18 area dirs); `docs/TRACEABILITY.md`, `docs/requirements-index.json` (generated); `.gitattributes`; `README.md`; `CLAUDE.md`.
 
 ## 2026-05-17 — Clone Task feature shipped (v1.13.0)
 

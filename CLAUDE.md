@@ -59,22 +59,14 @@ The engineering `CHANGELOG.md` alone is **not enough** — users see a separate 
 
 ---
 
-## Computable Verifiable State (CVS) — MANDATORY
+## Requirements as Data
 
-This repo is under **CVS**: every requirement is a structured record under `docs/requirements/<AREA>/<ID>.md`
-(`id, type, area, provenance, status, verification, tests[]`, optional `why`/`source`; the atomic
-falsifiable statement lives in the body). A CI gate (`.github/workflows/traceability.yml` → vendored
-`node scripts/cvs/reqindex.mjs --check`) **blocks merge** on a new uncovered requirement, a broken
-binding, an orphan ID, an untagged UI/integration test, a grown baseline, or a stale committed index.
+Requirements are documented as structured records under `docs/requirements/<AREA>/<ID>.md` — one atomic,
+falsifiable statement per record, with frontmatter (`id`, `type`, `area`, `provenance`, `status`,
+`verification`, `tests`, `why`). `docs/requirements-index.json` and `docs/TRACEABILITY.md` are generated
+snapshots of these records.
 
-**The everyday change loop (any feature, behavior change, or fix):**
-1. **State the requirement** — add/update the record(s) under `docs/requirements/<AREA>/`. New records enter `status: unratified`. IDs are `FR|BIZ|NFR-<AREA>-NNN`, globally unique, area prefix = directory.
-2. **Bind a test** — set the record's `tests:` to the proving test file(s). Coverage is binding-based: `FR`→playwright|integration|unit, `BIZ`→unit, `NFR`→any or `Verification: Manual`.
-3. **Tag UI/integration tests** — every Integration/E2E (`requireTagged`) test must cite its requirement ID in the test name or an adjacent comment (e.g. `// FR-TASKS-004`). **Unit tests are exempt** — the record's `tests:` binding establishes their coverage.
-4. **Regenerate + commit** — `node scripts/cvs/reqindex.mjs` updates `docs/TRACEABILITY.md` + `docs/requirements-index.json`; commit them.
-5. **Gate locally** — `node scripts/cvs/reqindex.mjs --check` must pass before pushing.
-
-**Rules:** test/code-derived records are `unratified` until a human ratifies intent (`node scripts/cvs/ratify.mjs`). The two baselines (`docs/traceability-baseline.json`, `docs/untagged-test-baseline.json`) are **shrink-only** — growing either is a deliberate governance change, never a quiet edit. Likely bugs go to `docs/cvs/DEFECTS.md`, never encoded as requirements. Full method: `C:\projects\docs\cvs-kit\COMPUTABLE_REQUIREMENTS_PLAYBOOK.md`. Bootstrap status: at baseline (95 gap + 234 untagged accepted as tracked debt; burn down toward strict CVS).
+A CI traceability gate was prototyped and removed; reintroducing a small self-owned version is tracked as tech debt.
 
 ---
 

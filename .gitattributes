@@ -1,10 +1,5 @@
-# CVS: keep requirement records, the generated index, baselines, config, and the kit scripts as LF so
-# the indexer behaves identically on Windows checkouts and in (Linux) CI. See cvs-kit reqindex.mjs.
+# Keep the requirement records and their generated snapshots as LF so they read
+# identically across Windows and Linux checkouts.
 docs/requirements/** text eol=lf
-docs/cvs/** text eol=lf
 docs/TRACEABILITY.md text eol=lf
 docs/requirements-index.json text eol=lf
-docs/traceability-baseline.json text eol=lf
-docs/untagged-test-baseline.json text eol=lf
-.traceability.config.json text eol=lf
-scripts/cvs/*.mjs text eol=lf
