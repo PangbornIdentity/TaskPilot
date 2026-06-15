@@ -28,6 +28,12 @@ public class TagRepository(ApplicationDbContext context) : GenericRepository<Tag
         => await Context.Tags
             .FirstOrDefaultAsync(t => t.Name == name && t.UserId == userId, cancellationToken);
 
+    /// <inheritdoc/>
+    public async Task<Tag?> GetByNameIncludingDeletedAsync(string name, string userId, CancellationToken cancellationToken = default)
+        => await Context.Tags
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Name == name && t.UserId == userId, cancellationToken);
+
     public async Task<IReadOnlyList<Tag>> GetByIdsAsync(IEnumerable<Guid> ids, string userId, CancellationToken cancellationToken = default)
         => await Context.Tags
             .Where(t => ids.Contains(t.Id) && t.UserId == userId)

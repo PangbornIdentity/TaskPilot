@@ -28,8 +28,14 @@ public class TaskPilotWebAppFactory : WebApplicationFactory<Program>, IAsyncLife
 
             // Re-register with SQLite + register PatchedApplicationDbContext as the
             // implementation of ApplicationDbContext.  The patched subclass overrides
-            // OnModelCreating to omit the HasDefaultValue(0) call that EF10 rejects
-            // on enum properties with HasConversion<int>().
+            // OnModelCreating to:
+            //   1. Skip IdentityDbContext.OnModelCreating (which registers passkey
+            //      entity types that EF10 cannot resolve in test isolation).
+            //   2. Apply all real IEntityTypeConfiguration classes from the production
+            //      assembly via ApplyConfigurationsFromAssembly so Tag, ApiKey, TaskItem
+            //      constraints, indexes, and query filters are identical to production.
+            //   3. Remove the single HasDefaultValue call on TaskItem.Area that EF10
+            //      rejects when combined with HasConversion<int>() on a SQLite provider.
             services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlite($"Data Source={localDbPath}"),
                 contextLifetime: ServiceLifetime.Scoped,
@@ -69,8 +75,24 @@ public class TaskPilotWebAppFactory : WebApplicationFactory<Program>, IAsyncLife
 
     // ──────────────────────────────────────────────────────────────────────────────
     // Patched DbContext — replaces ApplicationDbContext in tests.
-    // Its OnModelCreating configures everything Identity + TaskPilot needs without
-    // the HasDefaultValue(0) call that EF10 rejects on enum properties.
+    //
+    // WHY this subclass exists (do NOT remove without understanding both reasons):
+    //
+    // (1) PASSKEY ENTITIES: IdentityDbContext.OnModelCreating registers ASP.NET Core
+    //     Identity passkey entity types (UserPasskey, etc.) introduced in .NET 9/10.
+    //     Those types require navigation properties that EF cannot resolve in the test
+    //     environment (no full Identity assembly wiring), so calling base.OnModelCreating
+    //     throws. The ConfigureIdentity helper below replicates the essential Identity
+    //     table/key/index definitions without triggering passkey discovery.
+    //
+    // (2) HasDefaultValue ON ENUM WITH HasConversion<int>: EF Core 10 throws when a
+    //     property declares both HasConversion<int>() and HasDefaultValue(enumValue)
+    //     on a SQLite provider. TaskItemConfiguration sets HasDefaultValue(Area.Personal)
+    //     on the Area property. After ApplyConfigurationsFromAssembly applies all real
+    //     configs, we remove that annotation with Metadata so tests can create the schema.
+    //     This is the ONLY divergence from production; everything else (query filters,
+    //     unique indexes, soft-delete indexes, FK cascade rules) comes directly from the
+    //     production IEntityTypeConfiguration classes.
     // ──────────────────────────────────────────────────────────────────────────────
 
     private sealed class PatchedApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
@@ -78,103 +100,22 @@ public class TaskPilotWebAppFactory : WebApplicationFactory<Program>, IAsyncLife
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Configure Identity entities manually (bypasses IdentityDbContext.OnModelCreating
-            // which would ultimately chain back through our override).
+            // Step 1: Configure Identity tables without triggering passkey entity discovery.
             ConfigureIdentity(modelBuilder);
 
-            // Configure TaskPilot entities — without the broken HasDefaultValue(0)
-            modelBuilder.Entity<TaskItem>(b =>
-            {
-                b.HasKey(t => t.Id);
-                b.Property(t => t.Title).IsRequired().HasMaxLength(200);
-                b.Property(t => t.UserId).IsRequired();
-                b.Property(t => t.LastModifiedBy).IsRequired();
-                b.Property(t => t.Area).HasConversion<int>();       // no HasDefaultValue
-                b.Property(t => t.Priority).HasConversion<int>();
-                b.Property(t => t.Status).HasConversion<int>();
-                b.Property(t => t.TargetDateType).HasConversion<int>();
-                b.Property(t => t.RecurrencePattern).HasConversion<int?>();
-                b.HasQueryFilter(t => !t.IsDeleted);
-                b.HasIndex(t => t.UserId);
-                b.HasIndex(t => t.Status);
-                b.HasIndex(t => t.Priority);
-                b.HasIndex(t => t.TargetDate);
-                b.HasIndex(t => t.IsDeleted);
-                b.HasIndex(t => new { t.UserId, t.Status });
-                b.HasIndex(t => new { t.UserId, t.IsDeleted });
+            // Step 2: Apply every production IEntityTypeConfiguration from the src assembly.
+            // This makes Tag, ApiKey, TaskItem, TaskTag, TaskType, TaskActivityLog, ApiAuditLog
+            // constraints, indexes, and query filters IDENTICAL to production.
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
 
-                b.HasMany(t => t.TaskTags)
-                    .WithOne(tt => tt.Task)
-                    .HasForeignKey(tt => tt.TaskId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                b.HasMany(t => t.ActivityLogs)
-                    .WithOne(a => a.Task)
-                    .HasForeignKey(a => a.TaskId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            modelBuilder.Entity<Tag>(b =>
-            {
-                b.HasKey(t => t.Id);
-                b.Property(t => t.Name).IsRequired().HasMaxLength(50);
-                b.Property(t => t.Color).IsRequired().HasMaxLength(7);
-                b.Property(t => t.UserId).IsRequired();
-                b.HasQueryFilter(t => !t.IsDeleted);
-                b.HasIndex(t => new { t.UserId, t.Name }).IsUnique();
-            });
-
-            modelBuilder.Entity<TaskTag>(b =>
-            {
-                b.HasKey(tt => new { tt.TaskId, tt.TagId });
-                b.HasOne(tt => tt.Tag)
-                    .WithMany(t => t.TaskTags)
-                    .HasForeignKey(tt => tt.TagId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            modelBuilder.Entity<TaskType>(b =>
-            {
-                b.HasKey(t => t.Id);
-                b.Property(t => t.Id).ValueGeneratedOnAdd();
-                b.Property(t => t.Name).IsRequired().HasMaxLength(50);
-                b.Property(t => t.SortOrder);
-                b.Property(t => t.IsActive).HasDefaultValue(true);
-                b.HasMany(t => t.Tasks)
-                    .WithOne(ti => ti.TaskType)
-                    .HasForeignKey(ti => ti.TaskTypeId)
-                    .OnDelete(DeleteBehavior.Restrict);
-                b.HasData(
-                    new TaskType { Id = 1, Name = "Task",    SortOrder = 1, IsActive = true },
-                    new TaskType { Id = 2, Name = "Goal",    SortOrder = 2, IsActive = true },
-                    new TaskType { Id = 3, Name = "Habit",   SortOrder = 3, IsActive = true },
-                    new TaskType { Id = 4, Name = "Meeting", SortOrder = 4, IsActive = true },
-                    new TaskType { Id = 5, Name = "Note",    SortOrder = 5, IsActive = true },
-                    new TaskType { Id = 6, Name = "Event",   SortOrder = 6, IsActive = true }
-                );
-            });
-
-            modelBuilder.Entity<TaskActivityLog>(b =>
-            {
-                b.HasKey(a => a.Id);
-                b.Property(a => a.ChangedBy).IsRequired();
-            });
-
-            modelBuilder.Entity<ApiKey>(b =>
-            {
-                b.HasKey(k => k.Id);
-                b.Property(k => k.Name).IsRequired().HasMaxLength(100);
-                b.Property(k => k.KeyHash).IsRequired();
-                b.Property(k => k.KeyPrefix).IsRequired().HasMaxLength(8);
-                b.Property(k => k.UserId).IsRequired();
-                b.HasQueryFilter(k => !k.IsDeleted);
-                b.HasIndex(k => new { k.UserId, k.Name }).IsUnique();
-            });
-
-            modelBuilder.Entity<ApiAuditLog>(b =>
-            {
-                b.HasKey(a => a.Id);
-            });
+            // Step 3: Remove the HasDefaultValue annotation on TaskItem.Area that EF10
+            // rejects on a SQLite provider when combined with HasConversion<int>().
+            // This is the only justified residual override — it has no behavioral impact
+            // on tests (EF uses the CLR default of 0/Area.Personal if the column is
+            // omitted, matching the intent of the production annotation).
+            var areaProperty = modelBuilder.Entity<TaskItem>()
+                .Metadata.FindProperty(nameof(TaskItem.Area));
+            areaProperty?.SetDefaultValue(null);
         }
 
         private static void ConfigureIdentity(ModelBuilder modelBuilder)

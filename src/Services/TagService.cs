@@ -15,9 +15,26 @@ public class TagService(ITagRepository tagRepository) : ITagService
 
     public async Task<TagResponse> CreateTagAsync(CreateTagRequest request, string userId, string modifiedBy, CancellationToken cancellationToken = default)
     {
-        var existing = await tagRepository.GetByNameAsync(request.Name, userId, cancellationToken);
-        if (existing is not null)
+        var existing = await tagRepository.GetByNameIncludingDeletedAsync(request.Name, userId, cancellationToken);
+
+        if (existing is not null && !existing.IsDeleted)
             throw new InvalidOperationException($"A tag named '{request.Name}' already exists.");
+
+        if (existing is not null && existing.IsDeleted)
+        {
+            // Resurrect the tombstone so the unique DB index is never violated.
+            existing.IsDeleted = false;
+            existing.DeletedAt = null;
+            existing.Color = request.Color;
+            existing.LastModifiedBy = modifiedBy;
+            tagRepository.Update(existing);
+            await tagRepository.SaveChangesAsync(cancellationToken);
+
+            // Compute the real task count — preserved TaskTag rows come back with the tag.
+            var refreshed = await tagRepository.GetAllForUserWithTaskCountAsync(userId, cancellationToken);
+            var match = refreshed.FirstOrDefault(r => r.Tag.Id == existing.Id);
+            return MapToResponse(existing, match.TaskCount);
+        }
 
         var tag = new Tag
         {

@@ -6,8 +6,8 @@
     "manual": 0,
     "debt": 94,
     "gapsNew": 0,
-    "ratified": 9,
-    "unratified": 253,
+    "ratified": 10,
+    "unratified": 252,
     "withWhy": 261,
     "withSource": 0,
     "infraDebt": 0,
@@ -795,8 +795,8 @@
       "coverage": "covered",
       "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "test",
+      "ratification": "ratified",
+      "provenance": "human",
       "verification": "automated",
       "coveredBy": [
         "unit",
@@ -804,13 +804,14 @@
       ],
       "tests": [
         "tests/TaskPilot.Tests.Unit/Services/TagServiceTests.cs",
-        "tests/TaskPilot.Tests.Integration/Tags/TagsApiTests.cs"
+        "tests/TaskPilot.Tests.Integration/Tags/TagsApiTests.cs",
+        "tests/TaskPilot.Tests.Integration/Tags/TagResurrectIntegrationTests.cs"
       ],
       "source": [],
       "sourceFile": "docs/requirements/TAGS/BIZ-TAGS-001.md",
-      "statement": "A tag name must be unique per user: creating or renaming a tag to a name already held by another of the same user's tags is rejected (HTTP 409 / InvalidOperationException). Uniqueness is scoped to the owning user, so two different users may each hold a tag with the same name.",
-      "why": "Duplicate tag names within one user would make labels ambiguous in pickers and filters; scoping uniqueness per user avoids forcing a global namespace that would collide across unrelated accounts.",
-      "contentHash": "sha256:f66fa81a2df6495accf2aec2f58b38717d0558d7c95d3c879d86a5def5d4f19e"
+      "statement": "A tag name must be unique per user across both live and soft-deleted rows: the unique index on (UserId, Name) is unfiltered, so a soft-deleted tag still occupies that key. Creating a tag whose name matches a soft-deleted tag for the same user resurrects the original row (IsDeleted → false, DeletedAt → null, Color updated, same Id and preserved TaskTag associations) rather than inserting a new row. Creating a tag whose name matches a live tag for the same user is rejected (HTTP 409 / InvalidOperationException). Uniqueness is scoped to the owning user, so two different users may each hold a tag with the same name.",
+      "why": "Duplicate tag names within one user would make labels ambiguous in pickers and filters; scoping uniqueness per user avoids forcing a global namespace that would collide across unrelated accounts. The unfiltered unique DB index enforces this invariant at the storage level — including soft-deleted rows — so recreating a tag by its old name revives the original row (resurrect-on-recreate) rather than inserting a new one that would violate the constraint.",
+      "contentHash": "sha256:5c970d7ae88958ed2e65c73552e4cec42d01f58b9449af738fd7a0c21c4bca9f"
     },
     {
       "id": "BIZ-TAGS-002",
