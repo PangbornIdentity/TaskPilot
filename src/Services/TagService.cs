@@ -55,12 +55,15 @@ public class TagService(ITagRepository tagRepository) : ITagService
         return MapToResponse(tag, match.TaskCount);
     }
 
-    public async Task<bool> DeleteTagAsync(Guid id, string userId, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteTagAsync(Guid id, string userId, string modifiedBy, CancellationToken cancellationToken = default)
     {
         var tag = await tagRepository.GetByIdAsync(id, cancellationToken);
         if (tag is null || tag.UserId != userId) return false;
 
-        tagRepository.Remove(tag);
+        tag.IsDeleted = true;
+        tag.DeletedAt = DateTime.UtcNow;
+        tag.LastModifiedBy = modifiedBy;
+        tagRepository.Update(tag);
         await tagRepository.SaveChangesAsync(cancellationToken);
         return true;
     }

@@ -75,7 +75,7 @@ dotnet test tests/TaskPilot.Tests.Integration
 dotnet test --logger "console;verbosity=normal"
 ```
 
-**Test coverage:** 250+ tests (159 unit + 91 integration + a Playwright E2E suite that runs against `localhost:5125`). Smoke tests under `Smoke/DeploymentSmokeTests.cs` require a running server and are skipped by default.
+**Test coverage:** 396+ tests (242 unit + 154 integration + a Playwright E2E suite that runs against `localhost:5125`). Smoke tests under `Smoke/DeploymentSmokeTests.cs` require a running server and are skipped by default.
 
 ---
 

@@ -30,10 +30,12 @@
 - **Where:** `src/Controllers/TagsController.cs:68` → `src/Services/TagService.cs:58-66` → `src/Repositories/GenericRepository.cs:29-30` (`DbSet.Remove` + `SaveChangesAsync`).
 - **What:** CLAUDE.md rule #2 mandates "No hard deletes — always `IsDeleted=true` + `DeletedAt`." `Tag` has no `IsDeleted`/`DeletedAt` fields and no soft-delete query filter, so deletion emits SQL `DELETE`. Only `TaskItem` soft-deletes.
 - **Open question:** is rule #2 universal or scoped to `TaskItem`? See **Q-001** — needs an `architect` ruling before this is "fix" vs "ratify".
+- **RESOLVED 2026-06-14**: Soft-delete shipped for `Tag` (WI-SOFTDELETE) — `Tag` gained `IsDeleted`/`DeletedAt` + global query filter; `TagService` now soft-deletes instead of `Remove()`. Record co-updated (FR-TAGS-004, NFR-DATA-001 → "soft for every deletable entity"). Covered by `TagSoftDeleteTests` + `TagSoftDeleteIntegrationTests`.
 
 ### D-004 — Tag delete cascades and permanently drops `TaskTag` join rows — Medium
 - **Where:** `src/Data/Configurations/TagConfiguration.cs:20-23` (`OnDelete(DeleteBehavior.Cascade)`).
 - **What:** Compounds D-003 — hard-deleting a tag permanently removes every task↔tag association with no recovery path. A soft-delete remediation for D-003 must account for the join table.
+- **RESOLVED 2026-06-14**: Soft-delete shipped (WI-SOFTDELETE) — a soft-deleted tag no longer cascades; its `TaskTag` join rows are preserved (the tag is simply filtered out of reads). Covered by `TagSoftDeleteTests` + `TagSoftDeleteIntegrationTests`; record FR-TAGS-004 states associations are preserved.
 
 ### D-005 — `PATCH /api/v1/apikeys/{id}/rename` performs no input validation — Low–Medium
 - **Where:** `src/Controllers/ApiKeysController.cs:33-39` → `src/Services/ApiKeyService.cs:40-49` (`RenameKeyAsync`).
@@ -45,6 +47,11 @@
 - **What:** For `show=completed` (and `all`) the page requests a server-paginated page (`PageSize:50`, `IncludeOnlyIncomplete:false`, no terminal-status filter pushed to the repo) and then post-filters the returned 50 rows down to Completed/Cancelled at the page layer. The repository applies `Skip/Take` server-side (`TaskRepository.cs:129-130`), so the 50-row page already mixes all statuses; post-filtering yields fewer than a full page of completed rows and loses completed tasks beyond the first 50 mixed rows. `TotalCount = Tasks.Count` then reports only the filtered slice — completed/all views silently under-count.
 - **Fix sketch:** push the terminal-status filter into the repository query for the completed/all scopes so pagination and counts are computed server-side.
 
+### D-007 — API-key privilege escalation: an API key can manage API keys (LDG-007) — High
+- **Where:** `src/Controllers/ApiKeysController.cs` → multi-scheme selector in `ServiceCollectionExtensions` (forwards to the ApiKey scheme whenever `X-Api-Key` is present).
+- **What:** The API-key management endpoints did not pin the cookie authentication scheme, so a request bearing only `X-Api-Key` could list/create/rename/activate/deactivate/revoke API keys — letting a lower-trust automation credential escalate to manage the credential set itself.
+- **RESOLVED 2026-06-14**: Cookie (session) scheme pinned on `ApiKeysController`; an `X-Api-Key`-only request to `/api/v1/apikeys` is now rejected with 401. Ratified as **NFR-SEC-010**, covered by `ApiKeySchemeRestrictionTests`. (Ledger row LDG-007.)
+
 ---
 
 ## B. Open questions / escalations (feed the P2 reconciliation ledger)
@@ -52,6 +59,7 @@
 ### Q-001 — Scope of the "no hard deletes" rule (Tag, ApiKey) — needs `architect` decision
 - `ApiKey` revoke also hard-deletes (`ApiKeyService.cs:62-70`), **but** `REQUIREMENTS.md:257` documents key revoke as "permanent" — so the ApiKey hard-delete appears **intentional** (a documented carve-out). `Tag` hard-delete (D-003) is **undocumented**.
 - **Decision needed:** is rule #2 universal (then Tag — and arguably ApiKey — must gain `IsDeleted`/`DeletedAt`) or explicitly scoped to `TaskItem` (then amend CLAUDE.md/REQUIREMENTS.md to say so, ratify the Tag/ApiKey behavior, and close D-003)?
+- **RESOLVED 2026-06-14**: Decided **universal — no hard deletes anywhere** (LDG-001). Both `Tag` and `ApiKey` now soft-delete (`IsDeleted`/`DeletedAt` + global query filter); the prior "permanent" ApiKey carve-out is superseded — revoke is now a recoverable soft-delete with `IsActive=false`. NFR-DATA-001 reworded to "every deletable entity (TaskItem, Tag, ApiKey)". Closes D-003/D-004.
 
 ### Q-002 — `NFR-DATA-003` (audit-write) is real-but-untested + under-specified
 - Adversarial trace confirmed `ApiAuditMiddleware` **does** persist an audit row, but only for requests that are (1) `/api/v1/*`, (2) **not** `/api/v1/health`, and (3) authenticated via `X-Api-Key` (the `AuthenticationMethod=ApiKey` claim). Cookie/UI requests are deliberately **not** audited. Captured fields include method, endpoint, status, duration, api-key id/name, user id, and a SHA-256 body hash.

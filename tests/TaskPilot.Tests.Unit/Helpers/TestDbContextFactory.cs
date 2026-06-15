@@ -107,6 +107,7 @@ public static class TestDbContextFactory
                 b.Property(t => t.Name).IsRequired().HasMaxLength(50);
                 b.Property(t => t.Color).IsRequired().HasMaxLength(7);
                 b.Property(t => t.UserId).IsRequired();
+                b.HasQueryFilter(t => !t.IsDeleted);
             });
 
             modelBuilder.Entity<TaskTag>(b =>

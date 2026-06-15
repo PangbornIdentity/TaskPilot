@@ -120,6 +120,7 @@ public class TaskPilotWebAppFactory : WebApplicationFactory<Program>, IAsyncLife
                 b.Property(t => t.Name).IsRequired().HasMaxLength(50);
                 b.Property(t => t.Color).IsRequired().HasMaxLength(7);
                 b.Property(t => t.UserId).IsRequired();
+                b.HasQueryFilter(t => !t.IsDeleted);
                 b.HasIndex(t => new { t.UserId, t.Name }).IsUnique();
             });
 
@@ -166,6 +167,7 @@ public class TaskPilotWebAppFactory : WebApplicationFactory<Program>, IAsyncLife
                 b.Property(k => k.KeyHash).IsRequired();
                 b.Property(k => k.KeyPrefix).IsRequired().HasMaxLength(8);
                 b.Property(k => k.UserId).IsRequired();
+                b.HasQueryFilter(k => !k.IsDeleted);
                 b.HasIndex(k => new { k.UserId, k.Name }).IsUnique();
             });
 

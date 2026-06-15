@@ -60,8 +60,9 @@ public class StatsService(ApplicationDbContext context) : IStatsService
 
         return raw
             .GroupBy(t => new { t.CompletedDate!.Value.Year, Week = (t.CompletedDate.Value.DayOfYear - 1) / 7 })
-            .Select(g => new WeeklyCompletionData($"W{g.Key.Week + 1}/{g.Key.Year}", g.Count()))
-            .OrderBy(x => x.WeekLabel)
+            .Select(g => new { Label = $"W{g.Key.Week + 1}/{g.Key.Year}", g.Key.Year, WeekIndex = g.Key.Week, Count = g.Count() })
+            .OrderBy(x => x.Year).ThenBy(x => x.WeekIndex)
+            .Select(x => new WeeklyCompletionData(x.Label, x.Count))
             .ToList();
     }
 
@@ -118,11 +119,13 @@ public class StatsService(ApplicationDbContext context) : IStatsService
             .Select(g => new { g.Key.Year, g.Key.Week, Count = g.Count() })
             .ToList();
 
-        return created.Select(c =>
-        {
-            var comp = completed.FirstOrDefault(x => x.Year == c.Year && x.Week == c.Week);
-            return new CompletionRateData($"W{c.Week + 1}/{c.Year}", c.Count, comp?.Count ?? 0);
-        }).ToList();
+        return created
+            .OrderBy(c => c.Year).ThenBy(c => c.Week)
+            .Select(c =>
+            {
+                var comp = completed.FirstOrDefault(x => x.Year == c.Year && x.Week == c.Week);
+                return new CompletionRateData($"W{c.Week + 1}/{c.Year}", c.Count, comp?.Count ?? 0);
+            }).ToList();
     }
 
     private async Task<List<TypeBreakdownData>> GetByTypeAsync(string userId, CancellationToken ct)
@@ -166,10 +169,15 @@ public class StatsService(ApplicationDbContext context) : IStatsService
 
         return raw
             .GroupBy(t => new { t.CompletedDate!.Value.Year, Week = (t.CompletedDate.Value.DayOfYear - 1) / 7 })
-            .Select(g => new AvgCompletionData(
-                $"W{g.Key.Week + 1}/{g.Key.Year}",
-                g.Average(t => (t.CompletedDate!.Value - t.CreatedDate).TotalDays)))
-            .OrderBy(x => x.WeekLabel)
+            .Select(g => new
+            {
+                Label = $"W{g.Key.Week + 1}/{g.Key.Year}",
+                g.Key.Year,
+                WeekIndex = g.Key.Week,
+                AvgDays = g.Average(t => (t.CompletedDate!.Value - t.CreatedDate).TotalDays)
+            })
+            .OrderBy(x => x.Year).ThenBy(x => x.WeekIndex)
+            .Select(x => new AvgCompletionData(x.Label, x.AvgDays))
             .ToList();
     }
 

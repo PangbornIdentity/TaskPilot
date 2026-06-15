@@ -1,12 +1,13 @@
 ﻿using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TaskPilot.Constants;
 using TaskPilot.Services.Interfaces;
 using TaskPilot.Models.ApiKeys;
 
 namespace TaskPilot.Controllers;
 
-[Authorize]
+[Authorize(AuthenticationSchemes = AuthConstants.CookieScheme)]
 public class ApiKeysController(IApiKeyService apiKeyService, IValidator<CreateApiKeyRequest> validator) : BaseApiController
 {
     [HttpGet]
@@ -57,7 +58,7 @@ public class ApiKeysController(IApiKeyService apiKeyService, IValidator<CreateAp
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> RevokeKey(Guid id, CancellationToken cancellationToken)
     {
-        var revoked = await apiKeyService.RevokeKeyAsync(id, UserId, cancellationToken);
+        var revoked = await apiKeyService.RevokeKeyAsync(id, UserId, ModifiedBy, cancellationToken);
         if (!revoked) return NotFound(NotFoundError("API key"));
         return NoContent();
     }

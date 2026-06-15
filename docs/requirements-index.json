@@ -1,14 +1,14 @@
 {
   "generatedBy": "reqindex",
   "summary": {
-    "total": 259,
-    "covered": 163,
+    "total": 262,
+    "covered": 168,
     "manual": 0,
-    "debt": 96,
+    "debt": 94,
     "gapsNew": 0,
-    "ratified": 0,
-    "unratified": 259,
-    "withWhy": 258,
+    "ratified": 9,
+    "unratified": 253,
+    "withWhy": 261,
     "withSource": 0,
     "infraDebt": 0,
     "untaggedDebt": 234,
@@ -572,20 +572,21 @@
       "coverage": "covered",
       "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "test",
       "verification": "automated",
       "coveredBy": [
         "unit"
       ],
       "tests": [
-        "tests/TaskPilot.Tests.Unit/Services/StatsServiceTests.cs"
+        "tests/TaskPilot.Tests.Unit/Services/StatsServiceTests.cs",
+        "tests/TaskPilot.Tests.Unit/Services/StatsWeekOrderingTests.cs"
       ],
       "source": [],
       "sourceFile": "docs/requirements/STATS/BIZ-STATS-008.md",
       "statement": "CompletedPerWeek summarizes the user's completed tasks over the last 12 weeks into per-week counts, with a completion within the current week counted in its week's bucket.",
       "why": "The completed-per-week bar chart shows recent throughput so the user can see their pace trend at a glance.",
-      "contentHash": "sha256:f315fdae4720ad5f99934c4bec8a5fb5bcf46b7f90854b346a58eb8fb8a23f6e"
+      "contentHash": "sha256:242d9a2c2664f3597635c1ef3ffd6b3b85e60c6c067de8304ce9c2cef8c44f05"
     },
     {
       "id": "BIZ-STATS-009",
@@ -693,37 +694,45 @@
       "id": "BIZ-STATS-014",
       "type": "BIZ",
       "area": "STATS",
-      "coverage": "gap",
-      "debt": true,
+      "coverage": "covered",
+      "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "code",
       "verification": "automated",
-      "coveredBy": [],
-      "tests": [],
+      "coveredBy": [
+        "unit"
+      ],
+      "tests": [
+        "tests/TaskPilot.Tests.Unit/Services/StatsWeekOrderingTests.cs"
+      ],
       "source": [],
       "sourceFile": "docs/requirements/STATS/BIZ-STATS-014.md",
       "statement": "CompletionRate pairs, per week over the last 12 weeks, the count of tasks created in that week against the count of tasks completed in that week (keyed by year and week index), with completed defaulting to zero when no completions match a created-week bucket.",
       "why": "Pairing created vs completed per week shows whether the user is keeping up with incoming work or falling behind.",
-      "contentHash": "sha256:c6b811860415aa8dd0d7aa62d17b561e5bd06bcacbc0d2cb5ed3a37e24f41f50"
+      "contentHash": "sha256:5f60befa5b8f6de0e5cdfbecd692e64f27716a3fa37794c0aa67d8a5df8b0b26"
     },
     {
       "id": "BIZ-STATS-015",
       "type": "BIZ",
       "area": "STATS",
-      "coverage": "gap",
-      "debt": true,
+      "coverage": "covered",
+      "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
+      "ratification": "ratified",
       "provenance": "code",
       "verification": "automated",
-      "coveredBy": [],
-      "tests": [],
+      "coveredBy": [
+        "unit"
+      ],
+      "tests": [
+        "tests/TaskPilot.Tests.Unit/Services/StatsWeekOrderingTests.cs"
+      ],
       "source": [],
       "sourceFile": "docs/requirements/STATS/BIZ-STATS-015.md",
       "statement": "AvgCompletion reports, per week over the last 12 weeks, the average time-to-complete in days, computed as the mean of (CompletedDate − CreatedDate).TotalDays across that week's completed tasks.",
       "why": "Average time-to-complete per week shows the user whether tasks are turning around faster or lingering longer over time.",
-      "contentHash": "sha256:a3b5da2a68353563bee1fd4ad7d0a55386a047677cf4ecc10b80a4e63bd89703"
+      "contentHash": "sha256:87cf5a36368c00080458b8c7cdd61194fd323d4223800b07163ce43284bb18ec"
     },
     {
       "id": "BIZ-STATS-016",
@@ -2086,20 +2095,23 @@
       "coverage": "covered",
       "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "test",
+      "ratification": "ratified",
+      "provenance": "human",
       "verification": "automated",
       "coveredBy": [
-        "integration"
+        "integration",
+        "unit"
       ],
       "tests": [
-        "tests/TaskPilot.Tests.Integration/ApiKeys/ApiKeysApiTests.cs"
+        "tests/TaskPilot.Tests.Integration/ApiKeys/ApiKeysApiTests.cs",
+        "tests/TaskPilot.Tests.Unit/Services/ApiKeySoftDeleteTests.cs",
+        "tests/TaskPilot.Tests.Integration/ApiKeys/ApiKeyRevokeRejectionTests.cs"
       ],
       "source": [],
       "sourceFile": "docs/requirements/APIKEYS/FR-APIKEYS-004.md",
-      "statement": "DELETE /api/v1/apikeys/{id} revokes the key (returns 204), after which it no longer appears in the user's key list.",
+      "statement": "Revoking an API key soft-deletes it (IsDeleted + DeletedAt, IsActive=false); it no longer appears in the key list and can no longer authenticate a request.",
       "why": "Permanent revocation must remove the key from the owner's management view so a compromised credential cannot be reactivated or mistaken for a live key.",
-      "contentHash": "sha256:4ff90011fa182eab36ee7d5de3944f33f6babb60f214755302805ee94a77318d"
+      "contentHash": "sha256:ca07b94aa4341e6b7b4eb00096169a78fc15d3042410353c995015dadb0549c5"
     },
     {
       "id": "FR-APIKEYS-005",
@@ -3761,8 +3773,8 @@
       "coverage": "covered",
       "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "test",
+      "ratification": "ratified",
+      "provenance": "human",
       "verification": "automated",
       "coveredBy": [
         "integration",
@@ -3770,13 +3782,15 @@
       ],
       "tests": [
         "tests/TaskPilot.Tests.Integration/Tags/TagsApiTests.cs",
-        "tests/TaskPilot.Tests.Unit/Services/TagServiceTests.cs"
+        "tests/TaskPilot.Tests.Unit/Services/TagServiceTests.cs",
+        "tests/TaskPilot.Tests.Unit/Services/TagSoftDeleteTests.cs",
+        "tests/TaskPilot.Tests.Integration/Tags/TagSoftDeleteIntegrationTests.cs"
       ],
       "source": [],
       "sourceFile": "docs/requirements/TAGS/FR-TAGS-004.md",
-      "statement": "A user can delete one of their own tags (HTTP 204).",
+      "statement": "Deleting a tag soft-deletes it (IsDeleted + DeletedAt); it disappears from the user's tag list and from any task's tags while its TaskTag associations are preserved.",
       "why": "Users need to retire labels they no longer use; deletion removes the tag from all tasks so stale labels do not clutter pickers and filters.",
-      "contentHash": "sha256:5889588fd0e3f362a119dc6355d991651fae48b0ff63c234a884cc03f76fe6bd"
+      "contentHash": "sha256:ee21230e91e1b8c940b7f3b49da29c6664c75c921be36b5ee02f07433ffbd134"
     },
     {
       "id": "FR-TAGS-005",
@@ -4942,8 +4956,8 @@
       "coverage": "covered",
       "debt": false,
       "infraDebt": false,
-      "ratification": "unratified",
-      "provenance": "test",
+      "ratification": "ratified",
+      "provenance": "human",
       "verification": "automated",
       "coveredBy": [
         "unit",
@@ -4951,13 +4965,16 @@
       ],
       "tests": [
         "tests/TaskPilot.Tests.Unit/Services/TaskServiceTests.cs",
-        "tests/TaskPilot.Tests.Integration/Tasks/TasksApiTests.cs"
+        "tests/TaskPilot.Tests.Integration/Tasks/TasksApiTests.cs",
+        "tests/TaskPilot.Tests.Unit/Services/TagSoftDeleteTests.cs",
+        "tests/TaskPilot.Tests.Unit/Services/ApiKeySoftDeleteTests.cs",
+        "tests/TaskPilot.Tests.Integration/ApiKeys/ApiKeyRevokeRejectionTests.cs"
       ],
       "source": [],
       "sourceFile": "docs/requirements/DATA/NFR-DATA-001.md",
-      "statement": "Deleting a record is soft: it sets `IsDeleted = true` and stamps `DeletedAt`; the row is never hard-deleted and is excluded from subsequent reads.",
+      "statement": "Deletes are soft for every deletable entity (TaskItem, Tag, ApiKey): IsDeleted is set true with a DeletedAt timestamp, the row is never physically removed, and it is excluded from reads by a global query filter.",
       "why": "Soft delete preserves history and enables recovery/audit; hard deletes are non-negotiably disallowed.",
-      "contentHash": "sha256:3802daff0a36e4bc2fa35a39600f112bcb0c4707903f9fe6ecf8955493dc80ba"
+      "contentHash": "sha256:bd867d64b3c95982d3fa5d1e7a880c51a1c2a80354f45da1379deafa3c99116b"
     },
     {
       "id": "NFR-DATA-002",
@@ -5384,6 +5401,72 @@
       "statement": "The authentication cookie is hardened with HttpOnly, SameSite=Strict, SecurePolicy=Always, a 14-day expiry, and sliding expiration.",
       "why": "SUGGESTED: Hardened auth-cookie attributes reduce CSRF and cookie-theft risk in production.",
       "contentHash": "sha256:6192d4971f9c9f0e1196b4f397a443a88c5c322f27ede701c4cb60597912a5c4"
+    },
+    {
+      "id": "NFR-SEC-010",
+      "type": "NFR",
+      "area": "SEC",
+      "coverage": "covered",
+      "debt": false,
+      "infraDebt": false,
+      "ratification": "ratified",
+      "provenance": "human",
+      "verification": "automated",
+      "coveredBy": [
+        "integration"
+      ],
+      "tests": [
+        "tests/TaskPilot.Tests.Integration/ApiKeys/ApiKeySchemeRestrictionTests.cs"
+      ],
+      "source": [],
+      "sourceFile": "docs/requirements/SEC/NFR-SEC-010.md",
+      "statement": "The API-key management endpoints under /api/v1/apikeys require cookie (session) authentication; a request authenticated only with X-Api-Key is rejected with 401, so an API key cannot list, create, rename, activate, deactivate, or revoke API keys.",
+      "why": "Prevents an API key (a lower-trust credential held by an LLM/automation) from escalating to manage the credential set itself.",
+      "contentHash": "sha256:b34b5238dffa65fc771a16b09c2930471cf9a084031daef9e5048fc13234fdd7"
+    },
+    {
+      "id": "NFR-SEC-011",
+      "type": "NFR",
+      "area": "SEC",
+      "coverage": "covered",
+      "debt": false,
+      "infraDebt": false,
+      "ratification": "ratified",
+      "provenance": "human",
+      "verification": "automated",
+      "coveredBy": [
+        "integration"
+      ],
+      "tests": [
+        "tests/TaskPilot.Tests.Integration/Auth/PasswordPolicyTests.cs"
+      ],
+      "source": [],
+      "sourceFile": "docs/requirements/SEC/NFR-SEC-011.md",
+      "statement": "User passwords must be at least 10 characters and include an uppercase letter, a lowercase letter, a digit, and a non-alphanumeric character; a registration with a weaker password is rejected with 400.",
+      "why": "Stronger credentials reduce account-takeover risk.",
+      "contentHash": "sha256:4e171e494c4021765ae090bcfd50bdf2e9209be0956a04814179dc1a908dc27b"
+    },
+    {
+      "id": "NFR-SEC-012",
+      "type": "NFR",
+      "area": "SEC",
+      "coverage": "covered",
+      "debt": false,
+      "infraDebt": false,
+      "ratification": "ratified",
+      "provenance": "human",
+      "verification": "automated",
+      "coveredBy": [
+        "integration"
+      ],
+      "tests": [
+        "tests/TaskPilot.Tests.Integration/Auth/AccountLockoutTests.cs"
+      ],
+      "source": [],
+      "sourceFile": "docs/requirements/SEC/NFR-SEC-012.md",
+      "statement": "After 5 consecutive failed login attempts an account is locked for 15 minutes, during which login fails even with the correct password.",
+      "why": "Throttles online password-guessing / brute-force attacks.",
+      "contentHash": "sha256:9e3613383fd4d7e2638403b3308ea57a450d89804724738a61dae9900ba3db59"
     },
     {
       "id": "NFR-TASKS-001",

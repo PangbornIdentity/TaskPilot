@@ -69,13 +69,16 @@ public class TagServiceTests
     {
         var tag = MakeTag("user1");
         _tagRepoMock.Setup(r => r.GetByIdAsync(tag.Id, default)).ReturnsAsync(tag);
-        _tagRepoMock.Setup(r => r.Remove(tag));
+        _tagRepoMock.Setup(r => r.Update(tag));
         _tagRepoMock.Setup(r => r.SaveChangesAsync(default)).ReturnsAsync(1);
 
-        var result = await _service.DeleteTagAsync(tag.Id, "user1");
+        var result = await _service.DeleteTagAsync(tag.Id, "user1", "user:test@example.com");
 
         Assert.True(result);
-        _tagRepoMock.Verify(r => r.Remove(tag), Times.Once);
+        Assert.True(tag.IsDeleted);
+        Assert.NotNull(tag.DeletedAt);
+        _tagRepoMock.Verify(r => r.Update(tag), Times.Once);
+        _tagRepoMock.Verify(r => r.Remove(It.IsAny<Tag>()), Times.Never);
     }
 
     [Fact]
@@ -84,9 +87,10 @@ public class TagServiceTests
         var tag = MakeTag("user1");
         _tagRepoMock.Setup(r => r.GetByIdAsync(tag.Id, default)).ReturnsAsync(tag);
 
-        var result = await _service.DeleteTagAsync(tag.Id, "other-user");
+        var result = await _service.DeleteTagAsync(tag.Id, "other-user", "user:other@example.com");
 
         Assert.False(result);
+        _tagRepoMock.Verify(r => r.Update(It.IsAny<Tag>()), Times.Never);
         _tagRepoMock.Verify(r => r.Remove(It.IsAny<Tag>()), Times.Never);
     }
 
