@@ -5,8 +5,8 @@
 # This script writes forward-slash entries explicitly.
 
 param(
-    [string]$Src = 'C:\projects\taskpilot\src\publish-linux',
-    [string]$Dst = 'C:\projects\taskpilot\src\deploy-linux.zip'
+    [string]$Src = (Join-Path $PSScriptRoot '..\src\publish-linux'),
+    [string]$Dst = (Join-Path $PSScriptRoot '..\src\deploy-linux.zip')
 )
 
 Add-Type -AssemblyName System.IO.Compression

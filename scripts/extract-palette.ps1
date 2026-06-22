@@ -1,6 +1,9 @@
 # Samples the TaskPilot master icon and reports the dominant colors (quantized).
+param(
+    [string]$Path = (Join-Path $PSScriptRoot '..\assets\brand-icons\taskpilot-icon-2048.png')
+)
 Add-Type -AssemblyName System.Drawing
-$path = "C:\projects\TaskPilot\assets\brand-icons\taskpilot-icon-2048.png"
+$path = (Resolve-Path $Path).Path
 $bmp = [System.Drawing.Bitmap]::FromFile($path)
 $counts = @{}
 $step = 16  # sample every 16px for speed
