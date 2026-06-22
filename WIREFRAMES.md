@@ -32,8 +32,9 @@
 ```
 ┌─────────────────────────────────────────────┐
 │                                             │
-│              [TaskPilot Logo]               │
+│         [TaskPilot logo image 72px]         │
 │              "TaskPilot"  (h2)              │
+│        "Your tasks, on autopilot"           │
 │                                             │
 │    ┌───────────────────────────────────┐    │
 │    │  [Login]  [Register]  (tabs)      │    │
@@ -54,9 +55,10 @@
 └─────────────────────────────────────────────┘
 ```
 
+**Brand mark (v1.15.0):** the real app-icon **image** `/img/taskpilot-logo.png` (`.tp-auth-logo`, 72px, `--radius-xl`/16px rounded corners, centered, `alt="TaskPilot"`). On the light auth card no ring is applied. Below the wordmark sits the tagline **"Your tasks, on autopilot"** (single `<p>`, `body-sm`, `--color-text-secondary`) — this replaces the old "Your personal command center" line.
 **Card dimensions:** 440px wide (desktop), 100%-48px (mobile), max 440px.
 **Card padding:** 40px desktop, 24px mobile.
-**Background:** `--color-bg-base` (subtle pattern or plain).
+**Background (v1.15.0):** the full-page signature **auth gradient** `--tp-gradient-auth` (`#0018A8 → #0048C0 → #0078D8 → #18A8F0`, 160° diagonal — see DESIGN-SYSTEM §1.6), replacing the old violet-navy `#1a1a2e → #16213e → #0f3460`. The card itself sits on `--color-bg-surface` with `--shadow-xl`, so field contrast is unaffected.
 
 **Register tab shows:** Name field added above Email. No "Remember me". "Create Account" button.
 
@@ -730,7 +732,7 @@ Create row (existing — unchanged by this release):
 - Header line (caption, `--color-text-secondary`): `Editing "{originalName}"   ({TaskCount} task{s} use this tag — changes apply everywhere)` — the parenthetical is suppressed when `TaskCount == 0`.
 - Form fields:
   - **Name** input: pre-filled with current name. Required. `maxlength=50` matching the existing `CreateTagRequestValidator`.
-  - **Colour swatches**: same 8-swatch palette used in the Create row (Violet, Blue, Teal, Green, Amber, Orange, Red, Slate). Pre-selects the current color. Keyboard: arrow keys move selection between swatches (radio group semantics). Each swatch has `aria-label` of the color name.
+  - **Colour swatches**: same 8-swatch palette used in the Create row (Blue, Cyan, Teal, Green, Amber, Orange, Rose, Slate — see DESIGN-SYSTEM §9.1; default is Blue). Pre-selects the current color. Keyboard: arrow keys move selection between swatches (radio group semantics). Each swatch has `aria-label` of the color name.
 - Actions:
   - **Cancel**: closes the row, no change persisted, focus returns to the original chip's edit icon.
   - **Save changes**: submits the form (`POST` to `OnPostUpdateTag` page handler, which calls `PUT /api/v1/tags/{id}` server-side). On success: row closes, toast "Tag updated.", chip re-renders with new name + color, focus returns to the chip's edit icon.
@@ -915,18 +917,21 @@ On Enter press: creates task with title + all defaults.
 
 ### Sidebar (Desktop/Tablet)
 ```
-┌─────────────────────┐
-│  [TaskPilot logo]   │
+┌─────────────────────┐  ← royal→cyan gradient
+│  [logo img] TaskPilot│     (--tp-gradient-sidebar)
 │────────────────────-│
-│  🏠 Dashboard       │← active: primary bg
+│ ▎🏠 Dashboard       │← active: white wash + 3px white left bar
 │  ✓  Tasks           │
 │  📋 Audit           │
 │  ⚙  Settings        │
 │                     │
-│  ────────────────── │
+│  ────────────────── │  ← footer block: solid #0030C0
 │  [Avatar] Username  │← bottom of sidebar
 └─────────────────────┘
 ```
+**Brand mark (v1.15.0):** `.tp-logo` is the app-icon **image** `/img/taskpilot-logo.png` at 36px, `--radius-md` corners, with a 1px `rgba(255,255,255,.12)` ring (so the icon's near-white baked background doesn't read as a floating tile on the blue gradient), `alt="TaskPilot"`, beside the "TaskPilot" wordmark. Replaces the old Bootstrap glyph on a violet tile.
+**Background (v1.15.0):** vertical signature gradient `--tp-gradient-sidebar` (`#0030C0 → #0078D8 → #18A8F0`); the footer/avatar block is painted **solid `#0030C0`** so white nav/footer text clears AA at the bottom (see DESIGN-SYSTEM §1.6). Nav label/icon = white in both themes.
+**Active nav indicator:** translucent `rgba(255,255,255,.14)` wash + 3px solid white left accent bar + label weight 600 — never color-alone, ≥3:1 vs the gradient.
 
 ### Bottom Tab Bar (Mobile Only)
 ```
@@ -936,4 +941,7 @@ On Enter press: creates task with title + all defaults.
 └────────────────────────────────────┘
 ```
 Height: 56px + safe area inset. Tab bar background: `--color-bg-surface`. Border-top.
-Center `⊕` Add button: slightly larger (40px), primary color, raised.
+Center `⊕` Add button: slightly larger (40px), primary color (solid royal `--tp-primary`), raised.
+
+### Mobile Brand Bar
+The mobile top brand bar (`.tp-mobile-brand`) sits on a **solid `#0030C0`** background (no gradient on the short bar). The brand mark (v1.15.0) is the app-icon **image** `/img/taskpilot-logo.png` at 24px (`.tp-mobile-logo`), `--radius-sm` corners, with the same 1px `rgba(255,255,255,.12)` ring as the sidebar, beside the white "TaskPilot" wordmark. Because the adjacent wordmark names the brand, the mobile logo image is **decorative** (`alt=""` `aria-hidden="true"`). Replaces the old Bootstrap glyph that carried an inline `style="color:var(--tp-purple)"`.

@@ -1,6 +1,20 @@
 {
   "versions": [
     {
+      "version": "1.15.0",
+      "releaseDate": "2026-06-21",
+      "versionType": "minor",
+      "summary": "TaskPilot has a fresh new blue look inspired by our new app icon.",
+      "changes": [
+        { "type": "Improvement", "description": "New royal-blue color scheme throughout the app — buttons, links, badges, and accents have moved from violet to a deep confident blue sampled from the TaskPilot paper-airplane icon." },
+        { "type": "Improvement", "description": "The sidebar and sign-in screen now use a vibrant blue-to-cyan gradient, giving the app a signature look that reflects the app icon palette." },
+        { "type": "Improvement", "description": "The TaskPilot app icon now appears on the sidebar, the mobile header, and the sign-in screen — replacing the old checkmark glyph." },
+        { "type": "Improvement", "description": "The sign-in welcome message is now 'Your tasks, on autopilot' — a cleaner, more on-brand tagline." },
+        { "type": "Improvement", "description": "Dashboard charts have been recolored: single-series bars are now royal blue, and the priority donut chart uses cyan instead of violet so all four slices are visually distinct." },
+        { "type": "Fix", "description": "Fixed an invisible 'Create one' / 'Sign in' link in the footer of the sign-in and register screens — the text now shows clearly on the card." }
+      ]
+    },
+    {
       "version": "1.14.0",
       "releaseDate": "2026-06-14",
       "versionType": "minor",

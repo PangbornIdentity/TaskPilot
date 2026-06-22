@@ -1,16 +1,30 @@
 /* ===== DESIGN TOKENS ===== */
 :root {
-    --tp-purple: #6255EC;
-    --tp-purple-dark: #4f43d4;
-    --tp-purple-light: #ede9ff;
+    /* Brand / Primary — royal blue (v1.15.0) */
+    --tp-primary: #0048C0;
+    --tp-primary-hover: #0030A8;
+    --tp-primary-active: #0030C0;
+    --tp-primary-subtle: #E6F0FF;
+    --tp-focus-ring: #0090F0;
+
+    /* Signature gradient tokens */
+    --tp-gradient-start: #0030C0;
+    --tp-gradient-mid: #0078D8;
+    --tp-gradient-end: #18A8F0;
+    --tp-gradient-sidebar: linear-gradient(180deg, #0030C0 0%, #0078D8 55%, #18A8F0 100%);
+    --tp-gradient-auth: linear-gradient(160deg, #0018A8 0%, #0048C0 40%, #0078D8 75%, #18A8F0 100%);
+
+    /* Sidebar */
     --tp-sidebar-width: 220px;
-    --tp-sidebar-bg: #1a1a2e;
-    --tp-sidebar-text: #c8c8e0;
-    --tp-sidebar-active: #6255EC;
+    --tp-sidebar-bg: #0030C0;
+    --tp-sidebar-text: #c8d8f0;
+    --tp-sidebar-active: rgba(255,255,255,.14);
+
+    /* Surface */
     --tp-bg: #f4f6fb;
     --tp-card-bg: #ffffff;
     --tp-border: #e2e8f0;
-    --tp-text: #1e293b;
+    --tp-text: #181D2A;
     --tp-text-muted: #64748b;
     --tp-radius: 12px;
     --tp-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
@@ -32,7 +46,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 /* ===== SIDEBAR ===== */
 .tp-sidebar {
     width: var(--tp-sidebar-width);
-    background: var(--tp-sidebar-bg);
+    background: var(--tp-gradient-sidebar);
     flex-shrink: 0;
     padding: 0;
     overflow-y: auto;
@@ -49,14 +63,18 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 .tp-logo {
     width: 36px;
     height: 36px;
-    background: var(--tp-purple);
     border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    color: white;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.12);
     flex-shrink: 0;
+}
+
+.tp-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+    display: block;
 }
 
 .tp-brand-text {
@@ -94,8 +112,11 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 
 .tp-nav-link.active {
-    background: var(--tp-purple);
+    background: rgba(255,255,255,.14);
     color: white;
+    font-weight: 600;
+    border-left: 3px solid #FFFFFF;
+    padding-left: 9px;
 }
 
 .tp-nav-link i { font-size: 17px; }
@@ -107,6 +128,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     display: flex;
     flex-direction: column;
     gap: 8px;
+    background: #0030C0;
 }
 
 .tp-user-email {
@@ -202,7 +224,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     line-height: 1;
 }
 
-.tp-stat-card.accent .tp-stat-value { color: var(--tp-purple); }
+.tp-stat-card.accent .tp-stat-value { color: var(--tp-primary); }
 .tp-stat-card.danger .tp-stat-value { color: #ef4444; }
 .tp-stat-card.warning .tp-stat-value { color: #f59e0b; }
 .tp-stat-card.success .tp-stat-value { color: #10b981; }
@@ -231,8 +253,8 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 
 /* ===== BUTTONS ===== */
 .btn-primary, .tp-btn-primary {
-    background: var(--tp-purple) !important;
-    border-color: var(--tp-purple) !important;
+    background: var(--tp-primary) !important;
+    border-color: var(--tp-primary) !important;
     color: white !important;
     font-weight: 500;
     border-radius: 8px;
@@ -241,18 +263,18 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 
 .btn-primary:hover, .tp-btn-primary:hover {
-    background: var(--tp-purple-dark) !important;
-    border-color: var(--tp-purple-dark) !important;
+    background: var(--tp-primary-hover) !important;
+    border-color: var(--tp-primary-hover) !important;
 }
 
 .btn-outline-primary {
-    color: var(--tp-purple) !important;
-    border-color: var(--tp-purple) !important;
+    color: var(--tp-primary) !important;
+    border-color: var(--tp-primary) !important;
     border-radius: 8px;
 }
 
 .btn-outline-primary:hover {
-    background: var(--tp-purple) !important;
+    background: var(--tp-primary) !important;
     color: white !important;
 }
 
@@ -295,16 +317,16 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     font-weight: 600;
 }
 
-.tp-badge-not-started { background: #f1f5f9; color: #64748b; }
-.tp-badge-in-progress { background: #dbeafe; color: #1d4ed8; }
+.tp-badge-not-started { background: #EEF2F8; color: #414B5E; }
+.tp-badge-in-progress { background: #E6F6FE; color: #0E6FB8; }
 .tp-badge-blocked     { background: #fee2e2; color: #dc2626; }
 .tp-badge-completed   { background: #d1fae5; color: #059669; }
-.tp-badge-cancelled   { background: #f3f4f6; color: #6b7280; }
+.tp-badge-cancelled   { background: #EEF2F8; color: #7B879D; }
 
 .tp-badge-critical { background: #fef2f2; color: #dc2626; }
 .tp-badge-high     { background: #fff7ed; color: #ea580c; }
 .tp-badge-medium   { background: #fffbeb; color: #d97706; }
-.tp-badge-low      { background: #f0fdf4; color: #16a34a; }
+.tp-badge-low      { background: #EEF2F8; color: #5A6679; }
 
 /* Overdue indicator (composes existing error semantics — same family as Blocked) */
 .tp-badge-overdue  { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
@@ -318,17 +340,17 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 .tp-stat-card-link:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 .tp-stat-card-link:focus-visible {
-    outline: 2px solid #9b90f8;
+    outline: 2px solid var(--tp-focus-ring);
     outline-offset: 2px;
 }
 
 /* Incomplete by Status card */
 .tp-incomplete-card .tp-incomplete-total {
-    background: #f0f0f5;
+    background: #E6F0FF;
     border-radius: 6px;
     padding: 2px 10px;
     font-size: 12px;
-    color: #44445e;
+    color: #414B5E;
 }
 .tp-incomplete-grid {
     display: grid;
@@ -340,42 +362,42 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     align-items: flex-start;
     gap: 6px;
     padding: 16px;
-    border-right: 1px solid #e2e2ec;
+    border-right: 1px solid #E0E6F0;
     text-decoration: none;
     color: inherit;
     min-height: 56px;
     transition: background 120ms ease;
 }
 .tp-incomplete-tile:last-child { border-right: 0; }
-.tp-incomplete-tile:hover { background: #f0f0f5; }
+.tp-incomplete-tile:hover { background: #E6F0FF; }
 .tp-incomplete-tile:focus-visible {
-    outline: 2px solid #9b90f8;
+    outline: 2px solid var(--tp-focus-ring);
     outline-offset: -2px;
 }
 .tp-incomplete-tile-label {
     font-size: 12px;
     font-weight: 600;
-    color: #44445e;
+    color: #414B5E;
 }
 .tp-incomplete-tile-count {
     font-size: 28px;
     font-weight: 700;
-    color: #1a1a2e;
+    color: #181D2A;
     line-height: 1;
 }
 .tp-incomplete-tile-arrow {
     font-size: 14px;
-    color: #7f7f9a;
+    color: #7B879D;
 }
 .tp-incomplete-tile-not-started { background: #fafafd; }
-.tp-incomplete-tile-in-progress { background: #f3f8ff; }
+.tp-incomplete-tile-in-progress { background: #f0f7ff; }
 .tp-incomplete-tile-blocked     { background: #fff5f5; }
 
 /* Settings — tag inline edit row */
 .tp-tag-edit-row {
-    background: #f0f0f5;
+    background: #E6F0FF;
     border-radius: 8px;
-    border: 1px solid #e2e2ec;
+    border: 1px solid #C8D0DE;
 }
 .tp-tag-edit-row .alert { margin-bottom: 8px; }
 
@@ -385,7 +407,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     }
     .tp-incomplete-tile {
         border-right: 0;
-        border-bottom: 1px solid #e2e2ec;
+        border-bottom: 1px solid #E0E6F0;
     }
     .tp-incomplete-tile:last-child { border-bottom: 0; }
 }
@@ -396,11 +418,11 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 
 /* Incomplete chip — info palette (matches the dashboard "Incomplete by Status" tint) */
 .tp-incomplete-chip-on {
-    background: #eff6ff;
-    color: #1d4ed8;
-    border: 1px solid #93c5fd;
+    background: #E6F6FE;
+    color: #0E6FB8;
+    border: 1px solid #7CCBF2;
 }
-.tp-incomplete-chip-on:hover { background: #dbeafe; color: #1e3a8a; }
+.tp-incomplete-chip-on:hover { background: #cce8f8; color: #0B558F; }
 
 /* Overdue chip — error palette (matches the row-level Overdue pill) */
 .tp-overdue-chip-on {
@@ -426,9 +448,9 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     text-transform: uppercase;
     letter-spacing: .5px;
 }
-.tp-sortable-th .tp-sortable-link:hover { color: var(--tp-text); background: #f0f0f5; }
+.tp-sortable-th .tp-sortable-link:hover { color: var(--tp-text); background: #E6F0FF; }
 .tp-sortable-th .tp-sortable-link:focus-visible {
-    outline: 2px solid #9b90f8;
+    outline: 2px solid var(--tp-focus-ring);
     outline-offset: -2px;
 }
 .tp-sortable-th .tp-sortable-link i {
@@ -488,7 +510,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 
 /* ===== TASK FORM / MODAL ===== */
 .tp-modal .modal-header {
-    background: var(--tp-purple);
+    background: var(--tp-primary);
     color: white;
     border-radius: var(--tp-radius) var(--tp-radius) 0 0;
 }
@@ -505,8 +527,8 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 
 .form-control:focus, .form-select:focus {
-    border-color: var(--tp-purple);
-    box-shadow: 0 0 0 3px rgba(98,85,236,.15);
+    border-color: var(--tp-primary);
+    box-shadow: 0 0 0 3px rgba(0,144,240,.15);
 }
 
 /* ===== KANBAN ===== */
@@ -590,8 +612,8 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 
 .tp-quick-add input:focus {
-    border-color: var(--tp-purple);
-    box-shadow: 0 0 0 3px rgba(98,85,236,.12);
+    border-color: var(--tp-primary);
+    box-shadow: 0 0 0 3px rgba(0,144,240,.12);
 }
 
 /* ===== FILTERS ===== */
@@ -619,8 +641,8 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 
 .tp-search input:focus {
-    border-color: var(--tp-purple);
-    box-shadow: 0 0 0 3px rgba(98,85,236,.12);
+    border-color: var(--tp-primary);
+    box-shadow: 0 0 0 3px rgba(0,144,240,.12);
 }
 
 .tp-search-icon {
@@ -649,7 +671,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 /* ===== AUTH ===== */
 .tp-auth-body {
     min-height: 100vh;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    background: var(--tp-gradient-auth);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -668,10 +690,12 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 
 .tp-auth-logo {
-    font-size: 48px;
-    color: var(--tp-purple);
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
+    object-fit: cover;
+    margin: 0 auto 12px;
     display: block;
-    margin-bottom: 12px;
 }
 
 .tp-auth-title {
@@ -692,10 +716,14 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     text-align: center;
     margin-top: 16px;
     font-size: 14px;
-    color: rgba(255,255,255,.7);
+    color: var(--tp-text-muted);
 }
 
-.tp-auth-footer a { color: var(--tp-purple); font-weight: 600; }
+.tp-auth-footer a { color: var(--tp-primary); font-weight: 600; }
+
+/* ===== LINKS ===== */
+a { color: var(--tp-primary); }
+a:hover { color: var(--tp-primary-hover); }
 
 /* ===== SETTINGS ===== */
 .tp-settings-section {
@@ -769,8 +797,8 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     font-weight: 700;
     padding: 2px 6px;
     border-radius: 4px;
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: #E6F6FE;
+    color: #0E6FB8;
 }
 .tp-audit-method.POST { background: #d1fae5; color: #059669; }
 .tp-audit-method.PUT  { background: #ede9fe; color: #7c3aed; }
@@ -807,7 +835,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     margin-left: auto;
     font-size: 10px;
     font-weight: 600;
-    background: var(--tp-purple);
+    background: var(--tp-primary);
     color: white;
     padding: 1px 6px;
     border-radius: 10px;
@@ -831,7 +859,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 
 .tp-changelog-major {
-    border-left: 4px solid var(--tp-purple);
+    border-left: 4px solid var(--tp-primary);
 }
 
 .tp-changelog-header {
@@ -854,8 +882,8 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 }
 
 .tp-version-major {
-    background: var(--tp-purple-light);
-    color: var(--tp-purple);
+    background: var(--tp-primary-subtle);
+    color: var(--tp-primary);
 }
 
 .tp-version-minor {
@@ -894,9 +922,8 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 
 .tp-change-feature  { background: #d1fae5; color: #059669; }
 .tp-change-fix      { background: #fee2e2; color: #dc2626; }
-.tp-change-improvement { background: #dbeafe; color: #2563eb; }
+.tp-change-improvement { background: #E6F6FE; color: #0E6FB8; }
 .tp-change-security { background: #fef3c7; color: #b45309; }
-
 
 /* Color swatch picker for inline tag creation */
 .tp-color-swatch {
@@ -967,7 +994,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     gap: 12px;
     padding: 0 16px;
     height: 56px;
-    background: var(--tp-sidebar-bg);
+    background: #0030C0;
     border-bottom: 1px solid rgba(255,255,255,.07);
     position: fixed;
     top: 0;
@@ -998,6 +1025,17 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     font-weight: 700;
     color: white;
     letter-spacing: -.3px;
+    display: flex;
+    align-items: center;
+}
+
+.tp-mobile-logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    object-fit: cover;
+    vertical-align: -5px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.12);
 }
 
 .tp-sidebar-backdrop {

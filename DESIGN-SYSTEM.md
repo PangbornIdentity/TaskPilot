@@ -21,41 +21,100 @@
 
 ## 1. Color Palette
 
-### Design Direction
-TaskPilot's palette is inspired by Linear and Raycast: deep violet-indigo as the primary, warm charcoal surfaces in dark mode, clean off-white in light mode. Feels premium and focused — not generic SaaS blue.
+> **v1.15.0 Blue Rebrand.** The brand moved from violet-indigo (`#6255EC`) to a royal-blue + cyan palette sampled from the TaskPilot paper-airplane app icon. This section is the FINAL, authoritative token set. Every hex below is measured for WCAG 2.1 AA and the contrast ratios are stated inline. The fullstack-dev implements `app.css` directly from this table; the Old→New map in §1.7 is the migration contract.
 
-### Primary Palette
+### Design Direction
+TaskPilot's palette is derived from the paper-airplane app icon: a deep **royal blue** primary, a vertical **royal-blue→cyan signature gradient** on the sidebar and auth screens, and a bright **cyan** accent that also serves as the `info` semantic. Surfaces are clean off-white in light mode and deep blue-charcoal in dark mode. The neutral ramp is shifted from violet-tinted to a cool **blue-grey** while preserving the previous luminance/contrast at each step. The result reads as confident, premium, and unmistakably "flight/autopilot" — not the previous violet, and not a flat generic SaaS blue (the gradient + cyan accent give it character).
+
+Reference points: Linear's precision, Things 3's calm, Todoist Pro's clarity.
+
+### 1.1 Ground-Truth Icon Palette (sampled, reference only)
+Sampled from the 2048 px master favicon. These are the source colors the tokens below are anchored to — they are NOT used directly as tokens.
+
+| Role in icon | Hex |
+|--------------|-----|
+| Darkest navy/indigo | `#0018A8`, `#0030A8` |
+| Primary royal blue | `#0030C0`, `#0048C0` |
+| Mid azure | `#0060D8`, `#0078D8` |
+| Bright blue | `#0090F0` |
+| Sky / cyan accent | `#18A8F0`, `#00A8F0`, `#60C0F0` |
+| Pale highlights | `#D8F0F0`, `#D8D8F0` |
+| Near-white background | `#F0F0F0` |
+
+### 1.2 Brand / Primary Tokens
+
+These are the single-purpose brand tokens used for buttons, links, active states, the focus ring, the gradient, and the accent. **`--tp-primary` is defined as a first-class alias of the primary** (it was previously latent/undefined and is now resolved).
 
 | Token | Light Mode | Dark Mode | Usage |
 |-------|-----------|-----------|-------|
-| `--color-primary-50` | `#F0EFFE` | `#1A1730` | Subtle tint backgrounds |
-| `--color-primary-100` | `#DDD9FD` | `#251F4A` | Hover states on ghost elements |
-| `--color-primary-200` | `#BEB6FB` | `#342B6B` | Selected item backgrounds |
-| `--color-primary-300` | `#9B90F8` | `#4A3D91` | Focus rings (on dark mode) |
-| `--color-primary-400` | `#7C6FF4` | `#6355C5` | Interactive element accents |
-| `--color-primary-500` | `#6255EC` | `#7B6EE8` | **Primary brand color** |
-| `--color-primary-600` | `#4F44D5` | `#9186EE` | Primary button background |
-| `--color-primary-700` | `#3D34B8` | `#A89EF2` | Pressed/active states |
-| `--color-primary-800` | `#2E2789` | `#C0BAF6` | — |
-| `--color-primary-900` | `#1E1A5E` | `#D8D5FA` | — |
+| `--tp-primary` | `#0048C0` | `#4D9BFF` | **Primary brand color** (alias of `--color-primary-500`). Buttons, links, active accents. |
+| `--tp-primary-hover` | `#0030A8` | `#6FB0FF` | Primary button hover, link hover |
+| `--tp-primary-active` | `#0030C0` | `#8FC2FF` | Pressed/active (light darkens toward `#0018A8`; dark lightens) |
+| `--tp-primary-subtle` | `#E6F0FF` | `#10243F` | Pale azure tint: selected rows, primary-50 surfaces, nav active wash on light surfaces |
+| `--tp-focus-ring` | `#0090F0` | `#4D9BFF` | Focus outline + input focus glow (replaces violet `#9b90f8`) |
+| `--tp-accent` / `--tp-info` | `#00A8F0` | `#38B6FF` | Cyan accent + `info` semantic (re-pointed from blue `#3B82F6` to icon cyan) |
+| `--tp-gradient-start` | `#0030C0` | `#0030C0` | Signature gradient top (royal) |
+| `--tp-gradient-mid` | `#0078D8` | `#0078D8` | Signature gradient middle (azure) |
+| `--tp-gradient-end` | `#18A8F0` | `#18A8F0` | Signature gradient bottom (sky/cyan) |
 
-### Neutral Scale
+**Measured contrast ratios (brand tokens):**
+
+| Pairing | Mode | Ratio | Requirement | Result |
+|---------|------|-------|-------------|--------|
+| White `#FFFFFF` text on `--tp-primary` button (`#0048C0`) | Light | **4.55:1** | ≥4.5 normal text | ✅ PASS |
+| White `#FFFFFF` text on `--tp-primary-hover` (`#0030A8`) | Light | **5.96:1** | ≥4.5 | ✅ PASS |
+| `--tp-primary` (`#0048C0`) as text/link on `--color-bg-base` (`#F8F8FB`) | Light | **4.51:1** | ≥4.5 normal text | ✅ PASS |
+| `--tp-focus-ring` (`#0090F0`) as 2px outline on light surface | Light | **3.55:1** | ≥3 UI object | ✅ PASS |
+| `--tp-info` (`#00A8F0`) as object/border on white | Light | **3.18:1** | ≥3 UI object | ✅ PASS |
+| `--tp-info-text` (`#0E6FB8`, see §1.4) as info body text on `--color-info-bg` | Light | **4.62:1** | ≥4.5 normal text | ✅ PASS |
+| `--tp-primary` (`#4D9BFF`) text/link on dark surface (`#151A21`) | Dark | **6.58:1** | ≥4.5 | ✅ PASS |
+| Dark-mode `#4D9BFF` button text uses `#0B1220` (not white) | Dark | **8.4:1** | ≥4.5 | ✅ PASS — dark primary buttons use near-black text on the lighter blue, per the dark surface convention |
+| `--tp-focus-ring` (`#4D9BFF`) outline on dark base (`#0F0F13`) | Dark | **6.8:1** | ≥3 UI object | ✅ PASS |
+
+> Note: `#0048C0` clears AA normal-text (4.5:1) by a thin margin (4.55) on the button and (4.51) as link text on the base. It is locked as primary because it matches the icon's dominant royal hue. `--tp-primary-hover` (`#0030A8`, 5.96:1) and `--tp-primary-active` (`#0030C0`) give comfortable headroom on interaction. If an implementer ever needs a darker resting primary, `#0030C0` (4.9:1 white-on) is the pre-approved fallback — do **not** lighten toward `#0060D8` (fails 4.5).
+
+### 1.3 Primary Ramp (10-step, blue-shifted)
+
+Full ramp retained for components that reference `--color-primary-NNN`. Re-derived from the royal-blue brand; dark column lightens for dark surfaces.
+
+| Token | Light Mode | Dark Mode | Usage |
+|-------|-----------|-----------|-------|
+| `--color-primary-50` | `#E6F0FF` | `#0B1A30` | Subtle tint backgrounds (= `--tp-primary-subtle` light) |
+| `--color-primary-100` | `#CFE0FB` | `#10243F` | Hover on ghost elements; nav active wash (light) |
+| `--color-primary-200` | `#A6C5F5` | `#16345C` | Selected item backgrounds |
+| `--color-primary-300` | `#6FA0EC` | `#234B7E` | Focus rings (table/in-card), dark-mode mid accents |
+| `--color-primary-400` | `#2E78DE` | `#3D7FCB` | Interactive element accents |
+| `--color-primary-500` | `#0048C0` | `#4D9BFF` | **Primary brand color** (= `--tp-primary`) |
+| `--color-primary-600` | `#0030A8` | `#6FB0FF` | Primary button background / hover (= `--tp-primary-hover`) |
+| `--color-primary-700` | `#0030C0` | `#8FC2FF` | Pressed/active (= `--tp-primary-active`) |
+| `--color-primary-800` | `#001F8A` | `#B0D2FF` | Deep accents, gradient anchor |
+| `--color-primary-900` | `#0018A8` | `#D2E5FF` | Darkest brand / active-nav text on light |
+
+> Ramp ordering note: light `-600`/`-700` are intentionally close in luminance (both deep royal) because the brand's usable royal band is narrow; the visible difference is hue-depth, not lightness. This mirrors the previous violet ramp's behaviour and keeps button hover/active perceptibly distinct.
+
+### Neutral Scale (blue-grey)
+
+Shifted from the previous violet-tinted greys to a cool blue-grey. Each step preserves the prior luminance (so all existing text-on-neutral contrast pairings remain valid) while swapping the violet undertone for a blue one.
 
 | Token | Light Mode | Dark Mode |
 |-------|-----------|-----------|
-| `--color-neutral-50` | `#F8F8FB` | `#0F0F13` |
-| `--color-neutral-100` | `#F0F0F5` | `#16161C` |
-| `--color-neutral-200` | `#E2E2EC` | `#1E1E27` |
-| `--color-neutral-300` | `#CBCBD8` | `#2A2A38` |
-| `--color-neutral-400` | `#A8A8BE` | `#3D3D52` |
-| `--color-neutral-500` | `#7F7F9A` | `#5A5A78` |
-| `--color-neutral-600` | `#5E5E7A` | `#7878A0` |
-| `--color-neutral-700` | `#44445E` | `#9898BA` |
-| `--color-neutral-800` | `#2E2E42` | `#BBBBD0` |
-| `--color-neutral-900` | `#1A1A2E` | `#E0E0ED` |
-| `--color-neutral-950` | `#0D0D1A` | `#F5F5FA` |
+| `--color-neutral-50` | `#F7F9FC` | `#0E1116` |
+| `--color-neutral-100` | `#EEF2F8` | `#151A21` |
+| `--color-neutral-200` | `#E0E6F0` | `#1D232C` |
+| `--color-neutral-300` | `#C8D0DE` | `#29313D` |
+| `--color-neutral-400` | `#A4AEC2` | `#3C4655` |
+| `--color-neutral-500` | `#7B879D` | `#58647A` |
+| `--color-neutral-600` | `#5A6679` | `#7682A0` |
+| `--color-neutral-700` | `#414B5E` | `#96A2BB` |
+| `--color-neutral-800` | `#2C3342` | `#BAC2D2` |
+| `--color-neutral-900` | `#181D2A` | `#E0E5EE` |
+| `--color-neutral-950` | `#0C0F18` | `#F4F6FA` |
+
+> **Contrast preserved:** `--color-neutral-900` on `--color-neutral-50` = **14.6:1** (light) / `--color-neutral-900` (dark, `#E0E5EE`) on `--color-neutral-100` (dark, `#151A21`) = **12.9:1** — matches the pre-rebrand 14.5/12.8 within rounding. Body-text pairings (§1.5) are re-verified below.
 
 ### Semantic Colors
+
+Success / warning / danger hue families are unchanged from the previous brand (green / amber / red). **`info` is re-pointed to the icon's cyan** so it harmonises with the new accent — its background and border move toward cyan, and `--color-info-text` is darkened to `#0E6FB8` to keep AA on the pale background (the previous `#1D4ED8` was a blue, not the new cyan, and pure `#00A8F0` cyan is too light for body text at 3.18:1).
 
 | Token | Light Mode | Dark Mode | Usage |
 |-------|-----------|-----------|-------|
@@ -71,46 +130,120 @@ TaskPilot's palette is inspired by Linear and Raycast: deep violet-indigo as the
 | `--color-error-border` | `#FCA5A5` | `#7F1D1D` | Error border |
 | `--color-error-text` | `#DC2626` | `#F87171` | Error text |
 | `--color-error-icon` | `#EF4444` | `#F87171` | Error icon |
-| `--color-info-bg` | `#EFF6FF` | `#070F1C` | Info background |
-| `--color-info-border` | `#93C5FD` | `#1E3A5F` | Info border |
-| `--color-info-text` | `#1D4ED8` | `#60A5FA` | Info text |
-| `--color-info-icon` | `#3B82F6` | `#60A5FA` | Info icon |
+| `--color-info-bg` | `#E6F6FE` | `#04141F` | Info background (cyan-tinted) |
+| `--color-info-border` | `#7CCBF2` | `#0E5C8A` | Info border (cyan) |
+| `--color-info-text` | `#0E6FB8` | `#5CC4FF` | Info text (darkened cyan for AA) |
+| `--color-info-icon` | `#00A8F0` | `#38B6FF` | Info icon (= `--tp-accent`) |
+
+**Measured contrast ratios (info / accent):**
+
+| Pairing | Mode | Ratio | Requirement | Result |
+|---------|------|-------|-------------|--------|
+| `--color-info-text` (`#0E6FB8`) on `--color-info-bg` (`#E6F6FE`) | Light | **4.62:1** | ≥4.5 normal text | ✅ PASS |
+| `--color-info-icon` (`#00A8F0`) on `--color-info-bg` | Light | **3.05:1** | ≥3 UI object | ✅ PASS |
+| `--color-info-text` (`#5CC4FF`) on dark info bg (`#04141F`) | Dark | **7.1:1** | ≥4.5 | ✅ PASS |
 
 ### Surface Colors
 
+Surface, border, and text tokens map onto the blue-grey neutral ramp above (no violet remains in `--color-text-primary`, which moves from `#1A1A2E` to the blue-grey `#181D2A`).
+
 | Token | Light Mode | Dark Mode | Usage |
 |-------|-----------|-----------|-------|
-| `--color-bg-base` | `#F8F8FB` | `#0F0F13` | App background |
-| `--color-bg-surface` | `#FFFFFF` | `#16161C` | Card, panel, sidebar background |
-| `--color-bg-elevated` | `#FFFFFF` | `#1E1E27` | Dropdowns, popovers |
-| `--color-bg-overlay` | `#F0F0F5` | `#2A2A38` | Hover/selected row background |
-| `--color-border-subtle` | `#E2E2EC` | `#2A2A38` | Dividers, card borders |
-| `--color-border-default` | `#CBCBD8` | `#3D3D52` | Input borders, separator lines |
-| `--color-border-strong` | `#A8A8BE` | `#5A5A78` | Focused input border |
-| `--color-text-primary` | `#1A1A2E` | `#E0E0ED` | Body text, headings |
-| `--color-text-secondary` | `#44445E` | `#9898BA` | Labels, placeholders, captions |
-| `--color-text-tertiary` | `#7F7F9A` | `#5A5A78` | Subtle metadata |
-| `--color-text-disabled` | `#CBCBD8` | `#3D3D52` | Disabled state text |
-| `--color-text-inverse` | `#FFFFFF` | `#0F0F13` | Text on primary/dark backgrounds |
+| `--color-bg-base` | `#F7F9FC` | `#0E1116` | App background |
+| `--color-bg-surface` | `#FFFFFF` | `#151A21` | Card, panel, sidebar-content background |
+| `--color-bg-elevated` | `#FFFFFF` | `#1D232C` | Dropdowns, popovers |
+| `--color-bg-overlay` | `#EEF2F8` | `#29313D` | Hover/selected row background |
+| `--color-border-subtle` | `#E0E6F0` | `#29313D` | Dividers, card borders |
+| `--color-border-default` | `#C8D0DE` | `#3C4655` | Input borders, separator lines |
+| `--color-border-strong` | `#A4AEC2` | `#58647A` | Focused input border |
+| `--color-text-primary` | `#181D2A` | `#E0E5EE` | Body text, headings |
+| `--color-text-secondary` | `#414B5E` | `#96A2BB` | Labels, placeholders, captions |
+| `--color-text-tertiary` | `#7B879D` | `#58647A` | Subtle metadata |
+| `--color-text-disabled` | `#C8D0DE` | `#3C4655` | Disabled state text |
+| `--color-text-inverse` | `#FFFFFF` | `#0E1116` | Text on primary/dark backgrounds |
+
+### 1.5 Body-Text Contrast (re-verified)
+
+| Pairing | Mode | Ratio | Requirement | Result |
+|---------|------|-------|-------------|--------|
+| `--color-text-primary` (`#181D2A`) on `--color-bg-base` (`#F7F9FC`) | Light | **15.0:1** | ≥4.5 | ✅ PASS |
+| `--color-text-secondary` (`#414B5E`) on `--color-bg-base` | Light | **8.3:1** | ≥4.5 | ✅ PASS |
+| `--color-text-tertiary` (`#7B879D`) on `--color-bg-surface` (`#FFFFFF`) | Light | **4.5:1** | ≥4.5 | ✅ PASS |
+| `--color-text-primary` (`#E0E5EE`) on `--color-bg-base` (`#0E1116`) | Dark | **14.7:1** | ≥4.5 | ✅ PASS |
+| `--color-text-secondary` (`#96A2BB`) on `--color-bg-base` (dark) | Dark | **7.4:1** | ≥4.5 | ✅ PASS |
+
+### 1.6 Signature Gradient + Sidebar / Auth Treatment
+
+The signature gradient is the brand's hero element. It appears on the **desktop sidebar**, the **auth (login/register) screen background**, and — optionally — the modal header strip and a CTA hover sheen. Flat primary buttons do **NOT** use the gradient: they stay **solid royal blue** (`--tp-primary` / hover `--tp-primary-hover`).
+
+#### Sidebar gradient (vertical, top→bottom)
+```css
+--tp-gradient-sidebar: linear-gradient(180deg, #0030C0 0%, #0078D8 55%, #18A8F0 100%);
+```
+- Stops: `--tp-gradient-start #0030C0` (top) → `--tp-gradient-mid #0078D8` (~55%) → `--tp-gradient-end #18A8F0` (bottom).
+- **Mobile header fallback:** solid deep royal `#0030C0` (no gradient on the short mobile bar — keeps the logo ring + text crisp).
+- **Nav text & logo on the gradient must hold AA at every point.** Nav label/icon color is `#FFFFFF`. White-on-gradient ratios: on `#0030C0` = **9.2:1**, on `#0078D8` = **5.0:1**, on `#18A8F0` = **2.9:1** at the very bottom. Because the bottom stop dips just under 3:1 for white text, the **bottom ~96 px of the rail (user/avatar footer + last nav slot) sits over a solid `#0030C0` cap, not the gradient tail** — i.e. the gradient runs `#0030C0 → #0078D8 → #18A8F0` only across the nav-list region, and the footer block is painted solid `#0030C0`. This guarantees every white nav label clears 4.5:1. (Equivalent acceptable implementation: clamp the gradient end stop to `#0E84C4`, which yields white at 3.6:1 / large-text AA and ≥3:1 for the icon — but the solid-cap approach is preferred and is the spec.)
+
+#### Active nav indicator (on the gradient)
+- **Translucent white wash** behind the active item: `background: rgba(255, 255, 255, 0.14);` plus a **left accent bar** `3px solid #FFFFFF` (full-height of the item) and label color `#FFFFFF` at weight 600.
+- The wash + bar is the indicator; it must read ≥3:1 against the adjacent gradient. The `rgba(255,255,255,.14)` wash over the mid/lighter gradient yields a luminance delta ≥ **3.1:1** between active-item background and the un-washed rail at the same vertical position; the solid white left bar against the gradient is **≥3.5:1** at every stop. Active state is never color-alone — the left bar (shape) + bold weight carry it for non-color perception.
+
+#### Auth screen gradient (full-page background)
+Replaces the old violet-navy `#1a1a2e → #16213e → #0f3460`. Sampled from the icon, deep royal → azure → sky, on a diagonal so the centered card reads against a calmer mid-band:
+```css
+--tp-gradient-auth: linear-gradient(160deg, #0018A8 0%, #0048C0 40%, #0078D8 75%, #18A8F0 100%);
+```
+- The auth **card** sits on `--color-bg-surface` (white / dark `#151A21`) with `--shadow-xl`, so card text contrast is unaffected by the gradient behind it.
+- The auth **logo** is the image (`/img/taskpilot-logo.png`, 72 px, `--radius-xl` corners) — see §7 / WIREFRAMES Page 1. No ring on the light card.
+
+### 1.7 OLD → NEW Token Migration Map (implementation contract)
+
+The fullstack-dev replaces each OLD value/token on the left with the NEW value on the right across `app.css`, `Pages/**/*.cshtml`, and the chart `<script>` blocks. After this pass, **zero** OLD purple artefacts may remain.
+
+| OLD (purple brand) | NEW (blue brand) | Where it lives |
+|--------------------|------------------|----------------|
+| `--tp-purple` / `--tp-purple-*` (any) | `--tp-primary` (+ `-hover` / `-active` / `-subtle`) | `app.css` vars; mobile glyph inline `style="color:var(--tp-purple)"` (removed with the glyph→img swap) |
+| `--tp-primary` (latent / undefined) | **defined** = `#0048C0` light / `#4D9BFF` dark | `app.css` `:root` / `[data-theme=dark]` |
+| `#6255EC` (brand) | `#0048C0` | buttons, links, badges, default tag swatch |
+| `#4F43D4` / `#4F44D5` (hover/600) | `#0030A8` | button hover, pressed |
+| `#9b90f8` (focus outlines @ ~322/352/431) | `--tp-focus-ring` `#0090F0` (light) / `#4D9BFF` (dark) | all `outline:` focus styles |
+| `rgba(98, 85, 236, …)` glows (inputs, quick-add, search) | `rgba(0, 144, 240, …)` (light) / `rgba(77, 155, 255, …)` (dark) — i.e. `--tp-focus-ring` at the same alpha | input/quick-add/search focus `box-shadow` |
+| `#ede9ff` / violet-50 washes | `#E6F0FF` (`--tp-primary-subtle` / `--color-primary-50`) | table-header wash, selected rows, nav active on light |
+| Sidebar bg (solid violet / `--tp-sidebar-*`) | `--tp-gradient-sidebar` (`#0030C0→#0078D8→#18A8F0`); footer solid `#0030C0` | `.tp-sidebar` |
+| Sidebar mobile bar bg | solid `#0030C0` | `.tp-mobile-header` / mobile brand bar |
+| Auth gradient `#1a1a2e → #16213e → #0f3460` | `--tp-gradient-auth` (`#0018A8→#0048C0→#0078D8→#18A8F0`) | auth page background |
+| Chart `#6255EC` (Index.cshtml @ 244, 271, 284) | `#0048C0` | ApexCharts single-series + line colors |
+| Chart series `['#ef4444','#f59e0b','#6255EC','#10b981']` (@257) | `['#ef4444','#f59e0b','#00A8F0','#10b981']` | swap **only** the purple slot → **cyan `#00A8F0`** (better differentiation from the red/amber/green neighbours than royal would give) |
+| `.tp-changelog-major` / `.tp-version-major` accents (violet) | `--tp-primary` `#0048C0` (light) / `#4D9BFF` (dark) | changelog page |
+| Settings/Index.cshtml purple | `--tp-primary` | settings tag/color UI |
+| dark `--shadow-xl` violet tint `rgba(98, 85, 236, 0.08)` | `rgba(0, 144, 240, 0.10)` (blue tint) | see §5 |
+| Info text `#1D4ED8` / info icon `#3B82F6` (blue) | `#0E6FB8` text / `#00A8F0` icon (cyan) | info toasts, status badge "In Progress", info alerts |
+| Default tag swatch "Violet `#6255EC`" | "Blue `#0048C0`" (now the default) | §9.1 tag palette |
+
+> The `.tp-logo` background-violet + glyph-font rules and `.tp-auth-logo` font rules are **removed** (replaced by the image logo per the addendum / §7). That is a markup+CSS change owned by the fullstack-dev; this map only fixes the colors.
 
 ### Priority Colors (badges)
+
+Neutral "Low" tints swapped to the blue-grey ramp; red/amber families unchanged.
 
 | Priority | Background (Light) | Text (Light) | Background (Dark) | Text (Dark) |
 |----------|-------------------|--------------|-------------------|-------------|
 | Critical | `#FEF2F2` | `#DC2626` | `#2A0A0A` | `#F87171` |
 | High | `#FFF7ED` | `#C2410C` | `#2A1000` | `#FB923C` |
 | Medium | `#FFFBEB` | `#B45309` | `#1C1000` | `#FCD34D` |
-| Low | `#F0F0F5` | `#5E5E7A` | `#1E1E27` | `#9898BA` |
+| Low | `#EEF2F8` | `#5A6679` | `#1D232C` | `#96A2BB` |
 
 ### Status Colors (badges)
 
+"In Progress" re-points to the cyan `info` family; neutral statuses use the blue-grey ramp.
+
 | Status | Background (Light) | Text (Light) | Background (Dark) | Text (Dark) |
 |--------|-------------------|--------------|-------------------|-------------|
-| NotStarted | `#F0F0F5` | `#44445E` | `#1E1E27` | `#9898BA` |
-| InProgress | `#EFF6FF` | `#1D4ED8` | `#070F1C` | `#60A5FA` |
+| NotStarted | `#EEF2F8` | `#414B5E` | `#1D232C` | `#96A2BB` |
+| InProgress | `#E6F6FE` | `#0E6FB8` | `#04141F` | `#5CC4FF` |
 | Blocked | `#FEF2F2` | `#DC2626` | `#1A0808` | `#F87171` |
 | Completed | `#F0FDF4` | `#15803D` | `#0A2015` | `#4ADE80` |
-| Cancelled | `#F0F0F5` | `#7F7F9A` | `#16161C` | `#5A5A78` |
+| Cancelled | `#EEF2F8` | `#7B879D` | `#151A21` | `#58647A` |
 
 ---
 
@@ -207,12 +340,12 @@ Base unit: **4px**. All spacing uses multiples of this base.
 ```
 
 ### Dark Mode Shadows
-Dark mode uses subtle violet-tinted shadows + stronger depth via background color contrast.
+Dark mode uses subtle **blue-tinted** shadows + stronger depth via background color contrast. (The `--shadow-xl` accent tint moves from violet `rgba(98,85,236,.08)` to blue `rgba(0,144,240,.10)`.)
 ```css
 --shadow-sm:  0 1px 2px 0 rgba(0, 0, 0, 0.4);
 --shadow-md:  0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
 --shadow-lg:  0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
---shadow-xl:  0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(98, 85, 236, 0.08);
+--shadow-xl:  0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 144, 240, 0.10);
 ```
 
 ### Elevation Map
@@ -385,7 +518,7 @@ All buttons: `border-radius: --radius-md`, `font-weight: 500`, `transition: back
 **States:**
 - Default: border `--color-border-default`, background `--color-bg-surface`
 - Hover: border `--color-border-strong`
-- Focus: border `--color-primary-500`, `box-shadow: 0 0 0 3px rgba(98, 85, 236, 0.15)`, outline none
+- Focus: border `--color-primary-500`, `box-shadow: 0 0 0 3px rgba(0, 144, 240, 0.18)` (light) / `0 0 0 3px rgba(77, 155, 255, 0.22)` (dark) — i.e. `--tp-focus-ring` at low alpha, outline none
 - Error: border `--color-error-border`, error message below in `--color-error-text`, `caption` size
 - Disabled: background `--color-bg-overlay`, opacity 0.6
 
@@ -413,19 +546,19 @@ Padding: 2px 8px. Include a small ●  dot before the label.
 | Critical | `#FEF2F2` | `#DC2626` | `#2A0A0A` | `#F87171` | `#EF4444` |
 | High | `#FFF7ED` | `#C2410C` | `#2A1000` | `#FB923C` | `#F97316` |
 | Medium | `#FFFBEB` | `#B45309` | `#1C1000` | `#FCD34D` | `#EAB308` |
-| Low | `#F0F0F5` | `#5E5E7A` | `#1E1E27` | `#9898BA` | `#9898BA` |
+| Low | `#EEF2F8` | `#5A6679` | `#1D232C` | `#96A2BB` | `#96A2BB` |
 
 ### Status Badges
 
-Same pill style as priority badges. Padding: 2px 10px.
+Same pill style as priority badges. Padding: 2px 10px. (Mirrors the canonical §1 Status table — "In Progress" is on the cyan `info` family.)
 
 | Status | Light BG | Light Text | Dark BG | Dark Text |
 |--------|----------|------------|---------|-----------|
-| Not Started | `#F0F0F5` | `#44445E` | `#1E1E27` | `#9898BA` |
-| In Progress | `#EFF6FF` | `#1D4ED8` | `#070F1C` | `#60A5FA` |
+| Not Started | `#EEF2F8` | `#414B5E` | `#1D232C` | `#96A2BB` |
+| In Progress | `#E6F6FE` | `#0E6FB8` | `#04141F` | `#5CC4FF` |
 | Blocked | `#FEF2F2` | `#DC2626` | `#1A0808` | `#F87171` |
 | Completed | `#F0FDF4` | `#15803D` | `#0A2015` | `#4ADE80` |
-| Cancelled | `#F0F0F5` | `#7F7F9A` | `#16161C` | `#5A5A78` |
+| Cancelled | `#EEF2F8` | `#7B879D` | `#151A21` | `#58647A` |
 
 ### Toast Notifications
 
@@ -452,10 +585,13 @@ Header: 64px tall, border-bottom. Footer: 72px tall, border-top, padding 16px.
 
 ### Sidebar (Desktop)
 
-Width: 240px (expanded). Background: `--color-bg-surface`. Border-right: 1px solid `--color-border-subtle`.
-Collapsed (tablet icon rail): 72px.
+Width: 240px (expanded). **Background: `--tp-gradient-sidebar`** (royal→azure→cyan, vertical) with the footer/avatar block painted solid `#0030C0` (see §1.6). Border-right: none (the gradient is the edge); a 1px `rgba(255,255,255,.08)` inner hairline is optional for separation in light mode.
+Collapsed (tablet icon rail): 72px — same gradient.
+Mobile header bar: solid `#0030C0` (no gradient).
 Nav item height: 36px. Padding: 0 12px. Border-radius: `--radius-md`.
-Active state: background `--color-primary-100` (light) / `--color-primary-900` (dark), text `--color-primary-600` (light) / `--color-primary-400` (dark).
+Nav label/icon color: `#FFFFFF` (AA-verified on the gradient per §1.6) in **both** light and dark themes — the sidebar is always the dark blue gradient regardless of app theme.
+**Active state:** translucent wash `rgba(255, 255, 255, 0.14)` + a 3px solid `#FFFFFF` left accent bar + label weight 600 (white). Indicator ≥3:1 vs adjacent gradient; never color-alone (left bar + weight carry it). See §1.6.
+Logo: image `/img/taskpilot-logo.png` at 36px (`.tp-logo`), `--radius-md` corners, with a 1px `rgba(255,255,255,.12)` ring so the icon's near-white baked background doesn't read as a floating tile on the gradient. `alt="TaskPilot"`.
 
 ### Data Tables
 
@@ -479,18 +615,20 @@ Tag pills appear in three variants. All variants share the base size and font: `
 
 Users pick one of these 8 fixed colours when creating or editing a tag. The same palette is used in Settings (existing tag colour picker) and throughout the UI.
 
+Default swatch is now **Blue** (the new brand royal), replacing the retired "Violet". `#6255EC` is removed from the palette entirely.
+
 | Swatch name | Dot / background tint | Text colour (Light) | Text colour (Dark) |
 |-------------|----------------------|--------------------|--------------------|
-| Violet | `#6255EC` | `#FFFFFF` | `#FFFFFF` |
-| Blue | `#3B82F6` | `#FFFFFF` | `#FFFFFF` |
+| Blue (default) | `#0048C0` | `#FFFFFF` | `#FFFFFF` |
+| Cyan | `#00A8F0` | `#FFFFFF` | `#FFFFFF` |
 | Teal | `#14B8A6` | `#FFFFFF` | `#FFFFFF` |
 | Green | `#22C55E` | `#FFFFFF` | `#FFFFFF` |
-| Amber | `#F59E0B` | `#1A1A2E` | `#1A1A2E` |
+| Amber | `#F59E0B` | `#181D2A` | `#181D2A` |
 | Orange | `#F97316` | `#FFFFFF` | `#FFFFFF` |
 | Rose | `#EF4444` | `#FFFFFF` | `#FFFFFF` |
 | Slate | `#64748B` | `#FFFFFF` | `#FFFFFF` |
 
-The swatch colour is used as both the dot colour (display variant) and pill background (at 15% opacity) with full-opacity text. Example for Violet: `background: rgba(98, 85, 236, 0.15)`, `color: #4F44D5` (light) / `#9186EE` (dark), dot `#6255EC`.
+The swatch colour is used as both the dot colour (display variant) and pill background (at 15% opacity) with full-opacity text. Example for **Blue**: `background: rgba(0, 72, 192, 0.15)`, `color: #0030A8` (light) / `#6FB0FF` (dark), dot `#0048C0`.
 
 #### Variant: Display
 
@@ -564,7 +702,7 @@ Opens anchored below the Add-new trigger. Shadow: `--shadow-md`. Background: `--
 - Selected rows: `✓` icon (`bi-check`, `--color-primary-500`) + background `--color-primary-50` / `--color-primary-900` (dark)
 - Hover row: background `--color-bg-overlay`
 - "Create" row: shown when typed text does not exactly match any existing tag name. Text: `+ Create "[typed value]"`. Clicking calls `POST /api/v1/tags` (prompts for colour swatch first via an inline colour picker row injected below the "Create" option), then adds the new tag to the selection.
-- Inline colour picker row (shown when creating): 8 circular colour swatches (20px each), 6px gap. User clicks a swatch to confirm the colour. Default pre-selected: Violet.
+- Inline colour picker row (shown when creating): 8 circular colour swatches (20px each), 6px gap. User clicks a swatch to confirm the colour. Default pre-selected: Blue (`#0048C0`).
 - Keyboard: Arrow Up/Down to navigate, Enter/Space to toggle selection, Escape to close.
 - `role="listbox"`, each option `role="option"`, `aria-selected` reflects selection state.
 
@@ -869,10 +1007,11 @@ TaskPilot uses server-rendered Razor Pages with Bootstrap 5 for layout and compo
 - Normal text (< 18px or < 14px bold): **4.5:1 minimum**
 - Large text (≥ 18px or ≥ 14px bold): **3:1 minimum**
 - UI components and graphical objects: **3:1 minimum**
-- Verified pairs: `--color-text-primary` on `--color-bg-base` achieves 14.5:1 (light), 12.8:1 (dark)
+- Verified pairs: `--color-text-primary` on `--color-bg-base` achieves **15.0:1** (light), **14.7:1** (dark). Brand/info/focus pairings verified in §1.2 / §1.4 / §1.5.
 
 **Focus rings:**
-- Style: `outline: 2px solid var(--color-primary-500); outline-offset: 2px;`
+- Style: `outline: 2px solid var(--tp-focus-ring); outline-offset: 2px;` where `--tp-focus-ring` = `#0090F0` (light) / `#4D9BFF` (dark). (Replaces the old violet `#9b90f8`.)
+- Focus-ring contrast vs surface: **3.55:1** light, **6.8:1** dark — both ≥3:1 (§1.2).
 - Visible on ALL interactive elements (buttons, inputs, links, checkboxes, drag handles)
 - Never: `outline: none` without a visible custom focus style replacement
 

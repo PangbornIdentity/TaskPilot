@@ -366,7 +366,7 @@
 9. Dropdown shows the search input and the user's existing tag list. User sees **"project-alpha"** in the list.
 10. User clicks **"project-alpha"** → row shows a `✓` check, pill `● project-alpha [×]` appears in the Tags field
 11. User types **"client-x"** in the dropdown search input → no existing tag matches → "Create 'client-x'" row appears at the bottom of the dropdown
-12. User clicks **"Create 'client-x'"** → inline colour picker row appears (8 swatches, Violet pre-selected)
+12. User clicks **"Create 'client-x'"** → inline colour picker row appears (8 swatches, Blue pre-selected)
 13. User clicks the **Blue** swatch → new tag "client-x" is created via `POST /api/v1/tags` with `color: Blue` → pill `● client-x [×]` appears in the Tags field alongside "project-alpha"
 14. User closes the dropdown (clicks outside or presses Escape)
 15. Tags field now shows: `● project-alpha [×]` `● client-x [×]` `┌ ─ + Add tag ─ ┐`
