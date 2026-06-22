@@ -9,6 +9,11 @@ param(
     [string]$Dst = (Join-Path $PSScriptRoot '..\src\deploy-linux.zip')
 )
 
+# Normalize away any '..' segments so the Substring-based relative paths below
+# line up with the resolved FullName of each file (Join-Path does not collapse '..').
+$Src = [System.IO.Path]::GetFullPath($Src)
+$Dst = [System.IO.Path]::GetFullPath($Dst)
+
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -36,12 +41,17 @@ Write-Host ("Size: " + ($info.Length / 1MB).ToString('F2') + " MB")
 $reader = [System.IO.Compression.ZipFile]::OpenRead($Dst)
 try {
     Write-Host ("Entries: " + $reader.Entries.Count)
+    # Completeness check: every source file must be present in the zip.
+    $srcCount = (Get-ChildItem -Path $Src -Recurse -File).Count
+    if ($reader.Entries.Count -ne $srcCount) {
+        throw "Entry count $($reader.Entries.Count) does not match source file count $srcCount"
+    }
     # Sanity-check the entry paths use forward slashes
     $bad = $reader.Entries | Where-Object { $_.FullName -match '\\' } | Select-Object -First 1
     if ($bad) {
         throw "Backslash entry detected: $($bad.FullName)"
     }
-    Write-Host "All entry paths use forward slashes."
+    Write-Host "All entry paths use forward slashes; entry count matches source ($srcCount files)."
 }
 finally {
     $reader.Dispose()
