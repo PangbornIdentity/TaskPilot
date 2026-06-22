@@ -7,6 +7,45 @@
 
 ---
 
+## 2026-06-21 — Blue rebrand: royal-blue + cyan palette, image logo, new tagline (v1.15.0)
+
+> Design | Fix | Docs
+
+### Design | Purple → Blue re-skin
+
+Full color rebrand derived from the TaskPilot paper-airplane app icon. The violet-indigo brand (`#6255EC`) is retired in favor of a royal-blue + cyan palette. The CSS `:root` token block is rewritten: `--tp-purple`/`--tp-purple-dark`/`--tp-purple-light` are removed and replaced by a first-class `--tp-primary` (`#0048C0`), `--tp-primary-hover` (`#0030A8`), `--tp-primary-active` (`#0030C0`), `--tp-primary-subtle` (`#E6F0FF`), and `--tp-focus-ring` (`#0090F0`). The sidebar background moves from a flat violet (`#1a1a2e`) to the signature vertical gradient (`#0030C0 → #0078D8 → #18A8F0`); the footer block is painted solid `#0030C0` so white nav text clears 4.5:1 at every point. The auth page background moves from the old violet-navy gradient (`#1a1a2e → #16213e → #0f3460`) to the new diagonal blue gradient (`#0018A8 → #0048C0 → #0078D8 → #18A8F0`). The active nav indicator changes from a flat purple fill to a translucent white wash (`rgba(255,255,255,.14)`) plus a 3 px solid white left accent bar. All focus outlines (`outline: 2px solid #9b90f8`) are replaced with `--tp-focus-ring`. All `rgba(98,85,236,…)` focus glows on inputs, quick-add, and search are recomputed to `rgba(0,144,240,…)`. The `--shadow-xl` dark violet tint (`rgba(98,85,236,.08)`) is updated to `rgba(0,144,240,.10)`. Version pill, primary/outline buttons, links, toasts/undo bar, badges, stat-card accents, sortable-link hover, changelog `major`/`version-major` accents, and modal header all point to the new primary. Status badge "In Progress" and the audit GET method color move to the `info` cyan family (`#0E6FB8` text / `#E6F6FE` bg). The low-priority badge and cancelled/not-started status badges shift to the blue-grey neutral ramp. Tag-edit-row and incomplete-tile backgrounds shift to the blue-primary subtle family.
+
+### Design | Brand icon image replaces glyph logo; tagline updated
+
+The `bi-check2-square` glyph that previously served as the logo in three spots is replaced by the actual TaskPilot app icon image (`/img/taskpilot-logo.png`, already present in `wwwroot/img/`). Sidebar brand: `<span class="tp-logo"><img …/></span>` (36 × 36 px, `border-radius:10px`, `box-shadow: 0 0 0 1px rgba(255,255,255,.12)`). Mobile header: `<img … class="tp-mobile-logo me-1" aria-hidden="true" />` alongside the text wordmark. Login/register screen: `<img … class="tp-auth-logo" />` (72 × 72 px, `border-radius:16px`). CSS rules on `.tp-logo` (purple background + glyph font), `.tp-auth-logo` (font-size/color), and the mobile inline `style="color:var(--tp-purple)"` are all removed; replacement image rules added (`.tp-logo img`, `.tp-mobile-logo`). The sign-in tagline changes from "Your personal command center" to "Your tasks, on autopilot".
+
+### Fix | `--tp-primary` token was latent/undefined
+
+`--tp-primary` was referenced by `.tp-step-number` in the original CSS but never defined in `:root`, causing it to silently inherit from nothing. It is now explicitly defined as `#0048C0` in `:root`.
+
+### Fix | Sign-in/register footer link was invisible (white-on-white)
+
+`.tp-auth-footer` (the "Don't have an account? Create one" line on the login screen and its counterpart on register) was styled `color: rgba(255,255,255,.7)` with a `color: white` link — colors meant for the dark auth *body*, but the footer actually renders **inside the white card**, making the text and link invisible. Footer text now uses `var(--tp-text-muted)` and the link uses `var(--tp-primary)`, so both read clearly on the white card.
+
+Files affected:
+- `src/wwwroot/css/app.css` — full `:root` token rewrite; all purple references migrated per §1.7 map
+- `src/Pages/Shared/_Layout.cshtml` — sidebar `.tp-logo` glyph → image; mobile `.tp-mobile-brand` glyph → image
+- `src/Pages/Shared/_LoginLayout.cshtml` — auth logo glyph → image; tagline copy updated
+- `src/Pages/Index.cshtml` — ApexCharts colors: single-series `#6255EC` → `#0048C0`; donut purple slot → cyan `#00A8F0`
+- `src/Pages/Health/Index.cshtml` — brand icon color `#7c3aed` → `#0048C0`
+- `src/Pages/Tasks/Index.cshtml` — tag swatch palette: "Purple `#7C3AED`" → "Blue `#0048C0`" (default); "Blue `#2563EB`" slot → "Cyan `#00A8F0`"
+- `src/Pages/Tasks/Detail.cshtml` — same tag swatch palette update as Tasks/Index
+- `src/Pages/Settings/Index.cshtml` — tag swatch palette updated in both create and edit forms
+- `src/TaskPilot.csproj` — version bumped 1.14.0 → 1.15.0
+- `src/app-changelog.json` — v1.15.0 user-facing release notes added
+- `CHANGELOG.md` — this entry
+- `DESIGN-SYSTEM.md` — updated by ux-designer (§1.1–§1.7, §5, §8, §9.1, §11) with new blue token set and OLD→NEW migration map
+- `WIREFRAMES.md` — updated by ux-designer (sidebar/auth gradient references)
+- `USER-FLOWS.md` — updated by ux-designer (brand/tagline references)
+- `src/wwwroot/img/taskpilot-logo.png` — existing asset (no change; confirmed present)
+
+---
+
 ## 2026-06-14 — Retire vendored traceability engine (keep requirement records as data)
 
 > Docs

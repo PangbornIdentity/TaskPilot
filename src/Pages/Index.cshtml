@@ -241,7 +241,7 @@
             chart: { type: 'bar', height: 200, toolbar: { show: false } },
             series: [{ name: 'Completed', data: weeklyData }],
             xaxis: { categories: weeklyLabels },
-            colors: ['#6255EC'],
+            colors: ['#0048C0'],
             plotOptions: { bar: { borderRadius: 4 } },
             dataLabels: { enabled: false }
         }).render();
@@ -254,7 +254,7 @@
             chart: { type: 'donut', height: 200 },
             series: priorityData,
             labels: priorityLabels,
-            colors: ['#ef4444','#f59e0b','#6255EC','#10b981'],
+            colors: ['#ef4444','#f59e0b','#00A8F0','#10b981'],
             legend: { position: 'bottom' },
             dataLabels: { enabled: false }
         }).render();
@@ -268,7 +268,7 @@
             plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
             series: [{ name: 'Tasks', data: typeData }],
             xaxis: { categories: typeLabels },
-            colors: ['#6255EC'],
+            colors: ['#0048C0'],
             dataLabels: { enabled: false }
         }).render();
     } else {
@@ -281,7 +281,7 @@
             plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
             series: [{ name: 'Tasks', data: topTagData }],
             xaxis: { categories: topTagLabels },
-            colors: ['#6255EC'],
+            colors: ['#0048C0'],
             dataLabels: { enabled: false }
         }).render();
     }
