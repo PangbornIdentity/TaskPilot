@@ -418,10 +418,17 @@ public class McpOAuthTests : IClassFixture<OAuthWebAppFactory>
             "Missing 'token_endpoint'");
         Assert.Contains("/connect/token", tokenEp.GetString());
 
-        // PKCE S256 required
+        // PKCE must be S256-ONLY — 'plain' must NOT be advertised.
         Assert.True(body.TryGetProperty("code_challenge_methods_supported", out var methods),
             "Missing 'code_challenge_methods_supported'");
-        Assert.Contains(methods.EnumerateArray(), m => m.GetString() == "S256");
+        var challengeMethods = methods.EnumerateArray().Select(m => m.GetString()).ToList();
+        Assert.Contains("S256", challengeMethods);
+        Assert.DoesNotContain("plain", challengeMethods);
+
+        // registration_endpoint must be advertised (ChatGPT discovers the DCR endpoint here).
+        Assert.True(body.TryGetProperty("registration_endpoint", out var regEp),
+            "Missing 'registration_endpoint' — ChatGPT cannot self-register without it.");
+        Assert.Contains("/connect/register", regEp.GetString());
 
         // authorization_code grant required
         Assert.True(body.TryGetProperty("grant_types_supported", out var grants),

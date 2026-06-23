@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
+using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
 using Serilog;
 using TaskPilot.Extensions;
@@ -118,6 +119,9 @@ public static class ServiceCollectionExtensions
             return services;
         }
 
+        // Build the absolute DCR endpoint URI once; injected into each discovery response.
+        var registrationEndpoint = $"{baseUrl!.TrimEnd('/')}/connect/register";
+
         services.AddOpenIddict()
 
             // ── Authorization Server ────────────────────────────────────────────
@@ -130,21 +134,37 @@ public static class ServiceCollectionExtensions
                        .SetRevocationEndpointUris("/connect/revocation")
                        .SetEndSessionEndpointUris("/connect/logout");
 
-                // Dynamic Client Registration (RFC 7591):
-                // OpenIddict 7.x does not expose a built-in DCR endpoint builder.
-                // New clients are registered at startup (or via IOpenIddictApplicationManager
-                // in a management API) and the registration_endpoint is advertised manually in
-                // GET /.well-known/oauth-authorization-server via the OpenIddict metadata document.
-                // ChatGPT's connector will POST to /connect/register; a lightweight
-                // DcrController handles that (see Controllers/DcrController.cs).
-
                 // Allowed grant types: authorization_code + refresh_token only.
                 // client_credentials and implicit are rejected.
                 options.AllowAuthorizationCodeFlow()
                        .AllowRefreshTokenFlow();
 
-                // PKCE S256 mandatory; plain is rejected.
+                // PKCE: S256 mandatory; plain is rejected.
+                // RequireProofKeyForCodeExchange() enforces PKCE on every authorization request.
                 options.RequireProofKeyForCodeExchange();
+
+                // Remove "plain" from the server options' code challenge methods set.
+                // OpenIddict's AttachCodeChallengeMethods discovery handler reads from
+                // OpenIddictServerOptions.CodeChallengeMethods, so removing it here means
+                // it will never appear in code_challenge_methods_supported (RFC 7636 §4.2).
+                options.Configure(serverOptions =>
+                    serverOptions.CodeChallengeMethods.Remove(OpenIddictConstants.CodeChallengeMethods.Plain));
+
+                // Advertise registration_endpoint in the AS discovery document (RFC 8414 §2)
+                // so ChatGPT's connector can self-register via RFC 7591 Dynamic Client
+                // Registration (POST /connect/register). OpenIddict 7.x has no built-in
+                // DCR endpoint builder, so we inject the URI via an inline event handler.
+                // SetOrder(100_000) ensures it runs after all built-in discovery handlers.
+                options.AddEventHandler<OpenIddictServerEvents.HandleConfigurationRequestContext>(builder =>
+                    builder
+                        .UseInlineHandler(context =>
+                        {
+                            // Advertise the DCR endpoint (RFC 8414 §2 / RFC 7591 §3.3).
+                            context.Metadata["registration_endpoint"] = registrationEndpoint;
+
+                            return ValueTask.CompletedTask;
+                        })
+                        .SetOrder(100_000));
 
                 // Scopes + resource
                 options.RegisterScopes(AuthConstants.McpScope);

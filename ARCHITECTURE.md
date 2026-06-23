@@ -1024,7 +1024,7 @@ custom headers) while leaving all existing X-Api-Key callers byte-for-byte uncha
 | Endpoint | RFC | Notes |
 |----------|-----|-------|
 | `GET /.well-known/oauth-protected-resource` | RFC 9728 | Protected Resource Metadata; advertises AS issuer + mcp scope |
-| `GET /.well-known/oauth-authorization-server` | RFC 8414 | AS discovery; emitted automatically by OpenIddict |
+| `GET /.well-known/oauth-authorization-server` | RFC 8414 | AS discovery; emitted automatically by OpenIddict. An inline `HandleConfigurationRequestContext` event handler injects `registration_endpoint` (= `<baseUrl>/connect/register`) into the metadata so ChatGPT can locate the DCR endpoint. `code_challenge_methods_supported` is `["S256"]` only (plain removed via `OpenIddictServerOptions.CodeChallengeMethods`). |
 | `POST /connect/register` | RFC 7591 | Dynamic Client Registration; handled by `DcrController`; restricts to authorization_code + PKCE public clients + mcp scope + allowed redirect URI hosts |
 | `GET /connect/authorize` | OAuth 2.1 | Authorization endpoint passthrough to `Pages/Connect/Authorize.cshtml`; requires cookie auth (redirects to /auth/login if not signed in) |
 | `POST /connect/token` | OAuth 2.1 | Token endpoint passthrough to `Pages/Connect/Token.cshtml` |
@@ -1039,9 +1039,9 @@ affects Razor Pages; these are controller/endpoint-routed or OpenIddict-internal
 #### OAuth flow for ChatGPT
 
 1. ChatGPT reads `/.well-known/oauth-protected-resource` → finds AS at issuer URL
-2. ChatGPT reads `/.well-known/oauth-authorization-server` → gets authorize/token/registration endpoints
+2. ChatGPT reads `/.well-known/oauth-authorization-server` → gets authorize/token endpoints; `registration_endpoint` field points to `/connect/register`
 3. ChatGPT POSTs to `/connect/register` (DCR) → receives `client_id` (public, no secret)
-4. ChatGPT redirects browser to `/connect/authorize` (auth-code + PKCE S256)
+4. ChatGPT redirects browser to `/connect/authorize` (auth-code + PKCE S256 — only S256 is advertised)
 5. Unauthenticated user → redirect to `/auth/login` → cookie login → back to `/connect/authorize`
 6. Consent page shown (client name + mcp scope); user clicks Allow
 7. Auth code returned to ChatGPT callback URI
