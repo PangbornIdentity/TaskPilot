@@ -9,7 +9,33 @@
 
 ## 2026-06-22 — OAuth 2.1 Authorization Server + ChatGPT MCP connectivity (v1.16.0)
 
-> Feature | Security | Architecture | Docs | Config
+> Feature | Security | Architecture | Fix | Docs | Config
+
+### Fix | AS discovery: advertise `registration_endpoint`; enforce S256-only PKCE (2026-06-23)
+
+Two post-ship defects fixed in `AddTaskPilotOAuth` (`Extensions/ServiceCollectionExtensions.cs`) — no
+version bump (still v1.16.0, already shipped):
+
+1. **`registration_endpoint` missing from `/.well-known/oauth-authorization-server`.**
+   The v1.16.0 code had a comment claiming this was "advertised manually" but no code implemented it.
+   Fixed by registering an inline OpenIddict server event handler for
+   `HandleConfigurationRequestContext` (via `options.AddEventHandler<...>`) that injects
+   `context.Metadata["registration_endpoint"] = "<baseUrl>/connect/register"`.
+   The absolute URI is built from the same config-driven `baseUrl` already used for `SetIssuer`.
+   ChatGPT reads this field from the discovery document to locate the DCR endpoint — without it,
+   ChatGPT cannot self-register and the entire OAuth flow fails.
+
+2. **`code_challenge_methods_supported` advertised `["plain", "S256"]` instead of `["S256"]` only.**
+   The design requires S256-only PKCE. `plain` appeared because OpenIddict adds both methods by default.
+   Fixed by calling `options.Configure(serverOptions => serverOptions.CodeChallengeMethods.Remove(Plain))`
+   on the `OpenIddictServerOptions` directly. This causes OpenIddict's built-in
+   `AttachCodeChallengeMethods` discovery handler to copy only `S256` into the context, so the
+   published document shows `code_challenge_methods_supported: ["S256"]`. `RequireProofKeyForCodeExchange()`
+   (already present) continues to reject any authorize request that omits the `code_challenge` parameter.
+
+Files modified:
+- `src/Extensions/ServiceCollectionExtensions.cs` — inline event handler + CodeChallengeMethods.Remove
+- `ARCHITECTURE.md` — §4.10 updated (registration_endpoint advertised; S256-only PKCE noted)
 
 ### Feature | OAuth 2.1 AS for ChatGPT MCP connector
 
