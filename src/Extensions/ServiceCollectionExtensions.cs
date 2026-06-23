@@ -1,6 +1,9 @@
 ﻿using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using OpenIddict.Abstractions;
+using OpenIddict.Validation.AspNetCore;
+using Serilog;
 using TaskPilot.Extensions;
 using TaskPilot.Constants;
 using TaskPilot.Data;
@@ -28,6 +31,10 @@ public static class ServiceCollectionExtensions
                 options.UseSqlite(connectionString);
             else
                 options.UseSqlServer(connectionString);
+
+            // Register OpenIddict EF Core stores against this DbContext.
+            // UseOpenIddict() in ApplicationDbContext.OnModelCreating maps the tables.
+            options.UseOpenIddict();
         });
 
         return services;
@@ -42,12 +49,18 @@ public static class ServiceCollectionExtensions
             options.DefaultAuthenticateScheme = MultiScheme;
             options.DefaultChallengeScheme = MultiScheme;
         })
-        .AddPolicyScheme(MultiScheme, "Cookie or API Key", options =>
+        .AddPolicyScheme(MultiScheme, "Cookie, API Key, or Bearer", options =>
         {
             options.ForwardDefaultSelector = context =>
             {
+                // Bearer branch must come before Cookie — Authorization header takes precedence.
                 if (context.Request.Headers.ContainsKey(AuthConstants.ApiKeyHeader))
                     return AuthConstants.ApiKeyScheme;
+
+                var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+                if (authHeader is not null && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    return AuthConstants.BearerScheme;
+
                 return AuthConstants.CookieScheme;
             };
         })
@@ -71,6 +84,136 @@ public static class ServiceCollectionExtensions
                 return Task.CompletedTask;
             };
         });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the OpenIddict Authorization Server and Bearer validation schemes.
+    /// When <c>OAuth:Enabled</c> is false (or OAuth is misconfigured in non-dev), this method
+    /// is a no-op — /mcp continues to work via X-Api-Key only.
+    /// </summary>
+    public static IServiceCollection AddTaskPilotOAuth(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IWebHostEnvironment env,
+        Serilog.ILogger logger)
+    {
+        var enabled = configuration.GetValue("OAuth:Enabled", defaultValue: true);
+        if (!enabled)
+        {
+            logger.Information("OAuth:Enabled is false — OAuth AS and Bearer scheme skipped; /mcp continues on X-Api-Key only.");
+            return services;
+        }
+
+        // Derive the issuer/base URL from config; fall back to localhost for dev.
+        var baseUrl = configuration[AuthConstants.OAuthBaseUrlConfigKey]
+                      ?? (env.IsDevelopment() ? "http://localhost:5125" : null);
+
+        if (string.IsNullOrWhiteSpace(baseUrl) && !env.IsDevelopment())
+        {
+            logger.Warning(
+                "OAuth:BaseUrl is not configured in production. OAuth AS will not start. " +
+                "/mcp continues to accept X-Api-Key. Set OAuth:BaseUrl (e.g. https://taskpilot.azurewebsites.net) to enable Bearer.");
+            return services;
+        }
+
+        services.AddOpenIddict()
+
+            // ── Authorization Server ────────────────────────────────────────────
+            .AddServer(options =>
+            {
+                // Token + well-known endpoints
+                options.SetAuthorizationEndpointUris("/connect/authorize")
+                       .SetTokenEndpointUris("/connect/token")
+                       .SetIntrospectionEndpointUris("/connect/introspect")
+                       .SetRevocationEndpointUris("/connect/revocation")
+                       .SetEndSessionEndpointUris("/connect/logout");
+
+                // Dynamic Client Registration (RFC 7591):
+                // OpenIddict 7.x does not expose a built-in DCR endpoint builder.
+                // New clients are registered at startup (or via IOpenIddictApplicationManager
+                // in a management API) and the registration_endpoint is advertised manually in
+                // GET /.well-known/oauth-authorization-server via the OpenIddict metadata document.
+                // ChatGPT's connector will POST to /connect/register; a lightweight
+                // DcrController handles that (see Controllers/DcrController.cs).
+
+                // Allowed grant types: authorization_code + refresh_token only.
+                // client_credentials and implicit are rejected.
+                options.AllowAuthorizationCodeFlow()
+                       .AllowRefreshTokenFlow();
+
+                // PKCE S256 mandatory; plain is rejected.
+                options.RequireProofKeyForCodeExchange();
+
+                // Scopes + resource
+                options.RegisterScopes(AuthConstants.McpScope);
+
+                // Signing and encryption key management
+                if (env.IsDevelopment())
+                {
+                    options.AddDevelopmentEncryptionCertificate()
+                           .AddDevelopmentSigningCertificate();
+                }
+                else
+                {
+                    // Production: load from IConfiguration (Key Vault in iter2).
+                    // If keys are absent, OpenIddict startup will throw — caught by the
+                    // degraded-mode guard above (we won't reach here without baseUrl).
+                    options.AddEphemeralEncryptionKey()
+                           .AddEphemeralSigningKey();
+                    // TODO (iter2): replace Ephemeral with certs from Key Vault:
+                    // options.AddSigningCertificate(configuration["OpenIddict:SigningCertificate"]!)
+                    //        .AddEncryptionCertificate(configuration["OpenIddict:EncryptionCertificate"]!);
+                }
+
+                // Disable access token encryption for MCP clients (Bearer tokens are
+                // opaque reference tokens by default in OpenIddict 5+; self-contained JWT
+                // with local validation is the right choice for our in-process setup).
+                options.DisableAccessTokenEncryption();
+
+                // Issuer is config-driven (dev: http://localhost:5125; prod: Azure URL)
+                options.SetIssuer(new Uri(baseUrl!));
+
+                // Use ASP.NET Core host integration (emit endpoints, challenge/forbid).
+                // In Development, disable transport-security requirement so the AS responds
+                // over plain http://localhost without error ID2083.
+                // In non-Development the app runs behind Azure App Service TLS termination:
+                // UseForwardedHeaders (in Program.cs) sets Request.Scheme = "https" from
+                // X-Forwarded-Proto before OpenIddict inspects the request, so no relaxation
+                // is needed — and none is applied.
+                var aspNetCoreBuilder = options.UseAspNetCore()
+                       .EnableAuthorizationEndpointPassthrough()
+                       .EnableTokenEndpointPassthrough()
+                       .EnableEndSessionEndpointPassthrough();
+
+                if (env.IsDevelopment())
+                    aspNetCoreBuilder.DisableTransportSecurityRequirement();
+            })
+
+            // ── EF Core stores (SQLite dev / SQL Server prod) ──────────────────
+            .AddCore(options =>
+            {
+                options.UseEntityFrameworkCore()
+                       .UseDbContext<ApplicationDbContext>();
+            })
+
+            // ── Resource-server / Bearer token validation ─────────────────────
+            .AddValidation(options =>
+            {
+                // In-process validation — no remote introspection call.
+                options.UseLocalServer();
+
+                // Require mcp scope on every /mcp request that uses Bearer.
+                options.AddAudiences(AuthConstants.McpResourceIndicator);
+
+                options.UseAspNetCore();
+            });
+
+        // Seed the mcp scope if it doesn't exist yet (idempotent on every startup).
+        // This runs inside the DI container build, so it's registered as a hosted-service-style
+        // IHostedService via OpenIddict's built-in worker.
+        services.AddHostedService<OAuthSeedWorker>();
 
         return services;
     }

@@ -125,7 +125,7 @@ Full rules in [REQUIREMENTS.md](./REQUIREMENTS.md#constraints). Key rules:
 7. **DTOs and enums in `src/Models/`** — namespaced under `TaskPilot.Models.*`.
 8. **No rate limiting in iteration 1** — document insertion point only.
 9. **`net10.0`** in all `.csproj` files.
-10. **`LastModifiedBy`**: `"user:{username}"` (web UI) or `"api:{apiKeyName}"` (API).
+10. **`LastModifiedBy`**: `"user:{username}"` (web UI) or `"api:{apiKeyName}"` (X-Api-Key REST/MCP) or `"oauth:{subject}"` (OAuth 2.1 Bearer MCP — v1.16.0+, subject = IdentityUser.Id).
 
 ---
 

@@ -1098,6 +1098,79 @@ _Implementation note for fullstack-dev: the recommended injection point is a tes
 
 ---
 
+## §10 OAuth 2.1 / MCP Bearer Integration Tests
+
+These tests exercise the v1.16.0 additive OAuth feature: OpenIddict Authorization Server, RFC 8414 discovery, RFC 7591 Dynamic Client Registration, PKCE S256 flows, Bearer token auth on `/mcp`, and coexistence with X-Api-Key.
+
+All tests live in `tests/TaskPilot.Tests.Integration/OAuth/McpOAuthTests.cs` and use the dedicated `OAuthWebAppFactory` (which calls `modelBuilder.UseOpenIddict()` and disables the HTTPS transport security requirement for in-process testing).
+
+### §10.1 — RFC 8414 Discovery
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| MCP-OAUTH-001 | `Discovery_OAuthAuthorizationServer_Returns200` | GET `/.well-known/oauth-authorization-server` (no auth) | 200, body contains `issuer`, `authorization_endpoint`, `token_endpoint` |
+| MCP-OAUTH-002 | `Discovery_ProtectedResourceMetadata_Returns200` | GET `/.well-known/oauth-protected-resource` (no auth) | 200, body contains `resource`, `authorization_servers`, `scopes_supported` |
+
+### §10.2 — RFC 7591 Dynamic Client Registration
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| MCP-OAUTH-010 | `Dcr_ValidRequest_Returns201WithClientId` | POST `/connect/register` with `redirect_uris=["http://localhost/callback"]`, `grant_types=["authorization_code"]`, `scope="mcp"` | 201, body has `client_id`, `token_endpoint_auth_method=none` |
+| MCP-OAUTH-011 | `Dcr_ForbiddenGrantType_Returns400` | POST `/connect/register` with `grant_types=["client_credentials"]` | 400 with `error=invalid_client_metadata` |
+| MCP-OAUTH-012 | `Dcr_ForbiddenScope_Returns400` | POST `/connect/register` with `scope="openid"` | 400 with `error=invalid_client_metadata` |
+| MCP-OAUTH-013 | `Dcr_DisallowedRedirectUri_Returns400` | POST `/connect/register` with `redirect_uris=["https://evil.example.com/cb"]` | 400 with `error=invalid_redirect_uri` |
+| MCP-OAUTH-014 | `Dcr_NoRedirectUris_Returns400` | POST `/connect/register` with empty `redirect_uris=[]` | 400 with `error=invalid_client_metadata` |
+
+### §10.3 — 401 Rejection Tests
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| MCP-OAUTH-020 | `McpEndpoint_NoAuth_Returns401` | POST `/mcp` with `Accept: application/json, text/event-stream`, no auth headers | 401 |
+| MCP-OAUTH-021 | `McpEndpoint_InvalidBearerToken_Returns401` | POST `/mcp` with `Authorization: Bearer invalid_token_value` | 401 |
+| MCP-OAUTH-022 | `McpEndpoint_MalformedAuthHeader_Returns401` | POST `/mcp` with `Authorization: NotBearer xxxxx` | 401 |
+
+### §10.4 — X-Api-Key Regression
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| MCP-OAUTH-030 | `McpEndpoint_ApiKey_StillWorks_AfterOAuthAdded` | Create API key; POST `/mcp` initialize with `X-Api-Key` header | 200, MCP initialize response contains `serverInfo` |
+
+### §10.5 — Bearer Token Auth on /mcp
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| MCP-OAUTH-040 | `McpEndpoint_BearerToken_CreateTask_Succeeds` | Obtain Bearer via full PKCE flow; create MCP session; call `create_task` tool | 200, response contains task `id` |
+| MCP-OAUTH-041 | `McpEndpoint_BearerToken_ListTasks_Succeeds` | Obtain Bearer; call `list_tasks` tool via MCP session | 200 |
+| MCP-OAUTH-042 | `McpEndpoint_BearerToken_GetTaskById_Succeeds` | Create task via MCP; call `get_task_by_id` tool | 200, response contains correct task title |
+
+### §10.6 — Data Isolation
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| MCP-OAUTH-050 | `BearerToken_DataIsolation_UserSeesOwnTasksOnly` | User A obtains Bearer, creates task; User B obtains Bearer, lists tasks | User B's list does not contain User A's task title |
+
+### §10.7 — LastModifiedBy Attribution
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| MCP-OAUTH-060 | `BearerToken_LastModifiedBy_SetToOauthSubject` | Obtain Bearer; create task via MCP; fetch task via REST API | `lastModifiedBy` starts with `"oauth:"` |
+| MCP-OAUTH-061 | `ApiKey_LastModifiedBy_SetToApiKeyName` | Create API key named `TestKey`; create task via MCP; fetch task | `lastModifiedBy` equals `"api:TestKey"` |
+
+### §10.8 — End-to-End PKCE Flow
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| MCP-OAUTH-070 | `EndToEnd_PkceFlow_TokenUsableOnMcp` | Full PKCE: DCR → login → GET /connect/authorize → POST consent → exchange code → use Bearer | 200, `get_stats` returns JSON with `TotalActive` field |
+| MCP-OAUTH-071 | `EndToEnd_BearerToken_IssuedToCorrectUser_CreatedTaskBelongsToThatUser` | User A: PKCE → create task; User B: PKCE → list tasks | User B's list does not contain User A's task |
+
+### §10.9 — Both Auth Schemes Side-by-Side
+
+| # | Test Name | Steps | Expected |
+|---|-----------|-------|----------|
+| MCP-OAUTH-080 | `BothSchemes_ApiKeyAndBearer_WorkSimultaneously` | Two clients in parallel: one with `X-Api-Key`, one with `Bearer` | Both return 200 independently |
+
+---
+
 ## Coverage Targets
 
 | Layer | Target | How to measure |

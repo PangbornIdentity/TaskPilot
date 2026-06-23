@@ -5,9 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>ee82c2a5-cc72-4723-bab8-db7ca8bc4248</UserSecretsId>
-    <Version>1.15.0</Version>
-    <AssemblyVersion>1.15.0.0</AssemblyVersion>
-    <FileVersion>1.15.0.0</FileVersion>
+    <Version>1.16.0</Version>
+    <AssemblyVersion>1.16.0.0</AssemblyVersion>
+    <FileVersion>1.16.0.0</FileVersion>
   </PropertyGroup>
 
   <!-- Stamp git metadata into assembly attributes at build time -->
@@ -51,6 +51,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="OpenIddict.AspNetCore" Version="7.5.0" />
+    <PackageReference Include="OpenIddict.EntityFrameworkCore" Version="7.5.0" />
+    <PackageReference Include="OpenIddict.Validation.AspNetCore" Version="7.5.0" />
     <PackageReference Include="ModelContextProtocol" Version="1.2.0" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />

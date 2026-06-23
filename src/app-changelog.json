@@ -1,6 +1,18 @@
 {
   "versions": [
     {
+      "version": "1.16.0",
+      "releaseDate": "2026-06-22",
+      "versionType": "minor",
+      "summary": "Connect TaskPilot to ChatGPT and use your tasks through ChatGPT's MCP connector.",
+      "changes": [
+        { "type": "Feature", "description": "ChatGPT can now connect to TaskPilot via its custom MCP connector. Add https://taskpilot.azurewebsites.net/mcp as a connector, sign in with your TaskPilot account, and ChatGPT can read, create, and update your tasks just like Claude can." },
+        { "type": "Feature", "description": "Full OAuth 2.1 sign-in flow: ChatGPT redirects you to your TaskPilot account, you approve access once, and subsequent connections skip the approval screen." },
+        { "type": "Feature", "description": "Claude Desktop, Claude.ai Projects, and Codex CLI are completely unaffected — they continue to use your X-Api-Key exactly as before. Both methods work side by side." },
+        { "type": "Security", "description": "OAuth tokens are validated in-process — no credentials leave the server. ChatGPT receives a short-lived access token; your API key and password are never shared." }
+      ]
+    },
+    {
       "version": "1.15.0",
       "releaseDate": "2026-06-21",
       "versionType": "minor",

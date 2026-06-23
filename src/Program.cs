@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
@@ -27,7 +28,7 @@ try
         .WriteTo.Console()
         .WriteTo.File("logs/taskpilot-.log", rollingInterval: RollingInterval.Day));
 
-    // Database
+    // Database (includes UseOpenIddict() on DbContext options)
     builder.Services.AddTaskPilotDatabase(builder.Configuration, builder.Environment);
 
     // Identity
@@ -46,12 +47,20 @@ try
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-    // Authentication (cookie + API key)
+    // Authentication (cookie + API key + Bearer)
     builder.Services.AddTaskPilotAuthentication();
+
+    // OAuth 2.1 AS + Bearer validation (additive — skipped if OAuth:Enabled=false or misconfigured)
+    builder.Services.AddTaskPilotOAuth(
+        builder.Configuration,
+        builder.Environment,
+        Log.Logger);
+
     builder.Services.AddAuthorization(options =>
     {
+        // McpApiKey: satisfied by X-Api-Key OR OAuth Bearer — both schemes must be listed.
         options.AddPolicy("McpApiKey", policy =>
-            policy.AddAuthenticationSchemes(AuthConstants.ApiKeyScheme)
+            policy.AddAuthenticationSchemes(AuthConstants.ApiKeyScheme, AuthConstants.BearerScheme)
                   .RequireAuthenticatedUser());
     });
 
@@ -72,9 +81,14 @@ try
         options.Conventions.AllowAnonymousToPage("/Auth/Register");
         options.Conventions.AllowAnonymousToPage("/Error");
         options.Conventions.AllowAnonymousToPage("/Health/Index");
+        // OAuth consent page: requires cookie auth (handled by [Authorize(AuthenticationSchemes=CookieScheme)] on the model)
+        // but must NOT be blocked by the global AuthorizeFolder. The page model's own [Authorize]
+        // attribute takes over and redirects to /auth/login when the user is not signed in.
+        options.Conventions.AllowAnonymousToPage("/Connect/Authorize");
+        options.Conventions.AllowAnonymousToPage("/Connect/Token");
     });
 
-    // CORS (for Blazor WASM in dev)
+    // CORS (for dev clients)
     builder.Services.AddCors(options =>
         options.AddDefaultPolicy(policy =>
             policy.SetIsOriginAllowed(origin =>
@@ -95,7 +109,9 @@ try
 
     // Startup schema management:
     // - Development (SQLite): EnsureCreatedAsync — fast, no migration history needed locally
-    // - Production (Azure SQL): MigrateAsync — applies pending SQL Server migrations
+    //   NOTE: After adding the AddOpenIddict EF migration, local taskpilot.db must be deleted
+    //   and recreated (EnsureCreatedAsync does not apply migrations to an existing file).
+    // - Production (Azure SQL): MigrateAsync — applies pending SQL Server migrations (incl. AddOpenIddict)
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -122,6 +138,27 @@ try
         }
     }
 
+    // ── Forwarded Headers (must be FIRST in the pipeline) ────────────────────
+    // Azure App Service terminates TLS at the edge and forwards requests to the
+    // app as HTTP with X-Forwarded-Proto: https and X-Forwarded-For set.
+    // Without this middleware, Request.Scheme is "http" in production and
+    // OpenIddict's transport-security check returns 400 on every OAuth endpoint.
+    //
+    // KnownNetworks and KnownProxies are cleared because Azure App Service does
+    // not expose a fixed proxy IP — the platform strips client-spoofed forwarded
+    // headers at the edge before they reach the app, so trusting any forwarded
+    // proto header is safe in this deployment topology.
+    // (See Microsoft docs: "Configure ASP.NET Core to work with proxy servers and
+    //  load balancers" → Azure App Service guidance.)
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+        // Azure App Service strips client-spoofed headers at the edge, so
+        // we can trust any proxy without pinning a known IP.
+        KnownIPNetworks = { },
+        KnownProxies = { }
+    });
+
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
@@ -134,6 +171,10 @@ try
     app.UseCors();
 
     app.UseAuthentication();
+
+    // OpenIddict uses ASP.NET Core endpoint routing (registered via UseAspNetCore() in AddServer).
+    // It integrates automatically once UseAuthentication + UseAuthorization are in place.
+    // /connect/* and /.well-known/oauth-authorization-server are registered as endpoint routes.
     app.UseAuthorization();
 
     app.UseApiAudit();
@@ -142,6 +183,10 @@ try
 
     app.MapControllers();
     app.MapRazorPages();
+
+    // /mcp: accepts X-Api-Key (ApiKey scheme) OR OAuth Bearer (BearerScheme).
+    // The McpApiKey policy lists both schemes — per-request the ForwardDefaultSelector
+    // in AddTaskPilotAuthentication picks the right one automatically.
     app.MapMcp("/mcp").RequireAuthorization("McpApiKey");
 
     await app.RunAsync();
