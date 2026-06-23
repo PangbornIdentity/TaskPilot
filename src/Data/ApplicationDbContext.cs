@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using TaskPilot.Entities;
 
@@ -18,6 +18,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        // Register OpenIddict EF Core entity sets (applications, authorizations, scopes, tokens).
+        // OpenIddict manages these tables; they are created by the AddOpenIddict EF migration.
+        builder.UseOpenIddict();
+
         builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
     }
 

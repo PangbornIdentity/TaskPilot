@@ -7,6 +7,127 @@
 
 ---
 
+## 2026-06-22 — OAuth 2.1 Authorization Server + ChatGPT MCP connectivity (v1.16.0)
+
+> Feature | Security | Architecture | Docs | Config
+
+### Feature | OAuth 2.1 AS for ChatGPT MCP connector
+
+Added an in-process OpenIddict 7.5.0 Authorization Server so that ChatGPT's custom MCP connector (which
+cannot send `X-Api-Key` headers) can authenticate via OAuth 2.1 Bearer. The implementation is strictly
+additive — all existing X-Api-Key callers (Claude Desktop, Claude.ai Projects, Codex CLI) continue
+byte-for-byte without any change.
+
+**How it works:**
+- OpenIddict emits RFC 8414 AS discovery at `GET /.well-known/oauth-authorization-server` automatically.
+- A new `OAuthMetadataController` emits RFC 9728 Protected Resource Metadata at
+  `GET /.well-known/oauth-protected-resource`.
+- A new `DcrController` handles RFC 7591 Dynamic Client Registration at `POST /connect/register`.
+  Only public clients with `authorization_code` grant, `mcp` scope, and redirect URIs matching ChatGPT
+  or localhost hosts are accepted.
+- `Pages/Connect/Authorize.cshtml(.cs)` handles the authorization endpoint passthrough (consent UI).
+  Unauthenticated users are redirected to `/auth/login` first via `[Authorize(AuthenticationSchemes=Cookie)]`.
+  A permanent `OpenIddictAuthorization` row is written on first consent so subsequent connects skip the
+  consent screen.
+- `Pages/Connect/Token.cshtml(.cs)` handles the token endpoint passthrough. Issues access + refresh
+  tokens; re-adds `ClaimTypes.NameIdentifier` so `UserId` resolves identically to the API-key path.
+
+**ForwardDefaultSelector extended** (`AddTaskPilotAuthentication`): Bearer branch inserted between X-Api-Key
+and Cookie — no existing branch altered.
+
+**McpApiKey policy** now lists both `ApiKeyScheme` and `BearerScheme` (formerly only ApiKeyScheme).
+
+**ModifiedBy** extended in `TaskPilotMcpTools`: Bearer callers write `"oauth:{subject}"` (subject = IdentityUser.Id)
+instead of `"api:{keyName}"`.
+
+**OAuthSeedWorker** (IHostedService) seeds the `mcp` scope into OpenIddict on every startup (idempotent).
+
+**Kill-switch:** `OAuth:Enabled = false` skips all AS + Bearer registration; `/mcp` falls back to X-Api-Key only.
+
+### Architecture | OpenIddict packages + EF stores + migration
+
+Three packages added (all 7.5.0, explicitly net10.0 TFM):
+- `OpenIddict.AspNetCore`
+- `OpenIddict.EntityFrameworkCore`
+- `OpenIddict.Validation.AspNetCore`
+
+`ApplicationDbContext.OnModelCreating` now calls `builder.UseOpenIddict()`.
+`AddTaskPilotDatabase` now calls `options.UseOpenIddict()` on DbContext options.
+
+EF migration `AddOpenIddict` (`src/Migrations/20260622223310_AddOpenIddict.cs`) creates four tables:
+`OpenIddictApplications`, `OpenIddictScopes`, `OpenIddictAuthorizations`, `OpenIddictTokens`.
+Migration uses SQL Server-targeted types (`nvarchar`, `datetime2`) via the existing `DesignTimeDbContextFactory`.
+
+**Local dev note:** After pulling this release, the local `src/taskpilot.db` SQLite file must be deleted
+and recreated by restarting the app. `EnsureCreatedAsync` creates the new OpenIddict tables from the model
+automatically but cannot alter an existing file.
+
+### Config | New configuration keys
+
+- `OAuth:Enabled` (bool, default `true`) — kill-switch
+- `OAuth:BaseUrl` (string) — issuer/resource base URL; dev default `http://localhost:5125`
+- `OpenIddict:SigningCertificate` / `OpenIddict:EncryptionCertificate` — prod Key Vault (iter 2)
+
+### Fix | Transport-security defect: forwarded headers + dev-only relaxation
+
+Identified and fixed a critical prod defect: Azure App Service terminates TLS at the edge and forwards
+HTTP to the app with `X-Forwarded-Proto: https`. Without `UseForwardedHeaders`, `Request.Scheme` is
+`"http"` in production, causing OpenIddict to return 400 on every OAuth endpoint (authorize, token,
+discovery) — ChatGPT cannot connect to the live site.
+
+Two changes:
+
+1. **`UseForwardedHeaders` in `Program.cs`** (placed as the very first middleware after `app.Build()`,
+   before `UseGlobalExceptionHandler`, `UseAuthentication`, `UseAuthorization`, and OpenIddict).
+   Processes `XForwardedFor | XForwardedProto`. Both `KnownIPNetworks` and `KnownProxies` are explicitly
+   cleared — Azure App Service strips client-spoofed headers at the edge so trusting all forwarded
+   proto values is the correct documented configuration for this deployment topology.
+
+2. **Dev-only `DisableTransportSecurityRequirement()`** in `AddTaskPilotOAuth`
+   (`Extensions/ServiceCollectionExtensions.cs`), gated to `env.IsDevelopment()`. This allows the AS to
+   serve `http://localhost` in local development without error ID2083. In non-Development environments
+   the forwarded-headers middleware handles the scheme promotion; no relaxation is applied.
+
+The test `OAuthWebAppFactory` already uses `PostConfigure<OpenIddictServerAspNetCoreOptions>` to set
+`DisableTransportSecurityRequirement = true` for its HTTP test server — this is unaffected and remains
+test-only (QA owns test code).
+
+### Docs
+
+- `ARCHITECTURE.md` — §4.9 extended (ForwardDefaultSelector three-branch table); §4.10 added (full OAuth
+  design: endpoint surface, ChatGPT flow, DCR redirect-URI policy, key management, EF stores, ModifiedBy
+  extension); §5.9 added (LastModifiedBy three-prefix convention table); §9 updated (OpenIddict package
+  decision entry + updated complete package list); §4.10 further extended with "Azure forwarded-headers
+  requirement" section (UseForwardedHeaders options, placement, KnownIPNetworks/KnownProxies rationale,
+  dev-only transport relaxation)
+- `REQUIREMENTS.md` — §5.3b added (OAuth endpoints table); §5.5 updated (ModifiedBy convention note)
+- `CLAUDE.md` — Rule #10 updated to include `oauth:{subject}` prefix
+- `README.md` — "Connecting an MCP client" section added (ChatGPT via OAuth + Claude/Codex via X-Api-Key;
+  OAuth discovery endpoint table)
+- `src/app-changelog.json` — v1.16.0 user-facing entry added
+- `src/TaskPilot.csproj` — version bumped 1.15.0 → 1.16.0
+
+Files added:
+- `src/Constants/AuthConstants.cs` — BearerScheme, McpScope, McpResourceIndicator, OAuthBaseUrlConfigKey, OAuthEnabledConfigKey constants
+- `src/Controllers/OAuthMetadataController.cs` — RFC 9728 Protected Resource Metadata
+- `src/Controllers/DcrController.cs` — RFC 7591 Dynamic Client Registration
+- `src/Extensions/OAuthSeedWorker.cs` — seeds mcp scope on startup
+- `src/Pages/Connect/Authorize.cshtml(.cs)` — OAuth consent page
+- `src/Pages/Connect/Token.cshtml(.cs)` — token endpoint passthrough
+
+Files modified:
+- `src/Data/ApplicationDbContext.cs` — added `builder.UseOpenIddict()` in OnModelCreating
+- `src/Extensions/ServiceCollectionExtensions.cs` — AddTaskPilotDatabase: options.UseOpenIddict(); AddTaskPilotAuthentication: Bearer branch in selector; AddTaskPilotOAuth: new method; dev-only DisableTransportSecurityRequirement added
+- `src/Mcp/TaskPilotMcpTools.cs` — ModifiedBy: Bearer → "oauth:{subject}"
+- `src/Program.cs` — UseForwardedHeaders (first middleware); AddTaskPilotOAuth call; McpApiKey policy includes BearerScheme; Connect pages made anonymous
+- `src/Migrations/20260622223310_AddOpenIddict.cs` — new migration
+- `src/Migrations/20260622223310_AddOpenIddict.Designer.cs` — migration snapshot
+- `src/Migrations/ApplicationDbContextModelSnapshot.cs` — updated with OpenIddict entity models
+- `src/TaskPilot.csproj` — 3 OpenIddict packages + version bump
+- `ARCHITECTURE.md` — §4.10 forwarded-headers section added
+
+---
+
 ## 2026-06-21 — Blue rebrand: royal-blue + cyan palette, image logo, new tagline (v1.15.0)
 
 > Design | Fix | Docs

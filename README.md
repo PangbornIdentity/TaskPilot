@@ -288,6 +288,56 @@ az webapp deploy --name taskpilot --resource-group taskpilot-rg --src-path ./tas
 
 ---
 
+## Connecting an MCP Client
+
+TaskPilot's MCP server at `/mcp` accepts two auth methods per-request — use whichever your client supports:
+
+### ChatGPT (OAuth 2.1 Bearer)
+
+ChatGPT's custom MCP connector uses OAuth 2.1 and cannot send custom headers.
+
+1. In ChatGPT, go to **Settings → Connectors → Add Connector → Custom MCP**
+2. Enter the MCP URL: `https://taskpilot.azurewebsites.net/mcp`
+3. ChatGPT will auto-discover the OAuth endpoints, register itself (DCR), and redirect you to sign in
+4. Sign in with your TaskPilot account and click **Allow Access**
+5. Done — ChatGPT can now call all MCP tools on your behalf
+
+The OAuth flow (auth-code + PKCE S256) is handled entirely in-browser. No secrets are shared with ChatGPT.
+
+### Claude Desktop / Claude.ai Projects / Codex CLI (X-Api-Key)
+
+These clients can send custom headers. Use an API key:
+
+1. In TaskPilot, go to **Settings → API Keys** and generate a key
+2. Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "taskpilot": {
+      "command": "curl",
+      "args": [
+        "--http1.1", "-N", "-s",
+        "-H", "X-Api-Key: <your-key>",
+        "https://taskpilot.azurewebsites.net/mcp"
+      ]
+    }
+  }
+}
+```
+
+Or for local dev at `http://localhost:5125/mcp`, replace the URL accordingly.
+
+### OAuth discovery endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /.well-known/oauth-protected-resource` | RFC 9728 — advertises AS + mcp scope |
+| `GET /.well-known/oauth-authorization-server` | RFC 8414 — AS discovery (authorize, token, registration endpoints) |
+| `POST /connect/register` | RFC 7591 — Dynamic Client Registration (public clients, mcp scope only) |
+
+---
+
 ## Roadmap
 
 Still planned (none currently shipped):

@@ -992,32 +992,140 @@ app.MapControllers();
 
 **Iteration 2 policy design:** Per-API-key sliding window limiter using `RateLimitPartition.GetSlidingWindowLimiter` keyed on the API key ID claim. Web UI / cookie requests exempt. Configuration: 100 requests/minute per key default, configurable per key.
 
-### 4.9 Authentication Scheme Selection & the API-Key Privilege Gap
+### 4.9 Authentication Scheme Selection (Multi-Scheme Selector)
 
 **How scheme selection works.** `AddTaskPilotAuthentication` registers a `MultiScheme` policy scheme as
 both the default authenticate and default challenge scheme. Its `ForwardDefaultSelector` inspects each
-request:
-- if the `X-Api-Key` header is present → forward to the `ApiKey` scheme (`ApiKeyAuthenticationHandler`),
-- otherwise → forward to the cookie scheme (`Identity.Application`).
+request in this priority order:
+
+1. `X-Api-Key` header present → `ApiKey` scheme (`ApiKeyAuthenticationHandler`)
+2. `Authorization: Bearer …` header present → `Bearer` scheme (OpenIddict in-process validation)
+3. Otherwise → `Identity.Application` cookie scheme
 
 The `ApiKeyAuthenticationHandler` validates the key (hash lookup + `IsActive`) and, on success, issues a
 `ClaimsPrincipal` carrying `NameIdentifier` (user id), the api-key name, and an
-`AuthenticationMethod = "ApiKey"` claim. Because that principal is authenticated, it satisfies a bare
-`[Authorize]` attribute.
+`AuthenticationMethod = "ApiKey"` claim. The Bearer scheme is handled by OpenIddict's
+`OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme` which validates the JWT in-process against
+the local AS — no remote introspection call.
 
-**The gap (LDG-007 / verified).** `ApiKeysController` is annotated with `[Authorize]` only — it does NOT
-pin `AuthenticationSchemes = AuthConstants.CookieScheme`. Combined with the selector above, **a request
-that presents a valid `X-Api-Key` is authenticated by the ApiKey scheme and is authorized to call every
-endpoint on `ApiKeysController`** (GET / POST / rename / activate / deactivate / DELETE). All operations
-remain scoped to the key's owning user (the service filters by `UserId`), so this is not cross-tenant
-escalation — but it does mean **an API key can mint new API keys, revoke other keys, and reactivate
-deactivated keys for its own user**, which contradicts the §3.3 "Cookie-only" design intent and weakens
-the human-in-the-loop boundary for credential management.
+**The privilege gap (LDG-007 / verified — unchanged from v1.14).** `ApiKeysController` is annotated with
+`[Authorize]` only — it does NOT pin `AuthenticationSchemes = AuthConstants.CookieScheme`. An `X-Api-Key`
+request satisfies the bare `[Authorize]` and can manage API keys. **Resolution:** pin the cookie scheme on
+the API-key management surface. See dev work-item **WI-APIKEY-SCHEME**.
 
-**Resolution.** Pin the cookie scheme on the API-key management surface so key lifecycle is a
-browser/human-only operation. See dev work-item **WI-APIKEY-SCHEME**. (The MCP surface and the
-Tasks/Tags/Audit data surfaces remain "Cookie or ApiKey" by design — only API-key *management* is
-cookie-only.)
+### 4.10 OAuth 2.1 / MCP Authorization (v1.16.0)
+
+TaskPilot ships an in-process OAuth 2.1 Authorization Server (OpenIddict) alongside the existing API-key
+and cookie schemes. This makes `/mcp` connectable from ChatGPT's custom MCP connector (which cannot send
+custom headers) while leaving all existing X-Api-Key callers byte-for-byte unchanged.
+
+#### Endpoint surface (all anonymous — outside /api/v1/; endpoint-routed, not Razor Pages)
+
+| Endpoint | RFC | Notes |
+|----------|-----|-------|
+| `GET /.well-known/oauth-protected-resource` | RFC 9728 | Protected Resource Metadata; advertises AS issuer + mcp scope |
+| `GET /.well-known/oauth-authorization-server` | RFC 8414 | AS discovery; emitted automatically by OpenIddict |
+| `POST /connect/register` | RFC 7591 | Dynamic Client Registration; handled by `DcrController`; restricts to authorization_code + PKCE public clients + mcp scope + allowed redirect URI hosts |
+| `GET /connect/authorize` | OAuth 2.1 | Authorization endpoint passthrough to `Pages/Connect/Authorize.cshtml`; requires cookie auth (redirects to /auth/login if not signed in) |
+| `POST /connect/token` | OAuth 2.1 | Token endpoint passthrough to `Pages/Connect/Token.cshtml` |
+| `POST /connect/introspect` | RFC 7662 | Handled by OpenIddict internally |
+| `POST /connect/revocation` | RFC 7009 | Handled by OpenIddict internally |
+| `GET /connect/logout` (EndSession) | OIDC | Handled by OpenIddict internally |
+
+These endpoints are registered via `app.MapControllers()` + `app.MapRazorPages()` + OpenIddict's own
+middleware and are NOT blocked by `options.Conventions.AuthorizeFolder("/")` (Razor Pages convention only
+affects Razor Pages; these are controller/endpoint-routed or OpenIddict-internal).
+
+#### OAuth flow for ChatGPT
+
+1. ChatGPT reads `/.well-known/oauth-protected-resource` → finds AS at issuer URL
+2. ChatGPT reads `/.well-known/oauth-authorization-server` → gets authorize/token/registration endpoints
+3. ChatGPT POSTs to `/connect/register` (DCR) → receives `client_id` (public, no secret)
+4. ChatGPT redirects browser to `/connect/authorize` (auth-code + PKCE S256)
+5. Unauthenticated user → redirect to `/auth/login` → cookie login → back to `/connect/authorize`
+6. Consent page shown (client name + mcp scope); user clicks Allow
+7. Auth code returned to ChatGPT callback URI
+8. ChatGPT POSTs auth code + code_verifier to `/connect/token` → receives access + refresh tokens
+9. ChatGPT sends `Authorization: Bearer <token>` on every `/mcp` request
+10. Bearer scheme validates token in-process (OpenIddict); `sub` claim resolves UserId
+
+**Consent persistence:** On first consent, a permanent `OpenIddictAuthorization` row is written. Subsequent
+connects skip the consent screen.
+
+#### DCR redirect URI policy
+
+`DcrController` allows redirect URIs whose host matches: `chatgpt.com`, `chat.openai.com`, `localhost`,
+`127.0.0.1` (or any subdomain thereof). All other hosts are rejected with `invalid_redirect_uri`.
+
+#### Key management
+
+| Environment | Signing/Encryption keys |
+|---|---|
+| Development | `AddDevelopmentEncryptionCertificate()` + `AddDevelopmentSigningCertificate()` (ephemeral in-process) |
+| Production (iter 2) | Load from Key Vault: `OpenIddict:SigningCertificate`, `OpenIddict:EncryptionCertificate`; replace `AddEphemeralEncryptionKey()` / `AddEphemeralSigningKey()` in `AddTaskPilotOAuth` |
+
+#### Configuration keys
+
+| Key | Default | Notes |
+|---|---|---|
+| `OAuth:Enabled` | `true` | Kill-switch: set false to disable AS + Bearer scheme; /mcp falls back to X-Api-Key only |
+| `OAuth:BaseUrl` | dev: `http://localhost:5125`, prod: required | Drives issuer URL + resource metadata |
+| `OpenIddict:SigningCertificate` | (none) | Prod only — base64 PFX from Key Vault |
+| `OpenIddict:EncryptionCertificate` | (none) | Prod only — base64 PFX from Key Vault |
+
+#### EF stores
+
+Four OpenIddict tables (`OpenIddictApplications`, `OpenIddictScopes`, `OpenIddictAuthorizations`,
+`OpenIddictTokens`) are created by EF migration `AddOpenIddict` (SQL Server targeted; SQLite dev uses
+`EnsureCreatedAsync` which picks up the schema from `builder.UseOpenIddict()` in `OnModelCreating`).
+**Local `taskpilot.db` must be deleted and recreated after pulling this migration** — `EnsureCreatedAsync`
+does not alter an existing database.
+
+#### ModifiedBy extension (v1.16.0)
+
+OAuth Bearer requests set `LastModifiedBy = "oauth:{subject}"` where `subject` = `IdentityUser.Id`.
+This extends the three-prefix convention:
+- `"user:{username}"` — web UI (cookie)
+- `"api:{apiKeyName}"` — REST/MCP via X-Api-Key
+- `"oauth:{subject}"` — MCP via OAuth 2.1 Bearer (new in v1.16.0)
+
+#### Azure forwarded-headers requirement for OAuth / HTTPS (v1.16.0)
+
+Azure App Service terminates TLS at the edge and forwards requests to the ASP.NET Core process over plain
+HTTP with `X-Forwarded-Proto: https`. Without handling these headers, `Request.Scheme` is `"http"` in
+production and OpenIddict's transport-security check rejects every OAuth endpoint with 400.
+
+**Fix (in `Program.cs`, placed as the very first middleware call after `app.Build()`)**:
+
+```csharp
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    KnownIPNetworks = { },   // cleared — Azure strips client-spoofed headers at the edge
+    KnownProxies    = { }    // cleared — proxy IP is not fixed on App Service
+});
+```
+
+This must be the **first** middleware registered — before `UseGlobalExceptionHandler`, `UseAuthentication`,
+`UseAuthorization`, and OpenIddict. Once in place, `Request.Scheme` is `"https"` in production and all
+generated issuer/metadata URLs render correctly.
+
+`KnownIPNetworks` and `KnownProxies` are both cleared (empty collections) because Azure App Service does
+not expose a fixed internal proxy IP. The platform itself strips any client-supplied `X-Forwarded-*`
+headers before they reach the app, so trusting all forwarded proto values is the correct and documented
+configuration for this topology (see Microsoft docs: "Configure ASP.NET Core to work with proxy servers
+and load balancers — Azure App Service").
+
+**Development-only transport-security relaxation**: in Development, OpenIddict's AS server is configured
+with `DisableTransportSecurityRequirement()` (inside `AddTaskPilotOAuth` in `ServiceCollectionExtensions`,
+gated to `env.IsDevelopment()`) so the app responds correctly over plain `http://localhost` without the
+forwarded-headers middleware providing an `https` scheme. This relaxation is **not applied** in any
+non-Development environment.
+
+**The API-key gap (LDG-007 / verified — unchanged from v1.14).** `ApiKeysController` is annotated with
+`[Authorize]` only — it does NOT pin `AuthenticationSchemes = AuthConstants.CookieScheme`. An `X-Api-Key`
+request satisfies the bare `[Authorize]` and can manage API keys. **Resolution:** pin the cookie scheme on
+the API-key management surface. See dev work-item **WI-APIKEY-SCHEME**.
 
 ---
 
@@ -1153,6 +1261,20 @@ HTTP Request
 ```
 
 **Never**: Controller → DbContext. Service → HttpContext. Repository → another Service.
+
+### 5.9 LastModifiedBy Convention
+
+`LastModifiedBy` is a three-prefix string that identifies the actor who last changed an entity:
+
+| Prefix | Example | Set by |
+|---|---|---|
+| `user:{username}` | `user:alice` | Web UI (cookie-authenticated Razor Page actions) |
+| `api:{apiKeyName}` | `api:claude-desktop` | REST/MCP via X-Api-Key |
+| `oauth:{subject}` | `oauth:a1b2c3d4` | MCP via OAuth 2.1 Bearer (v1.16.0+; `subject` = `IdentityUser.Id`) |
+
+The MCP tools (`TaskPilotMcpTools.ModifiedBy`) select the prefix based on which auth claim is present:
+1. If `AuthConstants.ApiKeyClaimType` claim present → `"api:{keyName}"`
+2. Otherwise (Bearer) → `"oauth:{subject}"` using the OpenIddict `sub` claim
 
 ### 5.8 Enum Serialisation — Area
 
@@ -1326,6 +1448,24 @@ migrationBuilder.InsertData(
 - Custom CSS in `wwwroot/css/app.css` implements design system tokens (see DESIGN-SYSTEM.md §1)
 - All via CDN in `_Layout.cshtml` — zero build tooling
 
+### OpenIddict (v1.16.0 — OAuth 2.1 AS for MCP/ChatGPT connectivity)
+
+**Decision: OpenIddict 7.5.0** (three packages)
+
+| Package | Purpose |
+|---|---|
+| `OpenIddict.AspNetCore` (7.5.0) | AS host middleware + well-known endpoints; links to `OpenIddict.Server.AspNetCore` |
+| `OpenIddict.EntityFrameworkCore` (7.5.0) | EF Core stores for applications, authorizations, scopes, tokens |
+| `OpenIddict.Validation.AspNetCore` (7.5.0) | In-process Bearer token validation for `/mcp` |
+
+**net10.0 compatibility:** OpenIddict 7.5.0 explicitly targets `net10.0` (confirmed from nuspec — lib groups include `.NETFramework4.6.2`, `net8.0`, `net9.0`, `net10.0`). No TFM downgrade needed.
+
+**Why OpenIddict over alternatives:**
+- **Reuses the existing Identity + EF Core stack** — applications/tokens live in `ApplicationDbContext` via `options.UseOpenIddict()`; no separate IdP process.
+- **Full MCP auth-spec surface** — includes the full OAuth 2.1 AS (DCR via custom `DcrController`, authorization-code + PKCE, token, introspection, revocation, end-session). A standalone JWT middleware (`Microsoft.AspNetCore.Authentication.JwtBearer`) would not give us the AS, discovery, or DCR surface.
+- **DCR vs CIMD:** Dynamic Client Registration (RFC 7591) chosen over Client-Initiated Managed Delegation because ChatGPT's connector model sends a DCR POST before the OAuth flow — it self-registers rather than waiting for the resource server to provision it. CIMD is not supported by ChatGPT connectors today.
+- **In-process validation:** `UseLocalServer()` on the validation options means the AS and resource server are the same process — token validation never makes a network call.
+
 ### Complete NuGet Package List
 
 #### TaskPilot (src/TaskPilot.csproj)
@@ -1340,6 +1480,10 @@ migrationBuilder.InsertData(
 <PackageReference Include="Serilog.Sinks.Console" Version="6.*" />
 <PackageReference Include="Serilog.Sinks.File" Version="7.*" />
 <PackageReference Include="Swashbuckle.AspNetCore" Version="10.*" />
+<!-- v1.16.0: OAuth 2.1 AS + Bearer validation for /mcp (ChatGPT connector) -->
+<PackageReference Include="OpenIddict.AspNetCore" Version="7.5.0" />
+<PackageReference Include="OpenIddict.EntityFrameworkCore" Version="7.5.0" />
+<PackageReference Include="OpenIddict.Validation.AspNetCore" Version="7.5.0" />
 <!-- Iteration 2:
 <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" />
 <PackageReference Include="Microsoft.ApplicationInsights.AspNetCore" />

@@ -390,6 +390,24 @@ Read-only in iteration 1. No create/update/delete endpoints.
 | PUT | /api/v1/tags/{id} | Update tag (name and/or color) |
 | DELETE | /api/v1/tags/{id} | Delete tag (removes from all tasks) |
 
+### 5.3b OAuth 2.1 / MCP Authorization Endpoints (v1.16.0)
+
+These endpoints sit **outside** `/api/v1/` and are served by OpenIddict + the custom controllers below.
+All are anonymous (no cookie or API key required on the well-known/discovery/DCR endpoints; `/connect/authorize`
+enforces cookie auth for the consent UI).
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/.well-known/oauth-protected-resource` | Anonymous | RFC 9728 Protected Resource Metadata. Advertises this app as the resource server with AS issuer and `mcp` scope. |
+| GET | `/.well-known/oauth-authorization-server` | Anonymous | RFC 8414 AS Discovery. Emitted by OpenIddict. Contains `authorization_endpoint`, `token_endpoint`, `registration_endpoint`, `scopes_supported`, `code_challenge_methods_supported` (S256), etc. |
+| POST | `/connect/register` | Anonymous | RFC 7591 Dynamic Client Registration. Public clients only, `authorization_code` grant, `mcp` scope, redirect URI must match allowed host list. Returns `client_id` (no secret). |
+| GET | `/connect/authorize` | Cookie (redirect to login if unauthenticated) | OAuth 2.1 authorization endpoint. Shows consent page on first connect; auto-approves on subsequent connects using stored authorization. |
+| POST | `/connect/token` | None (code + code_verifier) | Token endpoint. Exchanges auth code for access + refresh tokens. |
+
+**Scope:** Single scope `mcp`, resource indicator `https://taskpilot.azurewebsites.net/mcp` (or derived from `OAuth:BaseUrl` config). Access tokens carry `aud = resource indicator`, `scope = mcp`.
+
+**Kill-switch:** Set `OAuth:Enabled = false` to disable the AS and Bearer scheme entirely. `/mcp` continues on X-Api-Key.
+
 ### 5.3a Health & Diagnostics Endpoints
 
 | Method | Endpoint | Auth | Description |
@@ -418,7 +436,7 @@ All API responses use the standard envelope. No exceptions.
 
 ### 5.5 API Behaviors
 
-- All write operations set `LastModifiedBy` to `"api:{apiKeyName}"`
+- Write operations set `LastModifiedBy` by auth method: `"user:{username}"` (cookie/UI), `"api:{apiKeyName}"` (X-Api-Key), `"oauth:{subject}"` (OAuth Bearer — v1.16.0)
 - **Task** write operations (create / update / patch / complete / clone / soft-delete) create
   `TaskActivityLog` entries. `TaskActivityLog` is task-scoped by design (it is keyed by `TaskId`); Tag
   and ApiKey mutations do NOT write activity-log rows.

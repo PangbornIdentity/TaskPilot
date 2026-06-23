@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using ModelContextProtocol.Server;
+using OpenIddict.Abstractions;
 using TaskPilot.Constants;
 using TaskPilot.Models.Enums;
 using TaskPilot.Models.Tasks;
@@ -29,9 +30,18 @@ public class TaskPilotMcpTools(
     {
         get
         {
-            var keyName = httpContextAccessor.HttpContext!.User
-                .FindFirstValue(AuthConstants.ApiKeyClaimType) ?? "unknown";
-            return $"api:{keyName}";
+            var user = httpContextAccessor.HttpContext!.User;
+
+            // API-key path: claim set by ApiKeyAuthenticationHandler
+            var keyName = user.FindFirstValue(AuthConstants.ApiKeyClaimType);
+            if (keyName is not null)
+                return $"api:{keyName}";
+
+            // OAuth Bearer path: use the subject (IdentityUser.Id)
+            var subject = user.FindFirstValue(OpenIddict.Abstractions.OpenIddictConstants.Claims.Subject)
+                       ?? user.FindFirstValue(ClaimTypes.NameIdentifier)
+                       ?? "unknown";
+            return $"oauth:{subject}";
         }
     }
 
