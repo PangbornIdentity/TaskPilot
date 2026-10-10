@@ -352,6 +352,7 @@
                             @* Per WIREFRAMES Page 3 responsive table: Title/Priority/Status/Due always visible.
                                Area + Tags + Edit hidden < md (768). Type hidden < lg (992). Mobile uses
                                CSS-Grid reflow on the tr (see app.css .tp-table at @media max-width 639.98). *@
+                            <th class="tp-complete-th"><span class="visually-hidden">Complete</span></th>
                             @SortHeader("Title", "title")
                             @SortHeader("Area", "area", "d-none d-md-table-cell")
                             @SortHeader("Type", "type", "d-none d-lg-table-cell")
@@ -366,6 +367,26 @@
                         @foreach (var task in Model.Tasks)
                         {
                             <tr>
+                                <td data-label="Complete" class="tp-complete-cell">
+                                    @if (task.Status == TaskPilot.Models.Enums.TaskStatus.Completed)
+                                    {
+                                        <span class="tp-complete-done" title="Completed" aria-label="Completed">
+                                            <i class="bi bi-check-circle-fill"></i>
+                                        </span>
+                                    }
+                                    else if (task.Status != TaskPilot.Models.Enums.TaskStatus.Cancelled)
+                                    {
+                                        <form method="post" asp-page-handler="Complete" asp-route-id="@task.Id" class="d-inline">
+                                            <input type="hidden" name="returnUrl" value="@(HttpContext.Request.Path + HttpContext.Request.QueryString)" />
+                                            <button type="submit"
+                                                    class="tp-complete-btn"
+                                                    aria-label="Complete task '@task.Title'"
+                                                    title="Mark complete">
+                                                <i class="bi bi-circle"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
                                 <td data-label="Title">
                                     <a href="/tasks/@task.Id" class="text-decoration-none fw-medium">
                                         @task.Title

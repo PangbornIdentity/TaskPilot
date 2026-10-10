@@ -236,7 +236,7 @@
 **Task row anatomy — two-line layout (desktop):**
 
 Line 1 (left to right):
-1. Checkbox (24px, 36px touch target)
+1. Complete button (v1.17.0: 32px circular `bi-circle` button, 44px tap target on mobile; hover/focus swaps to outline check in success green; completed rows show static filled green check; cancelled rows show nothing)
 2. Priority badge (pill, colored)
 3. Title (body, primary text) — click to open detail, double-click to inline edit
 4. Area badge (small, `label-sm`): `[Personal]` or `[Work]` — background `--color-primary-50` / `--color-primary-900` dark; text `--color-primary-600` / `--color-primary-400` dark; `border-radius: --radius-sm`; only shown when no area filter is active (to avoid redundancy)

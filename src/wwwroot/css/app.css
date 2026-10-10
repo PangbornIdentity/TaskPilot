@@ -307,6 +307,29 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 .tp-table tr:hover td { background: #f8fafc; }
 .tp-table tr:last-child td { border-bottom: none; }
 
+/* Inline complete control at the start of each list row. The empty-circle button fills with
+   a check on hover so it reads as a checkbox; the filled check is the completed (static) state. */
+.tp-table .tp-complete-th,
+.tp-table .tp-complete-cell { width: 40px; padding-right: 0; text-align: center; }
+.tp-complete-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--tp-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+.tp-complete-btn:hover,
+.tp-complete-btn:focus-visible { color: #059669; background: #d1fae5; }
+.tp-complete-btn:hover .bi-circle::before,
+.tp-complete-btn:focus-visible .bi-circle::before { content: "\f26b"; /* bi-check-circle (outline) */ }
+.tp-complete-btn:focus-visible { outline: 2px solid var(--tp-primary); outline-offset: 2px; }
+.tp-complete-done { color: #059669; font-size: 18px; line-height: 1; }
+
 /* ===== BADGES ===== */
 .tp-badge {
     display: inline-flex;
@@ -482,10 +505,10 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
     }
     .tp-table tr {
         display: grid;
-        grid-template-columns: 1fr auto;
+        grid-template-columns: auto 1fr auto;
         grid-template-areas:
-            "title    status"
-            "priority due";
+            "complete title    status"
+            "complete priority due";
         gap: 4px 8px;
         padding: 12px 16px;
         border-bottom: 1px solid var(--tp-border);
@@ -499,6 +522,8 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
         font-size: 14px;
         min-height: 0;
     }
+    .tp-table td[data-label="Complete"] { grid-area: complete; align-self: center; width: auto; }
+    .tp-table td[data-label="Complete"] .tp-complete-btn { width: 44px; height: 44px; }
     .tp-table td[data-label="Title"]    { grid-area: title; font-weight: 600; }
     .tp-table td[data-label="Title"] a  { color: var(--tp-text); }
     .tp-table td[data-label="Status"]   { grid-area: status; justify-self: end; }

@@ -93,11 +93,11 @@
 **Trigger:** User finishes a task and wants to reflect on it.
 
 1. User finds task in Task List (via search or scroll)
-2. **Option A — From list:** User checks the checkbox on the task row
+2. **Option A — From list (v1.17.0):** User clicks the circle button at the start of the task row (`button.tp-complete-btn`, `aria-label="Complete task '<title>'"`). The button posts to the `Complete` page handler with a `returnUrl` of the current list URL.
 3. **Option B — From detail:** User opens Task Detail, clicks **Mark Complete** button
-4. **System:** PATCHes task Status to `Completed`, sets `CompletedDate` to now
-5. Success toast: "Task completed! ✓" (green, 5s)
-6. Task moves to the Completed group in list view
+4. **System:** Sets task Status to `Completed` and `CompletedDate` to now via `ITaskService.CompleteTaskAsync` (same path as `POST /api/v1/tasks/{id}/complete`)
+5. Success toast: `Task "<title>" completed!` (green, Bootstrap toast)
+6. From the list: the page redirects back to the same filtered/sorted URL. In the default `show=active` view the row disappears; in `show=all` / `show=completed` the row stays and the button is replaced by a static green check
 7. If opened from detail view: Result Analysis section becomes prominent with prompt: *"How did it go? What would you do differently?"*
 8. User clicks the Result Analysis field, types their reflection
 9. User clicks **Save** (or the field auto-saves after 2s of inactivity)
@@ -109,9 +109,10 @@
 5b. Toast: "Task completed! Next occurrence scheduled for [date]."
 
 **Edge cases:**
-- Already completed → Mark Complete button not shown
-- Checking checkbox in list view: optimistic update (checkbox fills immediately), reverts on API error
-- Network error during completion → revert checkbox, error toast
+- Already completed → Mark Complete button not shown on detail; list row shows the static completed marker instead of the button
+- Cancelled → list row shows no complete control
+- List completion is a full server round trip (form POST + redirect), not an optimistic update — consistent with all other Razor Pages mutations
+- Task deleted between render and click → red error toast "That task couldn't be completed. It may have been deleted."
 
 ---
 

@@ -7,6 +7,59 @@
 
 ---
 
+## 2026-10-09 — Complete tasks inline from the list page (v1.17.0)
+
+> Feature | Design | Test | Docs
+
+### Feature | One-click complete on every list row
+
+Users previously had to open a task's detail page to mark it complete. The list view now renders a
+leading "complete" cell on every row (`<td data-label="Complete">`):
+
+- **Open tasks** (NotStarted / InProgress / Blocked) get a circular `button.tp-complete-btn` inside a
+  Razor Pages form posting to the new `OnPostCompleteAsync(Guid id, string? returnUrl)` handler on
+  `TasksIndexModel`. The handler calls the existing `ITaskService.CompleteTaskAsync` (same path the
+  detail page and `POST /api/v1/tasks/{id}/complete` use, so `CompletedDate`, `LastModifiedBy` and the
+  activity log entry are identical), sets a `TempData["Toast"]` of `Task "<title>" completed!`, and
+  redirects back to `returnUrl` (validated with `Url.IsLocalUrl`, falling back to `RedirectToPage()`).
+  `returnUrl` is the current path + query string, so filters, search, sort and `show=` survive the
+  round trip. A null service result (deleted / foreign task) surfaces as a `TempData["Error"]`.
+- **Completed tasks** render a static green `bi-check-circle-fill` (`.tp-complete-done`).
+- **Cancelled tasks** render an empty cell.
+- Antiforgery is handled by the form tag helper. No JavaScript — works without JS and on all breakpoints.
+- No new API endpoint; no service, repository or entity changes.
+
+### Design | List row anatomy + mobile reflow
+
+- Desktop: new 40px leading column; the button is a 32px circle (`bi-circle`) that swaps to the
+  outline check and turns green (`#059669` on `#d1fae5`, matching `.tp-badge-completed`) on hover/focus.
+- Mobile (< 640px): the CSS-Grid reflow in `app.css` gains a `complete` column
+  (`grid-template-columns: auto 1fr auto`, areas `"complete title status" / "complete priority due"`),
+  and the button grows to the 44px tap target required by the design system.
+- This implements the per-row checkbox that `WIREFRAMES.md` (Page 3 row anatomy) and
+  `USER-FLOWS.md` Flow 4 Option A specified. Deviation from the original flow: it is a full server
+  round trip with a redirect, not an optimistic client-side update — consistent with every other
+  mutation on the Razor Pages UI.
+
+### Test | E2E coverage
+
+New `tests/TaskPilot.Tests.E2E/Tasks/CompleteFromListTests.cs` (3 tests, all passing against
+`localhost:5125`): button present on a new task's row; clicking it removes the row from the default
+`show=active` view and shows the toast; clicking it from `/tasks?show=all&sortBy=title&sortDir=asc`
+preserves the query string and swaps the button for the completed marker.
+
+### Files affected
+
+- `src/Pages/Tasks/Index.cshtml` — leading complete cell + header, per-row form
+- `src/Pages/Tasks/Index.cshtml.cs` — `OnPostCompleteAsync`
+- `src/wwwroot/css/app.css` — `.tp-complete-*` styles, mobile grid areas
+- `src/TaskPilot.csproj` — 1.16.0 → 1.17.0
+- `src/app-changelog.json` — v1.17.0 user-facing notes
+- `tests/TaskPilot.Tests.E2E/Tasks/CompleteFromListTests.cs` — new
+- `USER-FLOWS.md`, `WIREFRAMES.md`, `TEST-CASES.md`, `README.md`, `CHANGELOG.md`
+
+---
+
 ## 2026-06-22 — OAuth 2.1 Authorization Server + ChatGPT MCP connectivity (v1.16.0)
 
 > Feature | Security | Architecture | Fix | Docs | Config
