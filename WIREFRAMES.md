@@ -236,7 +236,7 @@
 **Task row anatomy — two-line layout (desktop):**
 
 Line 1 (left to right):
-1. Complete button (v1.17.0: 32px circular `bi-circle` button, 44px tap target on mobile; hover/focus swaps to outline check in success green; completed rows show static filled green check; cancelled rows show nothing)
+1. (Removed in v1.17.1 — no leading control. Complete lives in the right-hand row actions as the third `btn-sm` button after Clone and Edit: `btn-outline-success` with `bi-check-lg`, hidden below 768px like the other actions. Completed/cancelled rows show only Clone and Edit.)
 2. Priority badge (pill, colored)
 3. Title (body, primary text) — click to open detail, double-click to inline edit
 4. Area badge (small, `label-sm`): `[Personal]` or `[Work]` — background `--color-primary-50` / `--color-primary-900` dark; text `--color-primary-600` / `--color-primary-400` dark; `border-radius: --radius-sm`; only shown when no area filter is active (to avoid redundancy)
@@ -326,7 +326,7 @@ When the 32 px gap between Bootstrap `lg` (992) and TaskPilot Desktop (1024) mat
 | Edit btn   | ✅ (target row tap) | ✅ (button)  | ✅ (button)     | `d-none d-md-table-cell`            |
 | Clone btn  | ✅ (overflow in row tap → Detail) | ✅ (button) | ✅ (button) | `d-none d-md-table-cell`            |
 
-Title, Priority, Status, Due (and the v1.17.0 Complete control) are **always** present so no column is information-only-on-desktop. The hidden cells (Area badge, Type label, Tags) are duplicative of information available elsewhere or filterable, so hiding them on mobile is acceptable. Area and the row actions are hidden below 768px; Type and Tags are hidden below 992px, and cell padding tightens to 10px between 641px and 1024px, so the full row (including the Edit button) always fits inside the `overflow: hidden` card on tablets.
+Title, Priority, Status, Due are **always** present so no column is information-only-on-desktop. The hidden cells (Area badge, Type label, Tags) are duplicative of information available elsewhere or filterable, so hiding them on mobile is acceptable. Area and the row actions (Clone / Edit / Complete) are hidden below 768px; Type and Tags are hidden below 992px, and cell padding tightens to 10px between 641px and 1024px, so the full row (including all three action buttons) always fits inside the `overflow: hidden` card on tablets.
 
 **Trailing-actions cell (new — v1.13):** The single trailing edit button is replaced by a two-button action group rendered inside the same `<td>` (`d-none d-md-table-cell text-end`). Order, left to right: **Clone** (`bi-files`, `btn btn-sm btn-outline-secondary`, `aria-label="Clone task '{title}'"`, `title="Clone task"`), then **Edit** (`bi-pencil`, existing). 4 px gap (`gap-1`) between buttons. Both buttons share the same `sm` size (32 px height, 32 px width — pure icon, square) so the cell column width does not grow. No kebab/three-dots menu is introduced; with only two row actions the inline pattern stays scannable and avoids an extra click. Mobile (≤ 640 px): the trailing-actions cell is hidden entirely (existing behaviour); clone on mobile is reached via the Task Detail page (see Page 6).
 

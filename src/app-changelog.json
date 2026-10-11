@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "1.17.1",
+      "releaseDate": "2026-10-11",
+      "versionType": "patch",
+      "summary": "The complete button now sits with the other row actions.",
+      "changes": [
+        { "type": "Improvement", "description": "The complete button has moved from the start of each task row to the right-hand actions group, next to Clone and Edit. It is now a green outlined button with a check mark, matching the other two." },
+        { "type": "Improvement", "description": "Completed and cancelled tasks simply show no complete button. Their status badge already tells you where they stand." }
+      ]
+    },
+    {
       "version": "1.17.0",
       "releaseDate": "2026-10-09",
       "versionType": "minor",

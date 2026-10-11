@@ -1174,7 +1174,7 @@ All tests live in `tests/TaskPilot.Tests.Integration/OAuth/McpOAuthTests.cs` and
 
 ## 21. v1.17 — Complete Task from List Row
 
-**Shipped in v1.17.0.** Every open task row on `/tasks` (list view) renders a leading circular complete button that posts to the `Complete` page handler on `TasksIndexModel`. The handler reuses `ITaskService.CompleteTaskAsync` (already covered by the unit and integration tests in Sections 3 and 6), so new coverage is E2E only.
+**Shipped in v1.17.0; relocated in v1.17.1.** Every open task row on `/tasks` (list view, ≥ 768px) renders a green check button as the third row action (after Clone and Edit) that posts to the `Complete` page handler on `TasksIndexModel`. The handler reuses `ITaskService.CompleteTaskAsync` (already covered by the unit and integration tests in Sections 3 and 6), so new coverage is E2E only.
 
 UX spec: `WIREFRAMES.md` Page 3 row anatomy. Interaction model: `USER-FLOWS.md` Flow 4 Option A.
 
@@ -1186,8 +1186,9 @@ UX spec: `WIREFRAMES.md` Page 3 row anatomy. Interaction model: `USER-FLOWS.md` 
 |----|-----------|------|-------|----------|
 | E-CFL-001 | `TaskList_ActiveRow_ShowsCompleteButton` | E2E | Create a task via the New Task modal | Exactly one `button.tp-complete-btn` with `aria-label="Complete task '<title>'"` is rendered |
 | E-CFL-002 | `TaskList_ClickComplete_RemovesRowFromActiveViewAndShowsToast` | E2E | Create a task; click its complete button on the default `show=active` view | Page reloads with a toast containing "completed!"; the task's row and button are no longer present |
-| E-CFL-003 | `TaskList_ClickComplete_PreservesFiltersViaReturnUrl` | E2E | Create a task; open `/tasks?show=all&sortBy=title&sortDir=asc`; click its complete button | URL still contains `show=all` and `sortBy=title`; the row remains with `.tp-complete-done` and no `button.tp-complete-btn` |
-| E-CFL-004 | `TaskList_TabletViewport_RowActionsFitInsideCard` (theory: 768 / 800 / 1024px) | E2E | Create a worst-case row via API (long title, In Progress, High, overdue); resize viewport; open `/tasks` | Edit button right edge and Complete button left edge are inside the `.tp-card` bounding box; `card.scrollWidth - card.clientWidth <= 0` |
+| E-CFL-003 | `TaskList_ClickComplete_PreservesFiltersViaReturnUrl` | E2E | Create a task; open `/tasks?show=all&sortBy=title&sortDir=asc`; click its complete button | URL still contains `show=all` and `sortBy=title`; the row remains with `.tp-badge-completed`, no `button.tp-complete-btn`, and the clone button still present |
+| E-CFL-004 | `TaskList_TabletViewport_RowActionsFitInsideCard` (theory: 768 / 800 / 1024px) | E2E | Create a worst-case row via API (long title, In Progress, High, overdue); resize viewport; open `/tasks` | Complete button right edge and Clone button left edge are inside the `.tp-card` bounding box; `card.scrollWidth - card.clientWidth <= 0` |
+| E-CFL-005 | `TaskList_ActiveRow_CompleteIsLastActionAfterCloneAndEdit` | E2E | Create a task via modal; inspect its actions cell | Exactly three controls in order: `button.tp-clone-btn`, the Edit `a.btn`, then `button.tp-complete-btn.btn-outline-success` |
 
 ---
 
