@@ -349,16 +349,18 @@
                                     return new Microsoft.AspNetCore.Html.HtmlString(html);
                                 }
                             }
-                            @* Per WIREFRAMES Page 3 responsive table: Title/Priority/Status/Due always visible.
-                               Area + Tags + Edit hidden < md (768). Type hidden < lg (992). Mobile uses
-                               CSS-Grid reflow on the tr (see app.css .tp-table at @media max-width 639.98). *@
+                            @* Per WIREFRAMES Page 3 responsive table: Complete/Title/Priority/Status/Due always
+                               visible. Area + Edit hidden < md (768). Type + Tags hidden < lg (992) so the row
+                               actions fit inside the overflow:hidden card on tablets. Mobile uses CSS-Grid
+                               reflow on the tr (see app.css .tp-table at @media max-width 639.98). *@
+                            <th class="tp-complete-th"><span class="visually-hidden">Complete</span></th>
                             @SortHeader("Title", "title")
                             @SortHeader("Area", "area", "d-none d-md-table-cell")
                             @SortHeader("Type", "type", "d-none d-lg-table-cell")
                             @SortHeader("Priority", "priority")
                             @SortHeader("Status", "status")
                             @SortHeader("Due", "targetdate")
-                            <th class="d-none d-md-table-cell">Tags</th>
+                            <th class="d-none d-lg-table-cell">Tags</th>
                             <th class="d-none d-md-table-cell"></th>
                         </tr>
                     </thead>
@@ -366,6 +368,26 @@
                         @foreach (var task in Model.Tasks)
                         {
                             <tr>
+                                <td data-label="Complete" class="tp-complete-cell">
+                                    @if (task.Status == TaskPilot.Models.Enums.TaskStatus.Completed)
+                                    {
+                                        <span class="tp-complete-done" title="Completed" aria-label="Completed">
+                                            <i class="bi bi-check-circle-fill"></i>
+                                        </span>
+                                    }
+                                    else if (task.Status != TaskPilot.Models.Enums.TaskStatus.Cancelled)
+                                    {
+                                        <form method="post" asp-page-handler="Complete" asp-route-id="@task.Id" class="d-inline">
+                                            <input type="hidden" name="returnUrl" value="@(HttpContext.Request.Path + HttpContext.Request.QueryString)" />
+                                            <button type="submit"
+                                                    class="tp-complete-btn"
+                                                    aria-label="Complete task '@task.Title'"
+                                                    title="Mark complete">
+                                                <i class="bi bi-circle"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
                                 <td data-label="Title">
                                     <a href="/tasks/@task.Id" class="text-decoration-none fw-medium">
                                         @task.Title
@@ -388,7 +410,7 @@
                                         }
                                     }
                                 </td>
-                                <td class="d-none d-md-table-cell" data-label="Tags">
+                                <td class="d-none d-lg-table-cell" data-label="Tags">
                                     @foreach (var tag in task.Tags)
                                     {
                                         <span class="badge" style="background-color:@tag.Color;font-size:11px">@tag.Name</span>

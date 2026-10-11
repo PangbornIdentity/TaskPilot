@@ -1,6 +1,17 @@
 {
   "versions": [
     {
+      "version": "1.17.0",
+      "releaseDate": "2026-10-09",
+      "versionType": "minor",
+      "summary": "Complete tasks straight from the task list without opening each one.",
+      "changes": [
+        { "type": "Feature", "description": "Every open task in the list view now has a circle button at the start of its row. Click it to mark the task complete in one step - no need to open the task first." },
+        { "type": "Improvement", "description": "After completing a task from the list, you stay on the same page with your filters, sort order, and search intact. A toast confirms which task was completed." },
+        { "type": "Improvement", "description": "Completed tasks show a green check in the same spot when you view all or completed tasks, so you can see status at a glance. The button is sized for easy tapping on phones." }
+      ]
+    },
+    {
       "version": "1.16.0",
       "releaseDate": "2026-06-22",
       "versionType": "minor",

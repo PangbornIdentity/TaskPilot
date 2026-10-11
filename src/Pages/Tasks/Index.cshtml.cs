@@ -156,6 +156,25 @@ public class TasksIndexModel(ITaskService taskService, ITaskTypeService taskType
         return RedirectToPage();
     }
 
+    // Completes a task directly from the list row, then returns to the same filtered/sorted view.
+    public async Task<IActionResult> OnPostCompleteAsync(Guid id, string? returnUrl)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        var modifiedBy = $"user:{User.Identity?.Name}";
+
+        var result = await taskService.CompleteTaskAsync(id, new CompleteTaskRequest(), userId, modifiedBy);
+        if (result is null)
+        {
+            TempData["Error"] = "That task couldn’t be completed. It may have been deleted.";
+        }
+        else
+        {
+            TempData["Toast"] = $"Task \"{result.Title}\" completed!";
+        }
+
+        return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToPage();
+    }
+
     // Build the kanban column map honoring the current Show value.
     // active → three open columns only.
     // completed → Completed + Cancelled columns only.
