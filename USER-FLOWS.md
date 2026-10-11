@@ -93,11 +93,11 @@
 **Trigger:** User finishes a task and wants to reflect on it.
 
 1. User finds task in Task List (via search or scroll)
-2. **Option A — From list (v1.17.0):** User clicks the circle button at the start of the task row (`button.tp-complete-btn`, `aria-label="Complete task '<title>'"`). The button posts to the `Complete` page handler with a `returnUrl` of the current list URL.
+2. **Option A — From list (v1.17.1, ≥ 768px):** User clicks the green check button in the row actions group, after Clone and Edit (`button.tp-complete-btn.btn-outline-success`, `aria-label="Complete task '<title>'"`). The button posts to the `Complete` page handler with a `returnUrl` of the current list URL. Below 768px the actions cell is hidden, so Option B applies.
 3. **Option B — From detail:** User opens Task Detail, clicks **Mark Complete** button
 4. **System:** Sets task Status to `Completed` and `CompletedDate` to now via `ITaskService.CompleteTaskAsync` (same path as `POST /api/v1/tasks/{id}/complete`)
 5. Success toast: `Task "<title>" completed!` (green, Bootstrap toast)
-6. From the list: the page redirects back to the same filtered/sorted URL. In the default `show=active` view the row disappears; in `show=all` / `show=completed` the row stays and the button is replaced by a static green check
+6. From the list: the page redirects back to the same filtered/sorted URL. In the default `show=active` view the row disappears; in `show=all` / `show=completed` the row stays with its Completed badge and no complete button (Clone and Edit remain)
 7. If opened from detail view: Result Analysis section becomes prominent with prompt: *"How did it go? What would you do differently?"*
 8. User clicks the Result Analysis field, types their reflection
 9. User clicks **Save** (or the field auto-saves after 2s of inactivity)
@@ -109,8 +109,7 @@
 5b. Toast: "Task completed! Next occurrence scheduled for [date]."
 
 **Edge cases:**
-- Already completed → Mark Complete button not shown on detail; list row shows the static completed marker instead of the button
-- Cancelled → list row shows no complete control
+- Already completed or cancelled → Mark Complete button not shown on detail; list row actions show only Clone and Edit
 - List completion is a full server round trip (form POST + redirect), not an optimistic update — consistent with all other Razor Pages mutations
 - Task deleted between render and click → red error toast "That task couldn't be completed. It may have been deleted."
 

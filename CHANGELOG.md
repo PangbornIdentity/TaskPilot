@@ -7,6 +7,47 @@
 
 ---
 
+## 2026-10-11 — Move the complete button into the row actions group (v1.17.1)
+
+> Design | Fix | Test | Docs
+
+### Design | Complete joins Clone and Edit on the right
+
+User feedback after v1.17.0 shipped: the leading borderless circle looked out of place and sat
+apart from the other row controls. The complete control now renders as the third button in the
+existing actions cell, after Clone and Edit, using the same Bootstrap sizing
+(`btn btn-sm btn-outline-success tp-complete-btn`, `bi-check-lg` icon). The Edit link gained an
+`aria-label` / `title` to match its siblings.
+
+- Removed the leading `<th>` / `<td data-label="Complete">` column, all `.tp-complete-*` custom CSS
+  (hover glyph swap, 44px mobile tap target), and the `.tp-complete-done` marker. Completed and
+  cancelled rows simply omit the button; the status badge already conveys state.
+- Reverted the mobile grid areas to the pre-1.17.0 two-column layout. The tablet padding tweak and
+  the Tags `d-lg-table-cell` visibility from the v1.17.0 review fix stay, since the actions cell is
+  now wider by one button.
+- Behaviour is unchanged: same `Complete` page handler, same `returnUrl` round trip, same toast.
+
+**Known gap (deliberate, not yet addressed):** the actions cell is hidden below 768px, so on phones
+completing a task still requires opening the detail page. v1.17.0 exposed the control on mobile;
+v1.17.1 trades that for consistency with the other row actions. A mobile affordance (e.g. swipe or
+a visible actions row) is a separate design decision.
+
+### Test | E2E updates
+
+`CompleteFromListTests.cs`: new `TaskList_ActiveRow_CompleteIsLastActionAfterCloneAndEdit` asserts
+the three-button order and classes; the `show=all` test now asserts the Completed badge plus the
+absence of the complete button (and presence of clone); the tablet theory measures the Complete
+button's right edge (now the right-most control) and the Clone button's left edge against the card.
+
+### Files affected
+
+- `src/Pages/Tasks/Index.cshtml`, `src/wwwroot/css/app.css`
+- `src/TaskPilot.csproj` — 1.17.0 → 1.17.1; `src/app-changelog.json`
+- `tests/TaskPilot.Tests.E2E/Tasks/CompleteFromListTests.cs`
+- `USER-FLOWS.md`, `WIREFRAMES.md`, `TEST-CASES.md`, `CHANGELOG.md`
+
+---
+
 ## 2026-10-09 — Complete tasks inline from the list page (v1.17.0)
 
 > Feature | Design | Test | Docs
