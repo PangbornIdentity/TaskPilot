@@ -41,12 +41,23 @@ leading "complete" cell on every row (`<td data-label="Complete">`):
   round trip with a redirect, not an optimistic client-side update — consistent with every other
   mutation on the Razor Pages UI.
 
+### Fix | Tablet row actions clipped by the new column (pre-release review finding)
+
+At ~800px the ten-column table (now including the complete cell) was wider than the
+`overflow: hidden` `.tp-card`, clipping the Edit button on long-title overdue rows. Two changes in
+the tablet media block / markup: cell horizontal padding drops from 16px to 10px between 641px and
+1024px, and the Tags column moves from `d-md-table-cell` to `d-lg-table-cell` (hidden below 992px,
+same as Type). Tags remain visible on desktop and filterable everywhere.
+
 ### Test | E2E coverage
 
-New `tests/TaskPilot.Tests.E2E/Tasks/CompleteFromListTests.cs` (3 tests, all passing against
+New `tests/TaskPilot.Tests.E2E/Tasks/CompleteFromListTests.cs` (6 tests, all passing against
 `localhost:5125`): button present on a new task's row; clicking it removes the row from the default
 `show=active` view and shows the toast; clicking it from `/tasks?show=all&sortBy=title&sortDir=asc`
-preserves the query string and swaps the button for the completed marker.
+preserves the query string and swaps the button for the completed marker; and a 3-width theory
+(768 / 800 / 1024px) that creates a worst-case row (long title, In Progress, High, overdue) and
+asserts the Edit and Complete controls' bounding boxes sit inside the card and the card has no
+horizontal overflow. Document-level overflow checks miss clipped content inside `overflow: hidden`.
 
 ### Files affected
 

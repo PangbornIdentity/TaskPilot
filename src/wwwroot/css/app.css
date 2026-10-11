@@ -1103,6 +1103,10 @@ a:hover { color: var(--tp-primary-hover); }
     .tp-content { padding: 24px; }
     .tp-stats-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
     .tp-charts-grid { grid-template-columns: 1fr; }
+    /* The task table has ten columns at >= 768px inside an overflow:hidden card. Tighten cell
+       padding here so the row actions (clone / edit) never get clipped at the card edge. */
+    .tp-table th, .tp-table td { padding-left: 10px; padding-right: 10px; }
+    .tp-table .tp-complete-th, .tp-table .tp-complete-cell { width: 36px; padding-right: 0; }
 }
 
 /* ===== MOBILE (≤640px): overlay sidebar ===== */

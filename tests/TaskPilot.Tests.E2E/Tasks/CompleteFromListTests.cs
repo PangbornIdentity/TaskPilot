@@ -51,6 +51,55 @@ public class CompleteFromListTests(PlaywrightFixture fixture)
         Assert.DoesNotContain($">{title}<", content.Replace("\n", "").Replace("  ", ""));
     }
 
+    // Regression: the complete column must not push the row actions past the card edge on tablets.
+    // The card is overflow:hidden, so document-overflow checks cannot catch clipped controls.
+    [Theory]
+    [InlineData(768)]
+    [InlineData(800)]
+    [InlineData(1024)]
+    public async Task TaskList_TabletViewport_RowActionsFitInsideCard(int viewportWidth)
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        // Worst-case row: long title, In Progress, High priority, overdue (date + Overdue badge).
+        var title = $"Prepare quarterly presentation {Guid.NewGuid().ToString("N")[..6]}";
+        var taskId = await page.EvaluateAsync<string>(@"async (title) => {
+            const r = await fetch('/api/v1/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, taskTypeId: 1, area: 1, priority: 2, status: 1,
+                    targetDateType: 0, targetDate: '2020-01-15T00:00:00Z', isRecurring: false })
+            });
+            const body = await r.json();
+            return body.data.id;
+        }", title);
+
+        await page.SetViewportSizeAsync(viewportWidth, 1024);
+        await page.GotoAsync("/tasks");
+        await page.WaitForSelectorAsync(".tp-table", new() { Timeout = 10000 });
+
+        var card = page.Locator(".tp-card:has(.tp-table)");
+        var row = page.Locator("tr", new() { HasText = title });
+        var editLink = row.Locator($"a.btn[href='/tasks/{taskId}']");
+        var completeBtn = row.Locator("button.tp-complete-btn");
+
+        var cardBox = await card.BoundingBoxAsync();
+        var editBox = await editLink.BoundingBoxAsync();
+        var completeBox = await completeBtn.BoundingBoxAsync();
+        Assert.NotNull(cardBox);
+        Assert.NotNull(editBox);
+        Assert.NotNull(completeBox);
+
+        Assert.True(editBox!.X + editBox.Width <= cardBox!.X + cardBox.Width + 0.5,
+            $"Edit button right edge {editBox.X + editBox.Width} exceeds card right edge {cardBox.X + cardBox.Width} at {viewportWidth}px");
+        Assert.True(completeBox!.X >= cardBox.X - 0.5,
+            $"Complete button left edge {completeBox.X} is before card left edge {cardBox.X} at {viewportWidth}px");
+
+        var overflow = await card.EvaluateAsync<int>("el => el.scrollWidth - el.clientWidth");
+        Assert.True(overflow <= 0, $"Table overflows its card by {overflow}px at {viewportWidth}px");
+    }
+
     [Fact]
     public async Task TaskList_ClickComplete_PreservesFiltersViaReturnUrl()
     {

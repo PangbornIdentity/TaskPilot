@@ -1187,6 +1187,7 @@ UX spec: `WIREFRAMES.md` Page 3 row anatomy. Interaction model: `USER-FLOWS.md` 
 | E-CFL-001 | `TaskList_ActiveRow_ShowsCompleteButton` | E2E | Create a task via the New Task modal | Exactly one `button.tp-complete-btn` with `aria-label="Complete task '<title>'"` is rendered |
 | E-CFL-002 | `TaskList_ClickComplete_RemovesRowFromActiveViewAndShowsToast` | E2E | Create a task; click its complete button on the default `show=active` view | Page reloads with a toast containing "completed!"; the task's row and button are no longer present |
 | E-CFL-003 | `TaskList_ClickComplete_PreservesFiltersViaReturnUrl` | E2E | Create a task; open `/tasks?show=all&sortBy=title&sortDir=asc`; click its complete button | URL still contains `show=all` and `sortBy=title`; the row remains with `.tp-complete-done` and no `button.tp-complete-btn` |
+| E-CFL-004 | `TaskList_TabletViewport_RowActionsFitInsideCard` (theory: 768 / 800 / 1024px) | E2E | Create a worst-case row via API (long title, In Progress, High, overdue); resize viewport; open `/tasks` | Edit button right edge and Complete button left edge are inside the `.tp-card` bounding box; `card.scrollWidth - card.clientWidth <= 0` |
 
 ---
 
