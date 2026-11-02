@@ -40,6 +40,11 @@ public class TaskDetailModel(
         TargetDateType targetDateType, DateTime? targetDate,
         List<Guid>? tagIds)
     {
+        // The edit form has no recurrence fields, so carry the stored values through
+        // instead of resetting recurrence set via the API or MCP.
+        var existing = await taskService.GetTaskByIdAsync(id, UserId);
+        if (existing is null) return RedirectToPage(new { id });
+
         await taskService.UpdateTaskAsync(id, new UpdateTaskRequest(
             Title: title,
             Description: description,
@@ -49,8 +54,8 @@ public class TaskDetailModel(
             Status: status,
             TargetDateType: targetDateType,
             TargetDate: targetDate,
-            IsRecurring: false,
-            RecurrencePattern: null,
+            IsRecurring: existing.IsRecurring,
+            RecurrencePattern: existing.RecurrencePattern,
             TagIds: tagIds
         ), UserId, ModifiedBy);
 
