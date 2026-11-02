@@ -442,6 +442,7 @@ pwsh tests/TaskPilot.Tests.E2E/bin/Debug/net10.0/playwright.ps1 install
 | E-T-006 | `TaskDetail_NavigatingToTask_ShowsEditForm` | Create task → click task link → navigate to `/tasks/**` | Content contains "Priority" or "Status"; no unhandled error |
 | E-T-007 | `DeleteTask_RemovesTaskFromList` | Create task → navigate to detail → accept confirm dialog → click Delete | Redirects to `/tasks`; no unhandled error |
 | E-T-008 | `TaskDetail_AfterEdit_ShowsChangeHistory` | Create task → navigate to detail → change title → click "Save Changes" → reload | "Change History" section visible; no unhandled error |
+| E-T-009 | `TaskDetail_EditRecurringTask_KeepsRecurrence` | Seed weekly task via `POST /api/v1/tasks` (`isRecurring: true`, `recurrencePattern: Weekly`) → open detail → change only Priority (Medium → Low) → click "Save Changes" | Details shows "Recurring: Yes" before and after; `GET /api/v1/tasks/{id}` returns `priority = Low`, `isRecurring = true`, `recurrencePattern = Weekly`; Change History has a Priority row and no `IsRecurring` / `RecurrencePattern` rows (FR-TASKS-042; regression: the form has no recurrence fields and used to reset them) |
 
 ### 12.4 Settings Tests (`Settings/SettingsTests.cs`) — 4 tests
 

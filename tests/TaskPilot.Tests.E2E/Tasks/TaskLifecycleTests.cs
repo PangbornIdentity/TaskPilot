@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace TaskPilot.Tests.E2E.Tasks;
 
 [Collection("Playwright")]
@@ -173,6 +175,54 @@ public class TaskLifecycleTests(PlaywrightFixture fixture)
         var content = await page.ContentAsync();
         Assert.Contains("Change History", content);
         Assert.DoesNotContain("An unhandled error", content);
+    }
+
+    // Regression: the Detail edit form has no recurrence fields, so saving it must keep the
+    // recurrence that was set through REST/MCP instead of resetting it to non-recurring.
+    [Fact]
+    public async Task TaskDetail_EditRecurringTask_KeepsRecurrence()
+    {
+        var (context, page, _) = await fixture.NewAuthenticatedPageAsync();
+        await using var _ = context;
+
+        // Recurrence can only be set through the API, so seed a weekly task that way.
+        var title = $"Weekly Review {Guid.NewGuid().ToString("N")[..6]}";
+        var taskId = await page.EvaluateAsync<string>(@"async (title) => {
+            const r = await fetch('/api/v1/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, taskTypeId: 3, area: 1, priority: 3, status: 0,
+                    targetDateType: 0, targetDate: '2030-01-07T00:00:00Z',
+                    isRecurring: true, recurrencePattern: 1 })
+            });
+            if (!r.ok) throw new Error('Seeding task failed: ' + r.status);
+            return (await r.json()).data.id;
+        }", title);
+
+        await page.GotoAsync($"/tasks/{taskId}");
+        var recurringValue = page.Locator("dt:has-text('Recurring') + dd");
+        Assert.Equal("Yes", (await recurringValue.InnerTextAsync()).Trim());
+
+        // Change only Priority (Medium -> Low) and save.
+        await page.SelectOptionAsync("select[name='Priority']", "4");
+        await page.ClickAsync("button:has-text('Save Changes')");
+        await page.WaitForSelectorAsync(".toast-body:has-text('Task updated.')", new() { Timeout = 5000 });
+
+        Assert.Equal("Yes", (await recurringValue.InnerTextAsync()).Trim());
+
+        var saved = await page.EvaluateAsync<JsonElement>(@"async (id) => {
+            const r = await fetch('/api/v1/tasks/' + id);
+            return (await r.json()).data;
+        }", taskId);
+        Assert.Equal(4, saved.GetProperty("priority").GetInt32());
+        Assert.True(saved.GetProperty("isRecurring").GetBoolean());
+        Assert.Equal(1, saved.GetProperty("recurrencePattern").GetInt32());
+
+        // Only Priority changed, so the change history must not log the recurrence fields.
+        var history = page.Locator("table.tp-table .badge");
+        Assert.Equal(0, await history.Filter(new() { HasText = "IsRecurring" }).CountAsync());
+        Assert.Equal(0, await history.Filter(new() { HasText = "RecurrencePattern" }).CountAsync());
+        Assert.Equal(1, await history.Filter(new() { HasText = "Priority" }).CountAsync());
     }
 
     [Fact]
